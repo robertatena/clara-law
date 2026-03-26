@@ -1,0 +1,103 @@
+�import fs from "node:fs";
+
+const targets = [
+  "app/analisar/page.tsx",
+  "app/enviar/page.tsx",
+];
+
+const fixes = [
+  ["Resultado da análise", "Resultado da an�lise"],
+  ["análise", "an�lise"],
+  ["Prestação", "Presta��o"],
+  ["serviços", "servi�os"],
+  ["atenção", "aten��o"],
+  ["entregáveis", "entreg�veis"],
+  ["propriedade intelectual não está", "propriedade intelectual n�o est�"],
+  ["Nível", "N�vel"],
+  ["é", "�"],
+  ["ê", "�"],
+  ["á", "�"],
+  ["ó", "�"],
+  ["ú", "�"],
+  ["ã", "�"],
+  ["ç", "�"],
+];
+
+function ensureUseClient(s: string) {
+  const trimmed = s.trimStart();
+  if (trimmed.startsWith('"use client"') || trimmed.startsWith("'use client'")) return s;
+  // S� adiciona se parecer p�gina com React/JSX (return ( ... ))
+  if (!/return\s*\(/.test(s)) return s;
+  return `"use client";\n\n` + s;
+}
+
+function ensureImport(s: string) {
+  if (s.includes("ResultGate")) return s;
+
+  // tenta inserir depois dos imports existentes
+  const lines = s.split("\n");
+  let lastImport = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i];
+    if (ln.startsWith("import ")) lastImport = i;
+  }
+  const importLine = `import ResultGate from "@/components/ResultGate";`;
+  if (lastImport >= 0) {
+    lines.splice(lastImport + 1, 0, importLine);
+    return lines.join("\n");
+  }
+  // fallback: topo
+  return importLine + "\n" + s;
+}
+
+function wrapReturn(s: string) {
+  // J� est� wrapado?
+  if (s.includes("<ResultGate>") && s.includes("</ResultGate>")) return s;
+
+  // Heur�stica: troca o primeiro "return (" por "return (<ResultGate>"
+  const idx = s.search(/return\s*\(\s*/);
+  if (idx === -1) return s;
+
+  const before = s.slice(0, idx);
+  const after = s.slice(idx);
+
+  const after2 = after.replace(/return\s*\(\s*/, "return (\n    <ResultGate>\n");
+
+  // Fecha antes do primeiro "\n);" final do return
+  // (funciona bem para pages comuns)
+  const endIdx = after2.lastIndexOf("\n);");
+  if (endIdx === -1) return before + after2;
+
+  const a = after2.slice(0, endIdx);
+  const b = after2.slice(endIdx);
+
+  return before + a + "\n    </ResultGate>" + b;
+}
+
+for (const file of targets) {
+  if (!fs.existsSync(file)) {
+    console.log("� n�o achei:", file);
+    continue;
+  }
+
+  const original = fs.readFileSync(file, "utf8");
+  let s = original;
+
+  // backups
+  const bak = file + ".bak";
+  if (!fs.existsSync(bak)) fs.writeFileSync(bak, original, "utf8");
+
+  // aplicar fixes
+  for (const [from, to] of fixes) {
+    s = s.split(from).join(to);
+  }
+
+  s = ensureUseClient(s);
+  s = ensureImport(s);
+  s = wrapReturn(s);
+
+  fs.writeFileSync(file, s, "utf8");
+  console.log(" atualizado:", file);
+}
+
+console.log(" pronto. Se algo der ruim, restaure pelos .bak (page.tsx.bak).");

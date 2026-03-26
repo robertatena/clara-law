@@ -1,0 +1,44 @@
+﻿import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json().catch(() => null);
+
+    if (!body || typeof body.text !== "string") {
+      return NextResponse.json(
+        { error: "Payload inválido. Envie { text: string }." },
+        { status: 400 }
+      );
+    }
+
+    const text = body.text.trim();
+
+    if (text.length < 50) {
+      return NextResponse.json(
+        { error: "Texto muito curto para análise (mín. 50 caracteres)." },
+        { status: 400 }
+      );
+    }
+
+    // TODO: aqui você liga seu motor real (regras/IA).
+    // Por enquanto, devolve algo útil para validar fluxo e UI.
+    const result = {
+      summary:
+        "Resumo gerado (placeholder). O fluxo está funcionando; agora é ligar o motor real de análise.",
+      attentionPoints: [
+        "Ponto de atenção (placeholder): verifique prazos, multa e condições de rescisão.",
+        "Ponto de atenção (placeholder): confirme reajustes, índices e responsabilidades das partes.",
+      ],
+    };
+
+    return NextResponse.json({ ok: true, result });
+  } catch (err: any) {
+    return NextResponse.json(
+      {
+        error: "Falha interna na análise.",
+        details: String(err?.message || err),
+      },
+      { status: 500 }
+    );
+  }
+}

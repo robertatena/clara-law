@@ -1,0 +1,15 @@
+export type PapelNoContrato = "contratante" | "contratado";
+export function dicasPorPapel(papel: PapelNoContrato) {
+  if (papel === "contratado") {
+    return [
+      "Você está como CONTRATADO: preste atenção em prazos de entrega, critérios de aceite, multas e hipóteses de rescisão.",
+      "Confira se há exigências desproporcionais, responsabilidade ilimitada, cessão de direitos ampla demais e confidencialidade com obrigações impossíveis.",
+      "Valide pagamentos: gatilhos de faturamento, prazos, retenções, glosas, reembolso de despesas e correção/juros."
+    ];
+  }
+  return [
+    "Você está como CONTRATANTE: preste atenção em escopo/entregáveis, SLA, garantias, suporte e penalidades por descumprimento.",
+    "Confira limites de responsabilidade, condições de rescisão, reajuste de preço, renovação automática e transferência para terceiros.",
+    "Valide dados e privacidade: LGPD, confidencialidade, segurança, suboperadores e responsabilidades em incidentes."
+  ];
+}

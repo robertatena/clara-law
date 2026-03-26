@@ -1,0 +1,11 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="520" height="180" viewBox="0 0 520 180">
+  <rect width="520" height="180" rx="26" fill="#FFFFFF"/>
+  <g transform="translate(40,25)">
+    <circle cx="65" cy="65" r="52" fill="none" stroke="#D4AF37" stroke-width="10"/>
+    <path d="M65 28 L95 86 L35 86 Z" fill="none" stroke="#D4AF37" stroke-width="10" stroke-linejoin="round"/>
+  </g>
+  <g transform="translate(150,52)">
+    <text x="0" y="20" font-size="34" font-family="Raleway, Arial, sans-serif" font-weight="700" fill="#A8D8F0" letter-spacing="2">CLARA LAW</text>
+    <text x="0" y="62" font-size="18" font-family="Montserrat, Arial, sans-serif" font-weight="400" fill="#7FBFDB">Inteligência para um mundo mais claro.</text>
+  </g>
+</svg>

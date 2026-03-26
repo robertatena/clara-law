@@ -1,0 +1,18 @@
+﻿import fs from "fs";
+import path from "path";
+
+const file = path.join(process.cwd(), "lib/data/users.json");
+
+export function saveUser(user: { name?: string; email: string }) {
+  let users = [];
+  if (fs.existsSync(file)) {
+    users = JSON.parse(fs.readFileSync(file, "utf-8"));
+  }
+  users.push({ ...user, date: new Date().toISOString() });
+  fs.writeFileSync(file, JSON.stringify(users, null, 2));
+}
+
+export function getUsers() {
+  if (!fs.existsSync(file)) return [];
+  return JSON.parse(fs.readFileSync(file, "utf-8"));
+}

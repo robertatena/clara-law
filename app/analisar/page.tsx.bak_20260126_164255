@@ -1,0 +1,6 @@
+﻿import { redirect } from "next/navigation";
+
+export default function AnalisarRedirect() {
+  // fluxo único: upload só dentro do dashboard (após login)
+  redirect("/dashboard/contratos/novo");
+}

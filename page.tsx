@@ -1,0 +1,229 @@
+import Image from "next/image";
+import Link from "next/link";
+function Badge({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-black/5 bg-white/70 px-3 py-1 text-xs font-medium text-slate-700 shadow-sm backdrop-blur">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#D4AF37]" />
+      {children}
+    </span>
+  );
+}
+function Card({
+  title,
+  desc,
+  icon,
+}: {
+  title: string;
+  desc: string;
+  icon: string;
+}) {
+  return (
+    <div className="group rounded-3xl border border-black/5 bg-white/70 p-5 shadow-sm backdrop-blur transition hover:bg-white hover:shadow-md">
+      <div className="flex items-start gap-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-b from-[#A8D8F0]/55 to-white text-slate-900 ring-1 ring-black/5">
+          <span className="text-base">{icon}</span>
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-slate-900">{title}</p>
+          <p className="mt-1 text-sm leading-relaxed text-slate-600">{desc}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+export default function Home() {
+  return (
+    <main className="min-h-screen bg-[radial-gradient(1100px_520px_at_10%_0%,rgba(168,216,240,0.55),transparent_60%),radial-gradient(900px_520px_at_90%_20%,rgba(212,175,55,0.18),transparent_58%),linear-gradient(180deg,#ffffff,#F5F7FA)]">
+      {/* Top */}
+      <header className="mx-auto w-full max-w-6xl px-6 pt-6">
+        <nav className="flex items-center justify-between rounded-3xl border border-black/5 bg-white/55 px-4 py-3 shadow-sm backdrop-blur">
+          <div className="flex items-center gap-3">
+            <div className="relative h-10 w-10 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
+              <Image
+                src="/brand/clara-logo.png"
+                alt="Clara Law"
+                fill
+                className="object-contain p-1"
+                priority
+              />
+            </div>
+            <div className="leading-tight">
+              <div className="text-xs font-semibold tracking-[0.18em] text-slate-900">
+                CLARA LAW
+              </div>
+              <div className="text-xs text-slate-600">
+                Inteligência para um mundo mais claro.
+              </div>
+            </div>
+          </div>
+          {/* único CTA */}
+          <Link
+            href="/enviar"
+            className="rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-[#A8D8F0]/60"
+          >
+            Analisar contrato
+          </Link>
+        </nav>
+      </header>
+      {/* Hero */}
+      <section className="mx-auto w-full max-w-6xl px-6 pb-10 pt-10">
+        <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
+          <div>
+            <div className="flex flex-wrap gap-2">
+              <Badge>PDFs e fotos (JPG/PNG)</Badge>
+              <Badge>Vários arquivos de uma vez</Badge>
+              <Badge>OCR quando necessário</Badge>
+            </div>
+            <h1 className="mt-5 text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">
+              Clareza em contratos{" "}
+              <span className="text-slate-700">antes de assinar.</span>
+            </h1>
+            <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600">
+              A Clara lê seu contrato, traduz o que está difícil, encontra pontos de atenção
+              (multas, prazos, renúncias, renovação automática) e já prepara um{" "}
+              <span className="font-medium text-slate-800">e-mail pronto</span> para você validar com seu advogado
+              ou negociar com a outra parte.
+            </p>
+            {/* Transparência - premium */}
+            <div className="mt-6 rounded-3xl border border-black/5 bg-white/70 p-4 shadow-sm backdrop-blur">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 h-8 w-8 rounded-2xl bg-[#A8D8F0]/35 ring-1 ring-black/5" />
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    Transparência: a Clara não é advogada.
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                    0 uma ferramenta de apoio para você entender melhor, levantar dúvidas e conversar com mais segurança.
+                    Para decisão final, valide com um profissional.
+                  </p>
+                </div>
+              </div>
+            </div>
+            {/* CTA + microcopy */}
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              <Link
+                href="/enviar"
+                className="rounded-full bg-slate-900 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-[#A8D8F0]/60"
+              >
+                Analisar agora
+              </Link>
+              <p className="text-sm text-slate-500">
+                Em 10 segundos você já tem um resumo útil e perguntas prontas.
+              </p>
+            </div>
+            {/* 3 dores bem Shumanas⬝ */}
+            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-3xl border border-black/5 bg-white/60 p-4 shadow-sm backdrop-blur">
+                <p className="text-xs font-semibold text-slate-900">Assinar Sno escuro⬝</p>
+                <p className="mt-1 text-sm text-slate-600">Você enxerga risco antes de virar problema.</p>
+              </div>
+              <div className="rounded-3xl border border-black/5 bg-white/60 p-4 shadow-sm backdrop-blur">
+                <p className="text-xs font-semibold text-slate-900">Juridiquês infinito</p>
+                <p className="mt-1 text-sm text-slate-600">Tradução objetiva + o impacto na vida real.</p>
+              </div>
+              <div className="rounded-3xl border border-black/5 bg-white/60 p-4 shadow-sm backdrop-blur">
+                <p className="text-xs font-semibold text-slate-900">Medo de Sarmadilhas⬝</p>
+                <p className="mt-1 text-sm text-slate-600">Renovação, multa, prazos, renúncias e obrigações.</p>
+              </div>
+            </div>
+          </div>
+          {/* Right side Sdemo card⬝ */}
+          <div className="rounded-[28px] border border-black/5 bg-white/65 p-5 shadow-sm backdrop-blur">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-slate-900">O que você recebe</p>
+              <div className="h-2 w-20 rounded-full bg-gradient-to-r from-[#A8D8F0] via-white to-[#D4AF37]" />
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="rounded-3xl border border-black/5 bg-white p-4">
+                <p className="text-xs font-semibold text-slate-900">Resumo rápido</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  O essencial para decidir: riscos, obrigações e Spegadinhas⬝ comuns.
+                </p>
+              </div>
+              <div className="rounded-3xl border border-black/5 bg-white p-4">
+                <p className="text-xs font-semibold text-slate-900">Pontos de atenção</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Cada ponto vem com: <b>por que importa</b> + <b>o que verificar</b> + referência legal quando fizer sentido.
+                </p>
+              </div>
+              <div className="rounded-3xl border border-black/5 bg-white p-4">
+                <p className="text-xs font-semibold text-slate-900">E-mail pronto</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Texto pronto para advogado/negociação. Você só anexa o contrato e envia.
+                </p>
+              </div>
+              <div className="mt-2 rounded-3xl bg-[#A8D8F0]/18 p-4 ring-1 ring-black/5">
+                <p className="text-xs font-semibold text-slate-900">Casos comuns</p>
+                <p className="mt-1 text-sm text-slate-700">
+                  aluguel ⬢ serviços ⬢ cursos ⬢ compra de alto valor ⬢ termos de plataforma
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      {/* Value sections */}
+      <section className="mx-auto w-full max-w-6xl px-6 pb-16">
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card
+            icon="a"
+            title="Rápido o suficiente para o dia a dia"
+            desc="Feito para quando você precisa decidir agora  sem depender de leitura técnica."
+          />
+          <Card
+            icon="x}"
+            title="Focado no que dá problema"
+            desc="Multas, prazos, renovação, renúncias, responsabilidades  o que costuma te pegar."
+          />
+          <Card
+            icon="S0️"
+            title="Pronto para validar com advogado"
+            desc="A Clara monta perguntas e um e-mail objetivo para você ganhar tempo (e clareza)."
+          />
+        </div>
+        <div className="mt-8 grid gap-4 md:grid-cols-2">
+          <div className="rounded-3xl border border-black/5 bg-white/70 p-6 shadow-sm backdrop-blur">
+            <p className="text-sm font-semibold text-slate-900">Para quem é</p>
+            <ul className="mt-4 space-y-3 text-sm text-slate-700">
+              {[
+                "Quem vai assinar e quer entender riscos e obrigações sem juridiquês.",
+                "MEIs e pequenas empresas que revisam contratos com frequência.",
+                "Decisões importantes: aluguel, escola/curso, prestação de serviço, empréstimos.",
+              ].map((x) => (
+                <li key={x} className="flex gap-3">
+                  <span className="mt-1.5 h-2 w-2 rounded-full bg-[#D4AF37]" />
+                  <span>{x}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-3xl border border-black/5 bg-white/70 p-6 shadow-sm backdrop-blur">
+            <p className="text-sm font-semibold text-slate-900">Como funciona</p>
+            <ol className="mt-4 space-y-3 text-sm text-slate-700">
+              {[
+                ["Envie PDFs e/ou fotos", "Você pode mandar vários arquivos de uma vez."],
+                ["A Clara lê e organiza", "OCR quando necessário + separação por temas."],
+                ["Você recebe a devolutiva", "Resumo + pontos de atenção + e-mail pronto."],
+              ].map(([t, d], i) => (
+                <li key={t} className="rounded-3xl border border-black/5 bg-white p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#A8D8F0]/35 text-xs font-bold text-slate-900 ring-1 ring-black/5">
+                      {i + 1}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{t}</p>
+                      <p className="mt-1 text-sm text-slate-600">{d}</p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+        <footer className="mt-10 text-center text-xs text-slate-500">
+          Clara Law ⬢ Transparência e clareza ⬢ Não substitui orientação jurídica profissional.
+        </footer>
+      </section>
+    </main>
+  );
+}

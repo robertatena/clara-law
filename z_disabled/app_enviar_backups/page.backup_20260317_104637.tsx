@@ -1,0 +1,11 @@
+"use client";
+import ComplaintBox from "./ComplaintBox";
+async function extractPdfText(file: File): Promise<string> {
+  return extractPdfTextClient(file);
+}
+import EnviarClient from "./EnviarClient";
+
+export default function Page() {
+  return <EnviarClient />;
+}
+

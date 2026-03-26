@@ -1,0 +1,10 @@
+﻿'use client';
+
+import dynamic from "next/dynamic";
+
+const EnviarClient = dynamic(() => import("./EnviarClient"), { ssr: false });
+
+export default function Page() {
+  return <EnviarClient />;
+}
+

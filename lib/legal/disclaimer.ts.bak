@@ -1,0 +1,5 @@
+﻿export const LEGAL_DISCLAIMER = `
+A Clara Law realiza análises automatizadas com base em padrões jurídicos e boas práticas contratuais.
+As informações geradas são educativas e NÃO constituem parecer jurídico, nem substituem a atuação de advogado(a).
+Você é responsável por confirmar o conteúdo com um(a) profissional e por garantir que tem autorização para compartilhar documentos e dados enviados.
+`;

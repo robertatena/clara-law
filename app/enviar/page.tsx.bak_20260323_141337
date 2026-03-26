@@ -1,0 +1,5 @@
+﻿import EnviarClient from "./EnviarClient";
+
+export default function Page() {
+  return <EnviarClient />;
+}

@@ -1,0 +1,9 @@
+﻿'use client';
+
+import React from 'react';
+import EnviarClient from './EnviarClient';
+
+export default function Page() {
+  return <EnviarClient />;
+}
+

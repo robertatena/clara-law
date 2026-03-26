@@ -1,0 +1,13 @@
+"use client";
+
+async function extractPdfText(file: File): Promise<string> {
+  return extractPdfTextClient(file);
+}
+
+"use client";
+
+import EnviarClient from "./EnviarClient";
+
+export default function Page() {
+  return <EnviarClient />;
+}

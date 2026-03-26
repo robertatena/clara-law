@@ -1,0 +1,52 @@
+�import fs from "node:fs";
+import path from "node:path";
+
+const EXT_OK = new Set([
+  ".ts",".tsx",".js",".jsx",".mjs",".cjs",
+  ".json",".md",".txt",".html",".css",".scss"
+]);
+
+const SKIP_DIRS = new Set([
+  "node_modules",".next",".git","dist","build","out",".turbo",".vercel","coverage"
+]);
+
+const NEEDLE_RE = /�|�|�|�/; // padr�es t�picos
+
+function walk(dir) {
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, ent.name);
+
+    if (ent.isDirectory()) {
+      if (!SKIP_DIRS.has(ent.name)) walk(p);
+      continue;
+    }
+
+    const ext = path.extname(ent.name).toLowerCase();
+    if (!EXT_OK.has(ext)) continue;
+    if (p.endsWith(".bak")) continue;
+
+    let s;
+    try {
+      s = fs.readFileSync(p, "utf8");
+    } catch {
+      continue;
+    }
+
+    if (!NEEDLE_RE.test(s)) continue;
+
+    // corre��o: desfazer UTF-8 interpretado como latin1
+    const fixed = Buffer.from(s, "latin1").toString("utf8");
+
+    // s� salva se mudou
+    if (fixed !== s) {
+      const bak = p + ".bak";
+      if (!fs.existsSync(bak)) fs.writeFileSync(bak, s, "utf8");
+      fs.writeFileSync(p, fixed, "utf8");
+      console.log(" corrigido:", p);
+    }
+  }
+}
+
+console.log("=' Corrigindo mojibake no projeto inteiro (com backup .bak)...");
+walk(process.cwd());
+console.log(" Finalizado.");

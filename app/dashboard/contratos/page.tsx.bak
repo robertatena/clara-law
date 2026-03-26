@@ -1,0 +1,19 @@
+﻿import Link from "next/link";
+
+export default function ContratosPage() {
+  return (
+    <main className="min-h-screen p-10 space-y-4">
+      <h1 className="text-2xl font-semibold">Contratos</h1>
+      <p className="opacity-70">
+        Lista de contratos analisados (placeholder).
+      </p>
+
+      <Link
+        href="/dashboard/contratos/novo"
+        className="inline-block mt-4 rounded-full bg-black text-white px-4 py-2 text-sm"
+      >
+        Nova análise
+      </Link>
+    </main>
+  );
+}

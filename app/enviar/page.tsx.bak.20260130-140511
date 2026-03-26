@@ -1,0 +1,96 @@
+﻿"use client";
+
+function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, ms = 45000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), ms);
+  return fetchWithTimeout(input, { ...init, signal: controller.signal })
+    .finally(() => clearTimeout(id));
+}
+
+import { useState } from "react";
+
+export default function EnviarPage() {
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [celular, setCelular] = useState("");
+  const [papel, setPapel] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [erro, setErro] = useState("");
+
+  function validar() {
+    if (!nome || !email || !celular || !papel) {
+      setErro("Preencha todos os campos para continuar.");
+      return false;
+    }
+    if (!consent) {
+      setErro("Você precisa concordar com o uso das informações.");
+      return false;
+    }
+    setErro("");
+    return true;
+  }
+
+  function analisar() {
+    if (!validar()) return;
+    document.getElementById("resultado")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto p-6 space-y-6">
+      <h1 className="text-2xl font-semibold">Antes de analisar seu contrato</h1>
+
+      <input
+        className="w-full border rounded p-3"
+        placeholder="Seu nome completo"
+        value={nome}
+        onChange={(e) => setNome(e.target.value)}
+      />
+
+      <input
+        className="w-full border rounded p-3"
+        placeholder="Seu e-mail"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+
+      <input
+        className="w-full border rounded p-3"
+        placeholder="Seu celular / WhatsApp"
+        value={celular}
+        onChange={(e) => setCelular(e.target.value)}
+      />
+
+      <select
+        className="w-full border rounded p-3"
+        value={papel}
+        onChange={(e) => setPapel(e.target.value)}
+      >
+        <option value="">Você é…</option>
+        <option value="contratante">Contratante (quem paga)</option>
+        <option value="contratado">Contratado (quem presta o serviço)</option>
+      </select>
+
+      <label className="flex gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+        />
+        Concordo com o uso das informações enviadas para fins de análise automática
+        e entendo que a Clara Law não substitui um advogado.
+      </label>
+
+      {erro && <p className="text-red-600 text-sm">{erro}</p>}
+
+      <button
+        onClick={analisar}
+        className="w-full bg-slate-900 text-white rounded-full py-3 text-lg"
+      >
+        Analisar contrato
+      </button>
+    </div>
+  );
+}
+
+
+

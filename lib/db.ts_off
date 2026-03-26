@@ -1,0 +1,82 @@
+import Database from "better-sqlite3";
+import path from "node:path";
+import fs from "node:fs";
+
+const dbPath = path.join(process.cwd(), "data", "billing.sqlite");
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+
+export const db = new Database(dbPath);
+db.pragma("journal_mode = WAL");
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS accounts (
+  email TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  free_used INTEGER NOT NULL DEFAULT 0,
+  credits INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL,
+  stripe_session_id TEXT NOT NULL UNIQUE,
+  qty INTEGER NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  currency TEXT NOT NULL,
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS analyses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  meta TEXT
+);
+`);
+
+export function getOrCreateAccount(email: string) {
+  const e = (email || "").trim().toLowerCase();
+  if (!e) throw new Error("email_required");
+  const row = db.prepare("SELECT * FROM accounts WHERE email = ?").get(e);
+  if (row) return row as any;
+  db.prepare("INSERT INTO accounts (email) VALUES (?)").run(e);
+  return db.prepare("SELECT * FROM accounts WHERE email = ?").get(e) as any;
+}
+
+export function getAccount(email: string) {
+  const e = (email || "").trim().toLowerCase();
+  if (!e) return null;
+  return db.prepare("SELECT * FROM accounts WHERE email = ?").get(e) as any;
+}
+
+export function addCredits(email: string, qty: number) {
+  const e = email.trim().toLowerCase();
+  getOrCreateAccount(e);
+  db.prepare("UPDATE accounts SET credits = credits + ? WHERE email = ?").run(qty, e);
+  return getAccount(e);
+}
+
+export function consumeOne(email: string) {
+  const e = email.trim().toLowerCase();
+  const acc = getOrCreateAccount(e);
+  const freeLeft = Math.max(0, 2 - Number(acc.free_used || 0));
+  const credits = Number(acc.credits || 0);
+
+  if (freeLeft > 0) {
+    db.prepare("UPDATE accounts SET free_used = free_used + 1 WHERE email = ?").run(e);
+    return { ok: true, used: "free", freeLeft: freeLeft - 1, credits };
+  }
+
+  if (credits > 0) {
+    db.prepare("UPDATE accounts SET credits = credits - 1 WHERE email = ?").run(e);
+    return { ok: true, used: "credit", freeLeft: 0, credits: credits - 1 };
+  }
+
+  return { ok: false, code: "NO_CREDITS", freeLeft: 0, credits: 0 };
+}
+
+export function logAnalysis(email: string, meta?: any) {
+  const e = email.trim().toLowerCase();
+  db.prepare("INSERT INTO analyses (email, meta) VALUES (?, ?)").run(e, meta ? JSON.stringify(meta) : null);
+}

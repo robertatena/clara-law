@@ -1,0 +1,20 @@
+export default function Seguranca() {
+  return (
+    <main className="max-w-3xl mx-auto px-6 py-16 space-y-6">
+      <h1 className="text-3xl font-semibold">Segurança e Privacidade</h1>
+      <p>
+        A Clara Law foi desenhada para ajudar você a entender contratos e custos
+        de forma simples. Seus arquivos e análises devem ser tratados com cuidado,
+        seguindo boas práticas de privacidade e proteção de dados.
+      </p>
+      <ul className="list-disc pl-6 space-y-2">
+        <li>Você controla o que envia.</li>
+        <li>As análises retornam linguagem educativa e objetiva.</li>
+        <li>Você poderá apagar seu histórico quando o recurso estiver ativo.</li>
+      </ul>
+      <p className="text-sm text-muted-foreground">
+        (Depois a gente coloca uma versão jurídica mais completa e alinhada aos seus termos.)
+      </p>
+    </main>
+  )
+}

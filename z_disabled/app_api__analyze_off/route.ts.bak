@@ -1,0 +1,309 @@
+﻿import { NextResponse } from "next/server";
+import pdfParse from "pdf-parse";
+import { createWorker } from "tesseract.js";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+
+type Finding = {
+  title: string;
+  whyItMatters: string;
+  whatToDo: string;
+  legalHint?: string;
+  severity: "ok" | "attention" | "high";
+  points: 0 | 5 | 10;
+};
+
+function scoreLabel(total: number) {
+  if (total <= 10) return { label: "BAIXO", color: "#16a34a" };
+  if (total <= 30) return { label: "MÉDIO", color: "#f59e0b" };
+  return { label: "ALTO", color: "#dc2626" };
+}
+
+function pushFinding(out: Finding[], f: Finding) {
+  // evita duplicar exatamente o mesmo título (mas permite vários achados diferentes)
+  if (!out.some(x => x.title === f.title)) out.push(f);
+}
+
+function detectFindings(text: string): Finding[] {
+  const t = text.toLowerCase();
+  const out: Finding[] = [];
+
+  const add = (re: RegExp, f: Finding) => { if (re.test(t)) pushFinding(out, f); };
+
+  // ===== Cancelamento / rescisão =====
+  add(/(rescis|cancel).*(multa|penal|indeniza)/i, {
+    title: "Rescisão com multa",
+    whyItMatters: "Pode ficar caro encerrar o contrato — mesmo se o serviço não estiver bom.",
+    whatToDo: "Veja valor/percentual, se é proporcional ao tempo restante e se há exceções (ex.: falha do fornecedor).",
+    legalHint: "CDC: equilíbrio e proporcionalidade; boa-fé objetiva.",
+    severity: "high",
+    points: 10,
+  });
+
+  add(/(aviso prévio|aviso previo).*(30|45|60|90|120)\s*(dias)?/i, {
+    title: "Aviso prévio para cancelamento",
+    whyItMatters: "Se você perder o prazo, pode pagar meses a mais sem querer.",
+    whatToDo: "Confirme quantos dias, como notificar e qual o canal aceito (e-mail, portal, carta).",
+    legalHint: "CDC: informação clara e facilidade de cancelamento em consumo.",
+    severity: "attention",
+    points: 5,
+  });
+
+  // ===== Renovação / fidelidade =====
+  add(/(renova|renovação).*(autom|automatic)/i, {
+    title: "Renovação automática",
+    whyItMatters: "Você pode entrar em um novo período contratual sem perceber.",
+    whatToDo: "Procure ‘como cancelar’, janela de cancelamento e multa após renovar.",
+    legalHint: "CDC: transparência e dever de informação.",
+    severity: "attention",
+    points: 5,
+  });
+
+  add(/(fidelidade|permanência mínima|prazo mínimo|prazo de perman)/i, {
+    title: "Fidelidade / permanência mínima",
+    whyItMatters: "Você pode ficar preso(a) por um período, mesmo se mudar de ideia.",
+    whatToDo: "Veja prazo, penalidade, e se existe saída sem multa em caso de falha do fornecedor.",
+    legalHint: "CDC: proporcionalidade e clareza.",
+    severity: "attention",
+    points: 5,
+  });
+
+  // ===== Preço / reajuste =====
+  add(/(reajuste|corrig|atualiza).*(ipca|igp|igpm|inpc|indice|índice)/i, {
+    title: "Reajuste por índice",
+    whyItMatters: "O valor pode subir e você precisa entender a regra antes de assinar.",
+    whatToDo: "Confirme índice, periodicidade e se existe aviso prévio.",
+    legalHint: "CDC: transparência sobre preço e critérios objetivos.",
+    severity: "attention",
+    points: 5,
+  });
+
+  add(/(alterar|mudan|rever).*(unilateral).*(preço|preco|taxa|tarifa|condi)/i, {
+    title: "Alteração unilateral de preço/condições",
+    whyItMatters: "O contrato pode ficar mais caro ou pior sem previsibilidade.",
+    whatToDo: "Procure critérios objetivos + aviso prévio + direito de sair sem multa em mudança relevante.",
+    legalHint: "CDC: equilíbrio contratual; cuidado com desvantagem exagerada.",
+    severity: "high",
+    points: 10,
+  });
+
+  add(/(taxa|tarifa|encargo|cobrança).*(administra|cadastro|setup|adesão|abertura)/i, {
+    title: "Taxas adicionais",
+    whyItMatters: "O custo total pode ser maior do que o preço principal.",
+    whatToDo: "Liste todas as taxas, quando cobram e se são reembolsáveis.",
+    legalHint: "CDC: informação clara do preço total.",
+    severity: "attention",
+    points: 5,
+  });
+
+  // ===== Responsabilidade / garantias =====
+  add(/(isenta|isenção|isencao|não se responsabil|nao se responsabil|sem.*responsabil)/i, {
+    title: "Isenção/exclusão ampla de responsabilidade",
+    whyItMatters: "Você pode ficar sem reparação mesmo quando houver falha grave.",
+    whatToDo: "Verifique limites, exceções (culpa/erro grave), e se há garantias mínimas.",
+    legalHint: "CDC art. 51: cláusulas que eliminam responsabilidade essencial podem ser nulas.",
+    severity: "high",
+    points: 10,
+  });
+
+  add(/(garantia).*(exclu|limita|não cobre|nao cobre)/i, {
+    title: "Garantia limitada/excludente",
+    whyItMatters: "Você pode achar que está coberto(a), mas a cláusula limita bastante a cobertura.",
+    whatToDo: "Veja exatamente o que cobre, prazo, e como acionar.",
+    legalHint: "CDC: clareza e informação adequada.",
+    severity: "attention",
+    points: 5,
+  });
+
+  // ===== Foro / arbitragem =====
+  add(/(foro).*(eleito|comarca|cidade)/i, {
+    title: "Foro eleito (local de disputa)",
+    whyItMatters: "Se for longe, dificulta defesa e encarece briga.",
+    whatToDo: "Marque para o advogado; em consumo, normalmente vale seu domicílio.",
+    legalHint: "CDC: facilitação da defesa do consumidor.",
+    severity: "attention",
+    points: 5,
+  });
+
+  add(/(arbitragem|câmara arbitral|camara arbitral)/i, {
+    title: "Arbitragem",
+    whyItMatters: "Pode ser mais cara e limitar acesso ao Judiciário.",
+    whatToDo: "Confirme custos, câmara, local e se você concorda.",
+    legalHint: "Lei de Arbitragem + atenção em contratos de adesão/consumo.",
+    severity: "high",
+    points: 10,
+  });
+
+  // ===== Dívida / cobrança =====
+  add(/(vencimento antecipado|aceleraç|acelerac|cobrança integral|cobranca integral)/i, {
+    title: "Vencimento antecipado / cobrança integral",
+    whyItMatters: "Você pode ser cobrado(a) por tudo de uma vez em certos gatilhos.",
+    whatToDo: "Veja gatilhos e se são razoáveis (ex.: atraso pequeno).",
+    legalHint: "Boa-fé e proporcionalidade.",
+    severity: "high",
+    points: 10,
+  });
+
+  add(/(juros|mora|correção monetária|correcao monetaria).*(\d+%)/i, {
+    title: "Juros/mora/correção com percentual explícito",
+    whyItMatters: "Pode aumentar muito a dívida em atraso.",
+    whatToDo: "Confirme percentuais e se há limites; peça simulação.",
+    legalHint: "Transparência e equilíbrio contratual.",
+    severity: "attention",
+    points: 5,
+  });
+
+  // ===== Dados pessoais (LGPD) =====
+  add(/(lgpd|dados pessoais|tratamento de dados|controlador|operador|compartilhamento|cookies)/i, {
+    title: "Dados pessoais e compartilhamento (LGPD)",
+    whyItMatters: "Você precisa saber que dados são coletados, por quê e com quem compartilham.",
+    whatToDo: "Confirme finalidade, base legal, retenção, compartilhamento e canal para exercer direitos.",
+    legalHint: "LGPD: finalidade, necessidade, transparência e direitos do titular.",
+    severity: "attention",
+    points: 5,
+  });
+
+  // ===== Renúncia / adesão =====
+  add(/(renúncia|renuncia|abre mão|abre mao).*(direito|indeniza|reclama)/i, {
+    title: "Renúncia antecipada de direitos",
+    whyItMatters: "Você pode abrir mão de proteções importantes sem perceber.",
+    whatToDo: "Marque a cláusula e valide com advogado.",
+    legalHint: "CDC art. 51: afastar direitos essenciais pode ser nulo.",
+    severity: "high",
+    points: 10,
+  });
+
+  // Se nada encontrado, retorna vazio (UI deve dizer que é heurístico)
+  return out;
+}
+
+async function extractTextFromPDF(buffer: Buffer): Promise<string> {
+  try {
+    const data = await pdfParse(buffer);
+    const txt = (data.text || "").trim();
+    if (txt) return txt;
+  } catch {
+    // fallback
+  }
+
+  try {
+    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
+    const pdf = await loadingTask.promise;
+
+    let out = "";
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      const strings = content.items
+        .map((it: any) => (typeof it.str === "string" ? it.str : ""))
+        .filter(Boolean);
+      out += strings.join(" ") + "\n";
+    }
+    return out.trim();
+  } catch {
+    return "";
+  }
+}
+
+async function extractTextFromImage(buffer: Buffer): Promise<string> {
+  const worker = await createWorker("por");
+  await worker.loadLanguage("por");
+  await worker.initialize("por");
+  const { data } = await worker.recognize(buffer);
+  await worker.terminate();
+  return (data?.text || "").trim();
+}
+
+export async function POST(req: Request) {
+  try {
+    const form = await req.formData();
+    const files = form.getAll("files") as File[];
+
+    if (!files || files.length === 0) {
+      return NextResponse.json({ ok: false, error: "Envie pelo menos um arquivo (PDF ou foto)." }, { status: 400 });
+    }
+
+    const extracted: { name: string; chars: number; text: string; kind: string; findings: Finding[] }[] = [];
+
+    for (const f of files) {
+      const arr = await f.arrayBuffer();
+      const buf = Buffer.from(arr);
+      const type = (f.type || "").toLowerCase();
+
+      let text = "";
+      let kind = "unknown";
+
+      if (type.includes("pdf")) {
+        kind = "pdf";
+        text = await extractTextFromPDF(buf);
+      } else if (type.includes("image") || /\.(png|jpg|jpeg)$/i.test(f.name)) {
+        kind = "image";
+        text = await extractTextFromImage(buf);
+      } else {
+        kind = "other";
+        try { text = buf.toString("utf8").trim(); } catch { text = ""; }
+      }
+
+      const findings = text ? detectFindings(text) : [];
+      extracted.push({ name: f.name, chars: text.length, text, kind, findings });
+    }
+
+    // junta achados de todos os arquivos (sem duplicar por título)
+    const allFindings: Finding[] = [];
+    for (const e of extracted) {
+      for (const f of e.findings) {
+        if (!allFindings.some(x => x.title === f.title)) allFindings.push(f);
+      }
+    }
+
+    const total = allFindings.reduce((acc, f) => acc + f.points, 0);
+    const grade = scoreLabel(total);
+
+    const summary =
+      extracted.every(e => e.chars === 0)
+        ? "Não consegui extrair texto dos arquivos. Se o PDF estiver inválido/escaneado, envie uma foto nítida (ou um PDF pesquisável)."
+        : "Aqui está o essencial: pontos de atenção organizados, por que importam e o que confirmar antes de assinar.";
+
+    const emailSubject = `Revisão de contrato — pontos de atenção (Clara Law)`;
+    const emailBody = [
+      "Olá! Tudo bem?",
+      "",
+      "Envio um resumo objetivo dos pontos de atenção detectados no(s) contrato(s), para validação jurídica.",
+      "",
+      `Classificação (heurística): ${grade.label} — score ${total}`,
+      "",
+      "Pontos de atenção:",
+      ...(allFindings.length
+        ? allFindings.map((f, i) => {
+            const tag =
+              f.severity === "high" ? "❌ Precisa de muita atenção" :
+              f.severity === "attention" ? "⚠️ Atenção" : "✅ Ok";
+            return [
+              `${i + 1}. ${f.title} — ${tag}`,
+              `   Por que importa: ${f.whyItMatters}`,
+              `   O que verificar: ${f.whatToDo}`,
+              f.legalHint ? `   Base/Referência: ${f.legalHint}` : "",
+            ].filter(Boolean).join("\n");
+          })
+        : ["(Nenhum alerta automático detectado — ainda assim, vale revisar prazos, preço, rescisão e garantias.)"]
+      ),
+      "",
+      "Obs.: esta síntese é de apoio e não substitui parecer jurídico.",
+      "",
+      "Obrigada(o)!",
+    ].join("\n");
+
+    return NextResponse.json({
+      ok: true,
+      extracted: extracted.map(({ text, ...rest }) => rest), // não manda texto bruto pro front por padrão
+      totalScore: total,
+      riskLabel: grade.label,
+      riskColor: grade.color,
+      summary,
+      findings: allFindings,
+      findingsByFile: extracted.map(e => ({ name: e.name, kind: e.kind, chars: e.chars, findings: e.findings })),
+      email: { subject: emailSubject, body: emailBody },
+    });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Erro desconhecido." }, { status: 500 });
+  }
+}

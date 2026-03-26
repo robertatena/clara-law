@@ -1,0 +1,985 @@
+﻿"use client";
+import ConsumerHelp from "./ConsumerHelp";
+import ComplaintActions from "./ComplaintActions";
+import BillingPanel from "./BillingPanel";
+import ComplaintBox from "./ComplaintBox";
+import { extractPdfTextClient } from "@/lib/pdfClient";
+import React, { useMemo, useState } from "react";
+import type { FindingLite } from "@/lib/complaints";
+
+type Severity = "ok" | "attention" | "high";
+type Finding = {
+  title: string;
+  whyItMatters: string;
+  whatToDo: string;
+  legalHint?: string;
+  severity: Severity;
+  points: 0 | 5 | 10;
+};
+
+type SectorKey = "aluguel" | "uniao_estavel" | "emprestimo" | "servicos" | "generico";
+
+const SECTORS: { key: SectorKey; label: string; hint: string }[] = [
+  { key: "aluguel", label: "Aluguel / Locacao", hint: "Foco em garantias, reajuste, multa, responsabilidades e vistoria." },
+  { key: "uniao_estavel", label: "Uniao estavel / Familia", hint: "Foco em regime de bens, partilha, patrimonio e deveres." },
+  { key: "emprestimo", label: "Emprestimo / Credito", hint: "Foco em juros, CET, atraso, garantias, vencimento antecipado." },
+  { key: "servicos", label: "Prestacao de servicos", hint: "Foco em escopo, prazo, entregaveis, SLA, rescisao e multas." },
+  { key: "generico", label: "Outro / Nao sei", hint: "A gente tenta identificar o tipo automaticamente." },
+];
+
+const COLORS = {
+  ink: "#0A2540",
+  text: "#425466",
+  muted: "#6B7C93",
+};
+
+function clampText(s: string, max = 1200) {
+  if (!s) return "";
+  const t = s.replace(/\s+/g, " ").trim();
+  return t.length > max ? t.slice(0, max) + "..." : t;
+}
+
+function guessSector(fullText: string): SectorKey {
+  const t = (fullText || "").toLowerCase();
+
+  if (/(uniao estavel|convivencia|companheir|regime de bens|partilha|pacto antenupcial)/i.test(t)) return "uniao_estavel";
+  if (/(locacao|locador|locatari|aluguel|fiador|caucao|imovel|vistoria)/i.test(t)) return "aluguel";
+  if (/(emprestimo|financiamento|cedula|juros|cet|custo efetivo total|parcelas|inadimplencia|multa moratoria)/i.test(t)) return "emprestimo";
+  if (/(prestacao de servicos|contratante|contratad|escopo|sla|prazo|entregaveis|rescisao)/i.test(t)) return "servicos";
+  return "generico";
+}
+
+async function extractPdfText(file: File): Promise<string> {
+  // Centralizado em lib/pdfClient.ts (web-safe)
+  return extractPdfTextClient(file);
+}
+
+function analyzeBySector(
+  fullText: string,
+  sector: SectorKey,
+  role: string
+): { summary: string; findings: Finding[]; email: { subject: string; body: string } } {
+  const text = fullText || "";
+  const t = text.toLowerCase();
+  const findings: Finding[] = [];
+
+  const add = (f: Finding) => findings.push(f);
+  const has = (re: RegExp) => re.test(t);
+
+  if (has(/vencimento antecipado|aceleracao|antecipadamente/i)) {
+    add({
+      title: "Vencimento antecipado / aceleracao",
+      whyItMatters: "Pode fazer a obrigacao vencer inteira por um gatilho pequeno.",
+      whatToDo: "Peça limite de gatilhos (ex: atraso > X dias) e aviso previo para regularizar.",
+      legalHint: "Procure termos como vencimento antecipado, aceleracao, default.",
+      severity: "high",
+      points: 10,
+    });
+  }
+
+  if (has(/multa\s*(?:de)?\s*\d{2,}%|multa\s*e\s*juros|juros\s*moratorios/i)) {
+    add({
+      title: "Multa/juros de atraso podem estar pesados",
+      whyItMatters: "Encargos altos aumentam muito o custo em caso de atraso.",
+      whatToDo: "Confirme percentuais, base de calculo e teto. Negocie clareza e reducao.",
+      legalHint: "Busque multa, juros moratorios, correcao e encargos.",
+      severity: "attention",
+      points: 5,
+    });
+  }
+
+  if (sector === "servicos") {
+    if (!has(/escopo|entregaveis|cronograma|prazo/i)) {
+      add({
+        title: "Escopo/entregaveis pouco definidos",
+        whyItMatters: "E a principal fonte de briga em prestacao de servicos.",
+        whatToDo: "Anexe escopo, entregaveis, prazos, criterios de aceite e fora de escopo.",
+        severity: "high",
+        points: 10,
+      });
+    }
+    if (!has(/propriedade intelectual|direitos autorais|licenca/i)) {
+      add({
+        title: "Propriedade intelectual nao esta clara",
+        whyItMatters: "Define quem fica com codigo/arte/material e como pode usar depois.",
+        whatToDo: "Defina titularidade, licenca de uso, cessao e o que acontece na rescisao.",
+        severity: "attention",
+        points: 5,
+      });
+    }
+  }
+
+  if (text.length < 400) {
+    add({
+      title: "Texto extraido parece curto",
+      whyItMatters: "Pode ser PDF escaneado ou com conteudo como imagem e a analise fica limitada.",
+      whatToDo: "Se for escaneado, gere um PDF pesquisavel (OCR) e reenvie.",
+      severity: "attention",
+      points: 5,
+    });
+  }
+
+  const score = (s: Severity) => (s === "high" ? 2 : s === "attention" ? 1 : 0);
+  findings.sort((a, b) => score(b.severity) - score(a.severity));
+
+  const top = findings.slice(0, 5).map((f) => "- " + f.title).join("\n");
+  const label = SECTORS.find((x) => x.key === sector)?.label || "Contrato";
+
+  const summary =
+    sector === "generico"
+      ? "Identifiquei pontos relevantes, mas recomendo selecionar o tipo de contrato para uma analise mais precisa."
+      : "Leitura considerando o tipo de contrato (" + label + "). Principais pontos:\n" +
+        (top || "- Nenhum ponto critico detectado no recorte atual.");
+
+  const subject = "Revisao do contrato - pontos de atencao (" + label + ")";
+  const body =
+`Ola,
+
+Estou revisando este contrato e queria confirmar alguns pontos antes de seguir.
+
+Principais pontos para alinharmos:
+${top || "- Nao encontrei pontos criticos no recorte atual, mas gostaria de confirmar condicoes e calculos."}
+
+Contexto:
+- Parte/posicao no contrato: ${role || "nao informado"}
+- Observacao: esta e uma leitura inicial para organizacao e clareza.
+
+Voce pode, por favor, confirmar/ajustar esses itens e indicar a versao final consolidada?
+
+Obrigada.`;
+
+  return { summary, findings, email: { subject, body } };
+}
+
+export default function EnviarPage() {
+  
+  const [files, setFiles] = useState<File[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // cadastro ANTES
+  const [leadName, setLeadName] = useState("roberta");
+  const [leadEmail, setLeadEmail] = useState("");
+  
+
+  const [billingFreeLeft, setBillingFreeLeft] = useState<number>(2);
+  const [billingCredits, setBillingCredits] = useState<number>(0);
+  const [billingLoading, setBillingLoading] = useState<boolean>(false);
+
+  async function refreshBilling(email: string) {
+    
+  const e = (email || "").trim();
+    if (!e) return;
+    try {
+      const r = await fetch("/api/billing/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: e }),
+      });
+      const j = await r.json();
+      if (j?.ok) {
+        setBillingFreeLeft(Number(j.freeLeft || 0));
+        setBillingCredits(Number(j.credits || 0));
+      }
+    } catch {}
+  }
+
+  async function consumeBeforeAnalyze(email: string, meta?: any) {
+    
+  const e = (email || "").trim();
+    if (!e) return { ok: false, code: "NO_EMAIL" };
+    const r = await fetch("/api/billing/consume", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: e, meta: meta || null }),
+    });
+    const j = await r.json();
+    if (!r.ok) return { ok: false, ...(j || {}) };
+    return { ok: true, ...(j || {}) };
+  }
+const [leadPhone, setLeadPhone] = useState("");
+  const [leadRole, setLeadRole] = useState(""); // obrigatorio
+
+  
+
+  // Empresa (opcional) para textos de reclamação
+  const [companyName, setCompanyName] = useState("");
+
+  // Wizard
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+
+  // Seleção de pontos para montar reclamação (ReclameAqui/Procon/etc)
+  const [selectedFindings, setSelectedFindings] = React.useState<FindingLite[]>([]);
+
+  function toggleFindingForComplaint(f: FindingLite) {
+    setSelectedFindings((prev) => {
+      const key = (f.title || "").trim();
+      if (!key) return prev;
+      const exists = prev.some((x) => (x.title || "").trim() === key);
+      if (exists) return prev.filter((x) => (x.title || "").trim() !== key);
+      return [...prev, { title: f.title, whyItMatters: f.whyItMatters, whatToDo: f.whatToDo }];
+    });
+  }
+
+  function clearComplaintSelection() {
+    setSelectedFindings([]);
+  }
+const [sector, setSector] = useState<SectorKey>("generico");
+  const [error, setError] = useState<string | null>(null);
+
+  const [rawText, setRawText] = useState<string>("");
+  const [summary, setSummary] = useState<string>("");
+  const [findings, setFindings] = useState<Finding[]>([]);
+  const [emailDraft, setEmailDraft] = useState<{ subject: string; body: string } | null>(null);
+
+  const greeting = useMemo(() => {
+    const name = (leadName || "voce").trim();
+    return "Ola, " + name + ". Aqui esta o essencial.";
+  }, [leadName]);
+
+    const hasCredits = (billingFreeLeft || 0) > 0 || (billingCredits || 0) > 0;
+
+  const canAnalyze =
+    files.length > 0 &&
+    !isAnalyzing &&
+    (leadName || "").trim().length > 0 &&
+    (leadPhone || "").trim().length > 0 &&
+    (leadEmail || "").trim().length > 0 &&
+    (leadRole || "").trim().length > 0 &&
+    hasCredits;
+const hasResult = (summary || "").trim().length > 0 || findings.length > 0 || !!emailDraft;
+
+  async function runAnalysis() {
+    
+  setError(null);
+
+    if (files.length === 0) return setError("Envie 1 ou mais PDFs para analisar.");
+    if (!(leadName || "").trim()) return setError("Informe seu nome para continuar.");
+    if (!(leadPhone || "").trim()) return setError("Informe seu telefone para continuar.");
+    if (!(leadEmail || "").trim()) return setError("Informe seu e-mail para continuar.");if (!(leadRole || "").trim()) return setError("Selecione sua posicao no contrato para a analise ficar completa.");
+
+    setIsAnalyzing(true);
+    setSummary("");
+    setFindings([]);
+    setEmailDraft(null);
+    setRawText("");
+
+    try {
+      let txtAll = "";
+      for (const f of files) {
+        const t = await extractPdfText(f);
+        if (t) txtAll += "\n\n===== " + f.name + " =====\n" + t;
+      }
+      txtAll = txtAll.trim();
+      setRawText(txtAll);
+
+      if (!txtAll) return setError("Nenhum PDF teve texto extraivel. Se estiver escaneado, envie um PDF pesquisavel (OCR).");
+
+      const finalSector = sector === "generico" ? guessSector(txtAll) : sector;
+      const result = analyzeBySector(txtAll, finalSector, leadRole);
+
+      setSummary(result.summary);
+      setFindings(result.findings);
+      setEmailDraft(result.email);
+
+      setTimeout(() => {
+        const el = document.getElementById("clara-results");
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    } catch (e: any) {
+      setError(e?.message || "Falha ao analisar. Tente novamente.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
+
+  const totalPoints = findings.reduce((acc, f) => acc + f.points, 0);
+  const riskLabel = totalPoints >= 30 ? "Atencao alta" : totalPoints >= 15 ? "Atencao moderada" : "Atencao baixa";
+
+  function openEmail() {
+    
+  if (!emailDraft) return;
+    const to = encodeURIComponent(leadEmail || "");
+    const subject = encodeURIComponent(emailDraft.subject);
+    const body = encodeURIComponent(emailDraft.body);
+    window.location.href = "mailto:" + to + "?subject=" + subject + "&body=" + body;
+  }
+
+  async function copyEmail() {
+    
+  if (!emailDraft) return;
+    const txt = "Assunto: " + emailDraft.subject + "\n\n" + emailDraft.body;
+    await navigator.clipboard.writeText(txt);
+    alert("E-mail copiado!");
+  }
+
+    const contractTypeLabel = useMemo(() => {
+    return SECTORS.find((s) => s.key === sector)?.label || "Contrato";
+  }, [sector]);
+
+  const step1Ok = files.length > 0;
+  const step2Ok =
+    (leadName || "").trim().length > 0 &&
+    (leadPhone || "").trim().length > 0 &&
+    (leadEmail || "").trim().length > 0 &&
+    (leadRole || "").trim().length > 0;
+
+  return (
+    <div style={{ background: "#fff", minHeight: "100vh", color: COLORS.ink }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px" }}>
+        {/* HEADER */}
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
+          <div>
+            <h1 style={{ fontSize: 40, margin: 0, fontWeight: 800 }}>Resultado da analise</h1>
+            <p style={{ marginTop: 10, color: COLORS.text }}>{greeting}</p>
+          </div>
+          <a
+            href="/"
+            style={{
+              padding: "10px 16px",
+              borderRadius: 999,
+              border: "1px solid #E6E8EC",
+              color: COLORS.ink,
+              textDecoration: "none",
+              fontWeight: 700,
+            }}
+          >
+            Voltar para a Home
+          </a>
+        </div>
+
+        {/* STEPS */}
+        <div style={{ marginTop: 18, border: "1px solid #E6E8EC", borderRadius: 20, padding: 14, background: "#FBFBFC" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {[
+              { n: 1, t: "1. Arquivo + tipo" },
+              { n: 2, t: "2. Seus dados" },
+              { n: 3, t: "3. Pagamento" },
+              { n: 4, t: "4. Resultado" },
+            ].map((x) => (
+              <button
+                key={x.n}
+                onClick={() => {
+                  if (x.n === 1) return setStep(1);
+                  if (x.n === 2 && step1Ok) return setStep(2);
+                  if (x.n === 3 && step1Ok && step2Ok) return setStep(3);
+                  if (x.n === 4 && step1Ok && step2Ok) return setStep(4);
+                }}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 999,
+                  border: "1px solid #E6E8EC",
+                  background: step === (x.n as any) ? "#0A2540" : "#fff",
+                  color: step === (x.n as any) ? "#fff" : COLORS.ink,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+                title={x.t}
+              >
+                {x.t}
+              </button>
+            ))}
+            <div style={{ marginLeft: "auto", fontSize: 12, color: COLORS.muted }}>
+              {step < 4 ? "Preencha passo a passo — leva ~2 minutos." : "Pronto: aqui ficam seus resultados e textos prontos."}
+            </div>
+          </div>
+        </div>
+
+        {/* MAIN */}
+        <div style={{ marginTop: 18, display: "grid", gridTemplateColumns: "1fr", gap: 18 }}>
+          {/* STEP CARD */}
+          <div style={{ border: "1px solid #E6E8EC", borderRadius: 20, padding: 18 }}>
+            {step === 1 && (
+              <>
+                <h2 style={{ margin: 0, fontSize: 20 }}>1) Envie o PDF e selecione o tipo</h2>
+                <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>
+                  Envie <b>1 ou mais PDFs</b>. Se estiver escaneado, pode nao extrair texto.
+                </p>
+
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  multiple
+                  onChange={(e) => {
+                    const arr = Array.from(e.target.files || []);
+                    setFiles(arr);
+                    setError(null);
+                  }}
+                />
+
+                {files.length > 0 && (
+                  <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                    {files.map((f) => (
+                      <div key={f.name} style={{ padding: "10px 12px", borderRadius: 12, background: "#F7F8FA", border: "1px solid #EEF0F3", fontSize: 13 }}>
+                        {f.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ marginTop: 14 }}>
+                  <label style={{ fontSize: 13, color: COLORS.muted, fontWeight: 800 }}>Tipo de contrato</label>
+                  <select
+                    value={sector}
+                    onChange={(e) => setSector(e.target.value as SectorKey)}
+                    style={{ width: "100%", marginTop: 6, padding: "10px 12px", borderRadius: 12, border: "1px solid #E6E8EC" }}
+                  >
+                    {SECTORS.map((s) => (
+                      <option key={s.key} value={s.key}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{ marginTop: 8, fontSize: 12, color: COLORS.muted, lineHeight: 1.4 }}>
+                    {SECTORS.find((s) => s.key === sector)?.hint}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+                  <button
+                    onClick={() => setStep(2)}
+                    disabled={!step1Ok}
+                    style={{
+                      padding: "12px 16px",
+                      borderRadius: 999,
+                      border: "none",
+                      background: step1Ok ? COLORS.ink : "#AAB2BD",
+                      color: "#fff",
+                      fontWeight: 800,
+                      cursor: step1Ok ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    Continuar
+                  </button>
+                </div>
+              </>
+            )}
+
+            {step === 2 && (
+              <>
+                <h2 style={{ margin: 0, fontSize: 20 }}>2) Seus dados (para analise completa)</h2>
+                <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>
+                  Isso ajuda a montar textos prontos (e-mail e reclamações) e melhorar as recomendacoes.
+                </p>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 800 }}>Nome (obrigatorio)</div>
+                    <input value={leadName} onChange={(e) => setLeadName(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid #E6E8EC" }} />
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 800 }}>Telefone (obrigatorio)</div>
+                    <input value={leadPhone} onChange={(e) => setLeadPhone(e.target.value)} placeholder="(11) 99999-9999" style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid #E6E8EC" }} />
+                  </div>
+
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 800 }}>E-mail (obrigatorio)</div>
+                    <input value={leadEmail} onChange={(e) => setLeadEmail(e.target.value)} placeholder="voce@email.com" style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid #E6E8EC" }} />
+                  </div>
+
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 800 }}>Qual e sua posicao no contrato? (obrigatorio)</div>
+                    <select
+                      value={leadRole}
+                      onChange={(e) => setLeadRole(e.target.value)}
+                      style={{ width: "100%", marginTop: 6, padding: "10px 12px", borderRadius: 12, border: "1px solid #E6E8EC" }}
+                    >
+                      <option value="" disabled>
+                        Selecione...
+                      </option>
+                      <option value="Sou a parte que vai assinar">Sou a parte que vai assinar</option>
+                      <option value="Sou a outra parte / recebi este contrato">Sou a outra parte / recebi este contrato</option>
+                      <option value="Sou fiador(a) / garantidor(a)">Sou fiador(a) / garantidor(a)</option>
+                      <option value="Sou representante legal">Sou representante legal</option>
+                      <option value="Estou ajudando alguem a avaliar">Estou ajudando alguem a avaliar</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
+                  <button
+                    onClick={() => setStep(1)}
+                    style={{ padding: "12px 16px", borderRadius: 999, border: "1px solid #E6E8EC", background: "#fff", fontWeight: 800, cursor: "pointer" }}
+                  >
+                    Voltar
+                  </button>
+
+                  <button
+                    onClick={() => setStep(3)}
+                    disabled={!step2Ok}
+                    style={{
+                      padding: "12px 16px",
+                      borderRadius: 999,
+                      border: "none",
+                      background: step2Ok ? COLORS.ink : "#AAB2BD",
+                      color: "#fff",
+                      fontWeight: 800,
+                      cursor: step2Ok ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    Continuar
+                  </button>
+                </div>
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <h2 style={{ margin: 0, fontSize: 20 }}>3) Pagamento (para liberar a analise)</h2>
+                <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>
+                  Pagamento via <b>cartao</b> ou <b>PIX</b> (Stripe). Depois do pagamento, seus creditos entram automaticamente.
+                </p>
+
+                <div style={{ marginTop: 12 }}>
+                  <BillingPanel email={leadEmail} freeLeft={billingFreeLeft} credits={billingCredits} />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
+                  <button
+                    onClick={() => setStep(2)}
+                    style={{ padding: "12px 16px", borderRadius: 999, border: "1px solid #E6E8EC", background: "#fff", fontWeight: 800, cursor: "pointer" }}
+                  >
+                    Voltar
+                  </button>
+
+                  <button
+                    onClick={() => setStep(4)}
+                    disabled={!((billingFreeLeft || 0) > 0 || (billingCredits || 0) > 0)}
+                    style={{
+                      padding: "12px 16px",
+                      borderRadius: 999,
+                      border: "none",
+                      background: ((billingFreeLeft || 0) > 0 || (billingCredits || 0) > 0) ? COLORS.ink : "#AAB2BD",
+                      color: "#fff",
+                      fontWeight: 800,
+                      cursor: ((billingFreeLeft || 0) > 0 || (billingCredits || 0) > 0) ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    Continuar para analise
+                  </button>
+                </div>
+              </>
+            )}
+
+            {step === 4 && (
+              <>
+                <h2 style={{ margin: 0, fontSize: 20 }}>4) Analise e resultados</h2>
+                <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>
+                  Clique em <b>Analisar agora</b>. Depois disso, no final da pagina voce vera caminhos prontos para reclamar (ReclameAqui, Procon, Consumidor.gov e Twitter).
+                </p>
+
+                <button
+                  onClick={runAnalysis}
+                  disabled={!canAnalyze}
+                  style={{
+                    marginTop: 12,
+                    width: "100%",
+                    padding: "16px 16px",
+                    borderRadius: 999,
+                    border: "none",
+                    background: canAnalyze ? COLORS.ink : "#AAB2BD",
+                    color: "#fff",
+                    fontSize: 16,
+                    fontWeight: 800,
+                    cursor: canAnalyze ? "pointer" : "not-allowed",
+                  }}
+                >
+                  {isAnalyzing ? "Analisando..." : "Analisar agora"}
+                </button>
+
+                {error && (
+                  <div style={{ marginTop: 12, padding: "12px 12px", borderRadius: 12, background: "#FFF1F0", border: "1px solid #FFCCC7", color: "#A8071A", fontSize: 13, lineHeight: 1.4 }}>
+                    {error}
+                  </div>
+                )}
+
+                {rawText && (
+                  <div style={{ marginTop: 14, fontSize: 12, color: COLORS.muted }}>
+                    <div style={{ fontWeight: 800, marginBottom: 6 }}>Trecho extraido (previa)</div>
+                    <div style={{ padding: 10, borderRadius: 12, border: "1px solid #EEF0F3", background: "#FBFBFC", maxHeight: 140, overflow: "auto", whiteSpace: "pre-wrap" }}>
+                      {clampText(rawText, 900)}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* RESULTS (só aparece depois da analise) */}
+          <div id="clara-results" style={{ display: "grid", gap: 18 }}>
+            <div style={{ border: "1px solid #E6E8EC", borderRadius: 20, padding: 18 }}>
+              <h3 style={{ margin: 0, fontSize: 18 }}>Resumo</h3>
+              <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>
+                {hasResult ? summary : "Complete as etapas acima e clique em Analisar agora."}
+              </p>
+              {!!findings.length && (
+                <div style={{ marginTop: 10, fontSize: 12, color: COLORS.muted }}>
+                  Nivel geral: <b>{riskLabel}</b> - Pontos: <b>{totalPoints}</b>
+                </div>
+              )}
+            </div>
+
+            {hasResult && (
+              <div style={{ border: "1px solid #E6E8EC", borderRadius: 20, padding: 18 }}>
+                <h3 style={{ margin: 0, fontSize: 18 }}>Pontos de atencao</h3>
+                <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                  {findings.slice(0, 8).map((f, idx) => (
+                    <div key={idx} style={{ padding: 12, borderRadius: 14, border: "1px solid #EEF0F3", background: "#FBFBFC" }}>
+                      <div style={{ fontWeight: 900 }}>{f.title}</div>
+                      <div style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.5 }}>
+                        <b>Por que importa:</b> {f.whyItMatters}
+                      </div>
+                      <div style={{ marginTop: 6, color: COLORS.text, lineHeight: 1.5 }}>
+                        <b>O que fazer:</b> {f.whatToDo}
+                      </div>
+                      {f.legalHint && (
+                        <div style={{ marginTop: 6, color: COLORS.muted, fontSize: 12, lineHeight: 1.4 }}>
+                          Dica: {f.legalHint}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {hasResult && (
+              <div style={{ border: "1px solid #E6E8EC", borderRadius: 20, padding: 18 }}>
+                <h3 style={{ margin: 0, fontSize: 18 }}>E-mail pronto</h3>
+                <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>
+                  Abra com assunto e corpo preenchidos, ou copie o texto.
+                </p>
+
+                <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+                  <button
+                    onClick={openEmail}
+                    disabled={!emailDraft}
+                    style={{ padding: "10px 14px", borderRadius: 999, border: "none", background: emailDraft ? "#9AA0A6" : "#E6E8EC", color: emailDraft ? "#fff" : "#9AA0A6", fontWeight: 900, cursor: emailDraft ? "pointer" : "not-allowed" }}
+                  >
+                    Abrir e-mail
+                  </button>
+
+                  <button
+                    onClick={copyEmail}
+                    disabled={!emailDraft}
+                    style={{ padding: "10px 14px", borderRadius: 999, border: "1px solid #E6E8EC", background: "#fff", color: emailDraft ? COLORS.ink : "#9AA0A6", fontWeight: 900, cursor: emailDraft ? "pointer" : "not-allowed" }}
+                  >
+                    Copiar e-mail
+                  </button>
+                </div>
+
+                {emailDraft && (
+                  <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: "1px solid #EEF0F3", background: "#FBFBFC", whiteSpace: "pre-wrap", fontSize: 13, color: COLORS.text, lineHeight: 1.5 }}>
+                    <b>Assunto:</b> {emailDraft.subject}
+                    {"\n\n"}
+                    {emailDraft.body}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* AÇÕES DE RECLAMAÇÃO — SÓ NO FINAL */}
+            {hasResult && (
+              <div style={{ border: "1px solid #E6E8EC", borderRadius: 20, padding: 18 }}>
+                <h3 style={{ margin: 0, fontSize: 18 }}>Resolver isso agora (opcional)</h3>
+                <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>
+                  Aqui voce encontra <b>textos prontos</b> e caminhos para reclamar. Falar e poderoso — especialmente quando voce usa uma linguagem clara e objetiva.
+                </p>
+
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 800 }}>Nome da empresa (opcional — ajuda a personalizar)</div>
+                  <input
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="Ex: Empresa XYZ"
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid #E6E8EC", marginTop: 6 }}
+                  />
+                </div>
+
+                <div style={{ marginTop: 12 }}>
+                  <ComplaintBox
+                    companyName={companyName || ""}
+                    contractType={contractTypeLabel}
+                    summary={summary || ""}
+                    points={Array.isArray(findings) ? findings : []}
+                    email={leadEmail || ""}
+                  />
+                </div>
+
+                <div style={{ marginTop: 12 }}>
+                  <ComplaintActions />
+                </div>
+
+                <div style={{ borderTop: "1px solid #E6E8EC", marginTop: 16, paddingTop: 16 }}>
+                  <ConsumerHelp
+                    draftText={emailDraft ? (emailDraft.body || "") : ""}
+                    companyName={companyName || ""}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <p style={{ marginTop: 6, color: COLORS.muted, fontSize: 12, lineHeight: 1.5 }}>
+            Transparencia: a Clara nao e advogada. E uma ferramenta de apoio para entender melhor e decidir com mais seguranca.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}}
+            />
+
+            {files.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                {files.map((f) => (
+                  <div
+                    key={f.name}
+                    style={{
+                      marginTop: 8,
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      background: "#F7F8FA",
+                      border: "1px solid #EEF0F3",
+                      fontSize: 13,
+                    }}
+                  >
+                    {f.name}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ marginTop: 14 }}>
+              <label style={{ fontSize: 13, color: COLORS.muted, fontWeight: 600 }}>Tipo de contrato</label>
+              <select
+                value={sector}
+                onChange={(e) => setSector(e.target.value as SectorKey)}
+                style={{ width: "100%", marginTop: 6, padding: "10px 12px", borderRadius: 12, border: "1px solid #E6E8EC" }}
+              >
+                {SECTORS.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+              <div style={{ marginTop: 8, fontSize: 12, color: COLORS.muted, lineHeight: 1.4 }}>
+                {SECTORS.find((s) => s.key === sector)?.hint}
+              </div>
+            </div>
+
+            {/* CADASTRO ANTES */}
+            <div style={{ marginTop: 16, borderTop: "1px solid #EEF0F3", paddingTop: 14 }}>
+                      <div style={{ display: "grid", gap: 14 }}>
+          <BillingPanel
+            email={leadEmail}
+            freeLeft={billingFreeLeft}
+            credits={billingCredits}
+          />
+
+          <ComplaintBox
+            companyName={""}
+            contractType={typeof contractType !== "undefined" ? String(contractType || "") : ""}
+            summary={typeof summary !== "undefined" ? String(summary || "") : ""}
+            points={typeof findings !== "undefined" && Array.isArray(findings) ? findings : []}
+            email={leadEmail}
+          />
+        </div>
+
+<h3 style={{ margin: 0, fontSize: 18 }}>Para finalizar</h3>
+              <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>
+                Preencha seus dados para salvar o resultado e melhorar as recomendacoes.
+              </p>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+                <div>
+                  <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 700 }}>Nome</div>
+                  <input
+                    value={leadName}
+                    onChange={(e) => setLeadName(e.target.value)}
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid #E6E8EC" }}
+                  />
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 700 }}>Telefone</div>
+                  <input
+                    value={leadPhone}
+                    onChange={(e) => setLeadPhone(e.target.value)}
+                    placeholder="(11) 99999-9999"
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid #E6E8EC" }}
+                  />
+                </div>
+
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 700 }}>E-mail (obrigatorio)</div>
+                  <input
+                    value={leadEmail}
+                    onChange={(e) => setLeadEmail(e.target.value)}
+                    placeholder="voce@email.com"
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid #E6E8EC" }}
+                  />
+                </div>
+
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 700 }}>Qual e sua posicao no contrato? (obrigatorio)</div>
+                  <select
+                    value={leadRole}
+                    onChange={(e) => setLeadRole(e.target.value)}
+                    style={{ width: "100%", marginTop: 6, padding: "10px 12px", borderRadius: 12, border: "1px solid #E6E8EC" }}
+                  >
+                    <option value="" disabled>
+                      Selecione...
+                    </option>
+                    <option value="Sou a parte que vai assinar">Sou a parte que vai assinar</option>
+                    <option value="Sou a outra parte / recebi este contrato">Sou a outra parte / recebi este contrato</option>
+                    <option value="Sou fiador(a) / garantidor(a)">Sou fiador(a) / garantidor(a)</option>
+                    <option value="Sou representante legal">Sou representante legal</option>
+                    <option value="Estou ajudando alguem a avaliar">Estou ajudando alguem a avaliar</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 10, fontSize: 12, color: COLORS.muted }}>
+                OK: seus dados ficam apenas para contato e melhoria da analise.
+              </div>
+            </div>
+
+            <button
+              onClick={runAnalysis}
+              disabled={!canAnalyze}
+              style={{
+                marginTop: 16,
+                width: "100%",
+                padding: "16px 16px",
+                borderRadius: 999,
+                border: "none",
+                background: canAnalyze ? COLORS.ink : "#AAB2BD",
+                color: "#fff",
+                fontSize: 16,
+                fontWeight: 700,
+                cursor: canAnalyze ? "pointer" : "not-allowed",
+              }}
+            >
+              {isAnalyzing ? "Analisando..." : "Analisar agora"}
+            </button>
+
+            <p style={{ marginTop: 12, color: COLORS.muted, fontSize: 12, lineHeight: 1.5 }}>
+              Transparencia: a Clara nao e advogada. E uma ferramenta de apoio para entender melhor e decidir com mais seguranca.
+            </p>
+
+            {error && (
+              <div style={{ marginTop: 12, padding: "12px 12px", borderRadius: 12, background: "#FFF1F0", border: "1px solid #FFCCC7", color: "#A8071A", fontSize: 13, lineHeight: 1.4 }}>
+                {error}
+              </div>
+            )}
+
+            {rawText && (
+              <div style={{ marginTop: 14, fontSize: 12, color: COLORS.muted }}>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Trecho extraido (previa)</div>
+                <div style={{ padding: 10, borderRadius: 12, border: "1px solid #EEF0F3", background: "#FBFBFC", maxHeight: 140, overflow: "auto", whiteSpace: "pre-wrap" }}>
+                  {clampText(rawText, 900)}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT */}
+          <div id="clara-results" style={{ display: "grid", gap: 18 }}>
+            <div style={{ border: "1px solid #E6E8EC", borderRadius: 20, padding: 18 }}>
+              <h3 style={{ margin: 0, fontSize: 18 }}>Resumo</h3>
+              <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>
+                {hasResult ? summary : "Envie PDFs, preencha o cadastro e clique em Analisar agora."}
+              </p>
+              {!!findings.length && (
+                <div style={{ marginTop: 10, fontSize: 12, color: COLORS.muted }}>
+                  Nivel geral: <b>{riskLabel}</b> - Pontos: <b>{totalPoints}</b>
+                </div>
+              )}
+            </div>
+
+            <div style={{ border: "1px solid #E6E8EC", borderRadius: 20, padding: 18 }}>
+              
+
+<div style={{ marginTop: 14, marginBottom: 14 }}>
+  <ComplaintActions />
+</div>
+              {!hasResult ? (
+                <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>
+                  Quando a analise terminar, voce vera aqui os pontos mais importantes.
+                </p>
+              ) : (
+                <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                  {findings.slice(0, 8).map((f, idx) => (
+                    <div key={idx} style={{ padding: 12, borderRadius: 14, border: "1px solid #EEF0F3", background: "#FBFBFC" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                        <div style={{ fontWeight: 800 }}>{f.title}</div>
+                      </div>
+                      <div style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.5 }}>
+                        <b>Por que importa:</b> {f.whyItMatters}
+                      </div>
+                      <div style={{ marginTop: 6, color: COLORS.text, lineHeight: 1.5 }}>
+                        <b>O que fazer:</b> {f.whatToDo}
+                      </div>
+                      {f.legalHint && (
+                        <div style={{ marginTop: 6, color: COLORS.muted, fontSize: 12, lineHeight: 1.4 }}>
+                          Dica: {f.legalHint}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ border: "1px solid #E6E8EC", borderRadius: 20, padding: 18 }}>
+              <h3 style={{ margin: 0, fontSize: 18 }}>E-mail pronto</h3>
+              <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>
+                Abra com assunto e corpo preenchidos, ou copie o texto.
+              </p>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                <button
+                  onClick={openEmail}
+                  disabled={!emailDraft}
+                  style={{ padding: "10px 14px", borderRadius: 999, border: "none", background: emailDraft ? "#9AA0A6" : "#E6E8EC", color: emailDraft ? "#fff" : "#9AA0A6", fontWeight: 800, cursor: emailDraft ? "pointer" : "not-allowed" }}
+                >
+                  Abrir e-mail
+                </button>
+
+                <button
+                  onClick={copyEmail}
+                  disabled={!emailDraft}
+                  style={{ padding: "10px 14px", borderRadius: 999, border: "1px solid #E6E8EC", background: "#fff", color: emailDraft ? COLORS.ink : "#9AA0A6", fontWeight: 800, cursor: emailDraft ? "pointer" : "not-allowed" }}
+                >
+                  Copiar e-mail
+                </button>
+              </div>
+
+              {emailDraft && (
+                <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: "1px solid #EEF0F3", background: "#FBFBFC", whiteSpace: "pre-wrap", fontSize: 13, color: COLORS.text, lineHeight: 1.5 }}>
+                  <b>Assunto:</b> {emailDraft.subject}
+                  {"\n\n"}
+                  {emailDraft.body}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+          <div style={{ marginTop: 18 }} />
+      <div style={{ borderTop: "1px solid #E6E8EC", marginTop: 18, paddingTop: 18 }}>
+        <ConsumerHelp
+  draftText={
+    (typeof emailDraft !== "undefined" && emailDraft
+      ? (emailDraft.body || emailDraft)
+      : "")
+  }
+  companyName={(typeof companyName !== "undefined" ? companyName : "")}
+/>
+      </div>
+</div>
+  );
+}
+
+

@@ -1,0 +1,242 @@
+﻿import { NextResponse } from "next/server";
+
+type Finding = {
+  title: string;
+  severity: "ok" | "attention" | "high";
+  whyItMatters: string;
+  whatToDo: string;
+  legalHint?: string;
+};
+
+function addUnique(findings: Finding[], finding: Finding) {
+  const key = (finding.title || "").trim().toLowerCase();
+  if (!key) return;
+  const exists = findings.some((f) => (f.title || "").trim().toLowerCase() === key);
+  if (!exists) findings.push(finding);
+}
+
+function has(text: string, re: RegExp) {
+  return re.test(text);
+}
+
+function analyzeContract(text: string, sector: string) {
+  const t = String(text || "");
+  const s = String(sector || "").toLowerCase();
+  const findings: Finding[] = [];
+
+  // -------- regras gerais --------
+  if (has(t, /multa|cl[aá]usula penal|penalidade/i)) {
+    addUnique(findings, {
+      title: "Existe multa contratual",
+      severity: "attention",
+      whyItMatters: "Multas podem gerar custo alto se houver atraso, cancelamento ou descumprimento.",
+      whatToDo: "Verifique valor, proporcionalidade e em quais hipóteses a multa será cobrada.",
+      legalHint: "Busque por: multa, cláusula penal, penalidade."
+    });
+  }
+
+  if (has(t, /foro da comarca|elei[cç][aã]o de foro|foro exclusivo/i)) {
+    addUnique(findings, {
+      title: "O contrato define foro específico",
+      severity: "attention",
+      whyItMatters: "Isso pode dificultar sua defesa se o foro escolhido for distante ou desfavorável.",
+      whatToDo: "Peça foro mais equilibrado ou compatível com seu domicílio.",
+      legalHint: "Busque por: foro da comarca, foro exclusivo, eleição de foro."
+    });
+  }
+
+  if (has(t, /ren[uú]ncia|abre m[aã]o|desiste expressamente|n[aã]o poder[aá] reclamar/i)) {
+    addUnique(findings, {
+      title: "Há possível renúncia de direitos",
+      severity: "high",
+      whyItMatters: "Você pode estar abrindo mão de garantias importantes sem perceber.",
+      whatToDo: "Peça redação mais clara e remova renúncias amplas ou genéricas.",
+      legalHint: "Busque por: renúncia, abre mão, desiste expressamente."
+    });
+  }
+
+  if (has(t, /sem direito a indeniza[cç][aã]o|n[aã]o caber[aá] indeniza[cç][aã]o|limita[aç][aã]o de responsabilidade/i)) {
+    addUnique(findings, {
+      title: "O contrato limita indenização ou responsabilidade",
+      severity: "high",
+      whyItMatters: "Você pode ficar sem reparação mesmo em caso de prejuízo relevante.",
+      whatToDo: "Peça remoção ou limitação mais equilibrada dessa cláusula.",
+      legalHint: "Busque por: sem direito a indenização, limitação de responsabilidade."
+    });
+  }
+
+  if (has(t, /rescis[aã]o unilateral|encerrar a qualquer momento|poder[aá] rescindir independentemente/i)) {
+    addUnique(findings, {
+      title: "Uma parte pode rescindir unilateralmente",
+      severity: "high",
+      whyItMatters: "Você pode ficar em posição frágil se a outra parte puder encerrar tudo sozinha.",
+      whatToDo: "Peça prazo prévio, justificativa e regra equivalente para ambas as partes.",
+      legalHint: "Busque por: rescisão unilateral, encerrar a qualquer momento."
+    });
+  }
+
+  if (has(t, /vencimento antecipado|antecipadamente vencida|acelera[cç][aã]o da d[ií]vida/i)) {
+    addUnique(findings, {
+      title: "A obrigação pode vencer inteira antes do esperado",
+      severity: "high",
+      whyItMatters: "Um pequeno descumprimento pode antecipar toda a cobrança.",
+      whatToDo: "Peça prazo de cura, aviso prévio e gatilhos objetivos antes do vencimento antecipado.",
+      legalHint: "Busque por: vencimento antecipado, aceleração."
+    });
+  }
+
+  if (has(t, /confiss[aã]o de d[ií]vida|reconhece a d[ií]vida/i)) {
+    addUnique(findings, {
+      title: "Há reconhecimento ou confissão de dívida",
+      severity: "high",
+      whyItMatters: "Isso pode fortalecer cobrança futura e reduzir seu espaço para contestação.",
+      whatToDo: "Confirme se o valor está correto e peça memória de cálculo detalhada.",
+      legalHint: "Busque por: confissão de dívida, reconhece a dívida."
+    });
+  }
+
+  if (has(t, /reajuste autom[aá]tico|corrigido automaticamente|reajustado anualmente|i[gí]ndice de reajuste/i)) {
+    addUnique(findings, {
+      title: "Há previsão de reajuste automático",
+      severity: "attention",
+      whyItMatters: "O valor pode subir sem negociação individual.",
+      whatToDo: "Peça critério objetivo, índice claro e limitação de reajustes inesperados.",
+      legalHint: "Busque por: reajuste automático, correção anual, índice."
+    });
+  }
+
+  if (has(t, /dados pessoais|tratamento de dados|compartilhamento de dados|lgpd|privacidade/i)) {
+    addUnique(findings, {
+      title: "Há cláusulas sobre uso de dados pessoais",
+      severity: "attention",
+      whyItMatters: "Se a regra estiver ampla demais, seus dados podem ser usados além do necessário.",
+      whatToDo: "Peça finalidade clara, prazo e com quem os dados serão compartilhados.",
+      legalHint: "Busque por: dados pessoais, compartilhamento, tratamento, LGPD."
+    });
+  }
+
+  if (has(t, /decis[aã]o exclusiva|crit[eé]rio exclusivo|a exclusivo crit[eé]rio|somente a outra parte decidir[aá]/i)) {
+    addUnique(findings, {
+      title: "Uma parte concentra poder de decisão",
+      severity: "high",
+      whyItMatters: "Isso rompe o equilíbrio mínimo que um contrato deveria ter.",
+      whatToDo: "Peça critério objetivo, mediação ou decisão conjunta entre as partes.",
+      legalHint: "Busque por: decisão exclusiva, exclusivo critério."
+    });
+  }
+
+  if (has(t, /n[aã]o questionar|n[aã]o contestar|n[aã]o ajuizar|n[aã]o recorrer ao judici[aá]rio/i)) {
+    addUnique(findings, {
+      title: "O contrato tenta limitar sua defesa jurídica",
+      severity: "high",
+      whyItMatters: "Ninguém deve ser impedido de buscar orientação jurídica ou contestar abusos.",
+      whatToDo: "Peça remoção imediata dessa cláusula.",
+      legalHint: "Busque por: não questionar, não contestar, não ajuizar."
+    });
+  }
+
+  if (has(t, /obriga[cç][aã]o ilimitada|respons[aá]vel por quaisquer danos|quaisquer preju[ií]zos/i)) {
+    addUnique(findings, {
+      title: "As responsabilidades podem estar amplas demais",
+      severity: "attention",
+      whyItMatters: "Você pode assumir riscos desproporcionais ou difíceis de prever.",
+      whatToDo: "Peça limites objetivos de responsabilidade e exemplos claros de aplicação.",
+      legalHint: "Busque por: quaisquer danos, quaisquer prejuízos, obrigação ilimitada."
+    });
+  }
+
+  // -------- união estável / família --------
+  if (s.includes("uniao") || s.includes("famil")) {
+    if (has(t, /partilha|regime de bens|patrim[oô]nio comum|bens particulares|comunh[aã]o parcial|comunh[aã]o universal/i)) {
+      addUnique(findings, {
+        title: "O contrato deveria explicar melhor patrimônio e partilha",
+        severity: "attention",
+        whyItMatters: "Sem clareza, aumentam os conflitos sobre bens e responsabilidades.",
+        whatToDo: "Inclua regras claras sobre regime de bens, patrimônio comum e partilha.",
+        legalHint: "Busque por: partilha, regime de bens, patrimônio."
+      });
+    }
+
+    if (has(t, /controle total sobre rendimentos|administra[cç][aã]o exclusiva da renda|todos os rendimentos da outra parte/i)) {
+      addUnique(findings, {
+        title: "Uma parte controla totalmente a renda da outra",
+        severity: "high",
+        whyItMatters: "Isso pode gerar dependência financeira e desequilíbrio na relação.",
+        whatToDo: "Peça autonomia patrimonial mínima e regras de administração conjunta.",
+        legalHint: "Busque por: controle total, administração exclusiva, rendimentos."
+      });
+    }
+
+    if (has(t, /ren[uú]ncia.*bens|ren[uú]ncia.*partilha|abre m[aã]o.*bens/i)) {
+      addUnique(findings, {
+        title: "Há renúncia patrimonial sensível",
+        severity: "high",
+        whyItMatters: "Você pode perder proteção sobre bens construídos durante a relação.",
+        whatToDo: "Peça revisão dessa cláusula e explicação objetiva dos efeitos patrimoniais.",
+        legalHint: "Busque por: renúncia a bens, renúncia à partilha."
+      });
+    }
+  }
+
+  // fallback: se vier muito texto e só 0/1 achado, amplia alerta genérico útil
+  if (t.length > 500 && findings.length <= 1) {
+    addUnique(findings, {
+      title: "O contrato pode precisar de critérios mais claros",
+      severity: "attention",
+      whyItMatters: "Quando o texto deixa decisões abertas ou vagas, aumentam os riscos de conflito.",
+      whatToDo: "Peça linguagem mais objetiva, critérios definidos e exemplos de aplicação.",
+      legalHint: "Revise trechos vagos, amplos ou com muitas expressões genéricas."
+    });
+  }
+
+  if (t.length > 900 && findings.length <= 2) {
+    addUnique(findings, {
+      title: "Vale revisar equilíbrio entre deveres e direitos",
+      severity: "attention",
+      whyItMatters: "Contratos longos podem esconder obrigações desproporcionais em detalhes espalhados.",
+      whatToDo: "Compare quem assume riscos, multas, prazos e poderes de decisão em cada cláusula.",
+      legalHint: "Observe se uma parte assume mais deveres do que a outra."
+    });
+  }
+
+  const topFindings = findings.slice(0, 8);
+  const score = topFindings.reduce((acc, f) => acc + (f.severity === "high" ? 10 : f.severity === "attention" ? 5 : 1), 0);
+
+  let riskLabel = "Atenção baixa";
+  if (score >= 25) riskLabel = "Atenção alta";
+  else if (score >= 10) riskLabel = "Atenção média";
+
+  return {
+    findings: topFindings,
+    score,
+    riskLabel
+  };
+}
+
+export async function POST(req: Request) {
+  try {
+    const form = await req.formData().catch(() => null);
+
+    const text =
+      String(form?.get("text") || form?.get("content") || form?.get("rawText") || "").trim();
+
+    const sector =
+      String(form?.get("sector") || form?.get("contractType") || "").trim();
+
+    const result = analyzeContract(text, sector);
+
+    return NextResponse.json({
+      ok: true,
+      findings: result.findings,
+      score: result.score,
+      riskLabel: result.riskLabel,
+      message: "Análise concluída."
+    });
+  } catch (error) {
+    console.error("analyze_pdf_route_error", error);
+    return NextResponse.json(
+      { ok: false, error: "analyze_pdf_route_error" },
+      { status: 500 }
+    );
+  }
+}

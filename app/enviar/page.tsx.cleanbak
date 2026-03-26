@@ -1,0 +1,679 @@
+﻿�"use client";
+import { getPdfjs } from "@/lib/pdfjsWorker";
+import "@/lib/pdfjsWorker";
+
+import React, { useMemo, useState } from "react";
+
+type Severity = "ok" | "attention" | "high";
+type Finding = {
+  title: string;
+  whyItMatters: string;
+  whatToDo: string;
+  legalHint?: string;
+  severity: Severity;
+  points: 0 | 5 | 10;
+};
+
+const COLORS = {
+  gold: "#D4AF37",
+  sky: "#A8D8F0",
+  white: "#FFFFFF",
+  gray: "#F2F2F2",
+  ink: "#0A2540",
+  text: "#425466",
+  muted: "#6B7C93",
+};
+
+function clampText(s: string, max = 1200) {
+  if (!s) return "";
+  const t = s.replace(/\s+/g, " ").trim();
+  return t.length > max ? t.slice(0, max) + "⬦" : t;
+}
+
+function guessSector(fullText: string): SectorKey {
+  const t = fullText.toLowerCase();
+
+  // união estável / família
+  if (/(uni[aã]o est[aá]vel|conviv[eê]ncia|companheir[oa]|regime de bens|partilha|pacto antenupcial)/i.test(t)) {
+    return "uniao_estavel";
+  }
+
+  // aluguel / locação
+  if (/(loca[cç][aã]o|locador|locat[aá]ri[oa]|aluguel|fiador|cau[cç][aã]o|im[oó]vel|vistoria)/i.test(t)) {
+    return "aluguel";
+  }
+
+  // empréstimo / crédito
+  if (/(empr[eé]stimo|financiamento|c[eé]dula|juros|cet|custo efetivo total|parcelas|inadimpl[eê]ncia|multa morat[oó]ria)/i.test(t)) {
+    return "emprestimo";
+  }
+
+  // prestação de serviços
+  if (/(prestac[aã]o de servi[cç]os|contratante|contratad[oa]|escopo|sla|prazo|entreg[aá]veis|rescis[aã]o)/i.test(t)) {
+    return "servicos";
+  }
+
+  return "generico";
+}
+
+type SectorKey = "aluguel" | "uniao_estavel" | "emprestimo" | "servicos" | "generico";
+const SECTORS: { key: SectorKey; label: string; hint: string }[] = [
+  { key: "aluguel", label: "Aluguel / Locação", hint: "Foco em garantias, reajuste, multa, responsabilidades e vistoria." },
+  { key: "uniao_estavel", label: "União estável / Família", hint: "Foco em regime de bens, partilha, patrimônio e deveres." },
+  { key: "emprestimo", label: "Empréstimo / Crédito", hint: "Foco em juros, CET, atraso, garantias, vencimento antecipado." },
+  { key: "servicos", label: "Prestação de serviços", hint: "Foco em escopo, prazo, entregáveis, SLA, rescisão e multas." },
+  { key: "generico", label: "Outro / Não sei", hint: "A gente tenta identificar o tipo automaticamente." },
+];
+
+async function extractPdfText(file: File): Promise<string> {
+  // pdfjs-dist (legacy) + disableWorker para não depender do pdf.worker.mjs (evita travar no Next/Turbopack)
+  const pdfjs = await import("pdfjs-dist/build/pdf");
+
+  // @ts-ignore
+  if (pdfjs?.GlobalWorkerOptions) {
+
+
+    pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
+  // @ts-ignore
+
+  }
+
+  const ab = await file.arrayBuffer();
+  // @ts-ignore
+  const loadingTask = pdfjs.getDocument({ data: ab, disableWorker: true });
+  const pdf = await loadingTask.promise;
+
+  let out = "";
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    // @ts-ignore
+    const strings = content.items.map((it) => it.str).filter(Boolean);
+    out += strings.join(" ") + "\n";
+  }
+  return out.trim();
+}
+
+function analyzeBySector(fullText: string, sector: SectorKey, role: string): { summary: string; findings: Finding[]; email: { subject: string; body: string } } {
+  const text = fullText || "";
+  const t = text.toLowerCase();
+
+  const findings: Finding[] = [];
+
+  const add = (f: Finding) => findings.push(f);
+
+  const has = (re: RegExp) => re.test(t);
+
+  // Regras comuns
+  if (has(/vencimento antecipado|acelera[cç][aã]o|antecipadamente/i)) {
+    add({
+      title: "Vencimento antecipado / aceleração",
+      whyItMatters: "Pode fazer a dívida ou obrigação ��vencer�" inteira por um gatilho pequeno.",
+      whatToDo: "Peça para limitar gatilhos (ex.: atraso > X dias) e garantir aviso prévio para regularização.",
+      legalHint: "Procure regras de ��vencimento antecipado�", ��aceleração�" e ��default�".",
+      severity: "high",
+      points: 10,
+    });
+  }
+
+  if (has(/multa\s*(?:de|)\s*\d{2,}%|multa\s*e\s*juros|juros\s*morat[oó]rios/i)) {
+    add({
+      title: "Multa/juros de atraso podem estar pesados",
+      whyItMatters: "Encargos altos aumentam muito o custo em caso de atraso.",
+      whatToDo: "Confirme percentuais, base de cálculo e teto. Negocie redução e clareza do cálculo.",
+      legalHint: "Busque ��multa�", ��juros moratórios�", ��correção�", ��encargos�".",
+      severity: "attention",
+      points: 5,
+    });
+  }
+
+  // Por setor
+  if (sector === "aluguel") {
+    if (!has(/vistoria|laudo/i)) {
+      add({
+        title: "Sem vistoria/estado do imóvel detalhado",
+        whyItMatters: "Sem laudo, vira discussão no final sobre danos e devolução.",
+        whatToDo: "Inclua laudo de entrada com fotos e check-list, e defina padrão de devolução.",
+        severity: "attention",
+        points: 5,
+      });
+    }
+    if (!has(/reajuste|igp\-m|ipca/i)) {
+      add({
+        title: "Reajuste não está claro",
+        whyItMatters: "Sem índice e periodicidade, pode gerar aumento inesperado ou conflito.",
+        whatToDo: "Defina índice (ex.: IPCA), periodicidade e regra para substituição se índice acabar.",
+        severity: "attention",
+        points: 5,
+      });
+    }
+    if (!has(/fiador|cau[cç][aã]o|seguro\-fian[cç]a/i)) {
+      add({
+        title: "Garantia locatícia não está definida",
+        whyItMatters: "Pode travar a assinatura ou gerar exigências depois.",
+        whatToDo: "Deixe explícito se é fiador, caução (quantos aluguéis) ou seguro-fiança.",
+        severity: "ok",
+        points: 0,
+      });
+    }
+  }
+
+  if (sector === "uniao_estavel") {
+    if (!has(/regime de bens|comunh[aã]o parcial|comunh[aã]o universal|separa[cç][aã]o/i)) {
+      add({
+        title: "Regime de bens não está explícito",
+        whyItMatters: "Define o que entra na partilha e como o patrimônio é tratado.",
+        whatToDo: "Especifique o regime e o que fica fora (bens anteriores, heranças, doações).",
+        severity: "high",
+        points: 10,
+      });
+    }
+    if (!has(/d[ií]vidas|responsabilidade|obriga[cç][oõ]es/i)) {
+      add({
+        title: "Dívidas e responsabilidades do casal não estão claras",
+        whyItMatters: "Pode gerar surpresa sobre quem responde por quais obrigações.",
+        whatToDo: "Defina regras para dívidas contraídas individualmente vs. em benefício comum.",
+        severity: "attention",
+        points: 5,
+      });
+    }
+  }
+
+  if (sector === "emprestimo") {
+    if (!has(/cet|custo efetivo total/i)) {
+      add({
+        title: "CET não aparece (custo total pode ficar invisível)",
+        whyItMatters: "Sem CET, é difícil comparar e entender o custo real do crédito.",
+        whatToDo: "Peça CET e detalhamento: juros, tarifas, seguros, IOF e custo total.",
+        severity: "high",
+        points: 10,
+      });
+    }
+    if (has(/seguro/i) && !has(/opcional|facultativo/i)) {
+      add({
+        title: "Seguro pode estar embutido sem clareza",
+        whyItMatters: "Pode elevar o custo e ser difícil de recusar.",
+        whatToDo: "Peça transparência do seguro, valor, cobertura, e possibilidade de contratar fora.",
+        severity: "attention",
+        points: 5,
+      });
+    }
+  }
+
+  if (sector === "servicos") {
+    if (!has(/escopo|entreg[aá]veis|cronograma|prazo/i)) {
+      add({
+        title: "Escopo/entregáveis pouco definidos",
+        whyItMatters: "�0 a principal fonte de briga em prestação de serviços.",
+        whatToDo: "Anexe escopo, entregáveis, prazos, critérios de aceite e o que é ��fora de escopo�".",
+        severity: "high",
+        points: 10,
+      });
+    }
+    if (!has(/propriedade intelectual|direitos autorais|licen[cç]a/i)) {
+      add({
+        title: "Propriedade intelectual não está clara",
+        whyItMatters: "Define quem fica com o código/arte/material e como pode usar depois.",
+        whatToDo: "Defina titularidade, licença de uso, cessão e o que acontece em rescisão.",
+        severity: "attention",
+        points: 5,
+      });
+    }
+  }
+
+  // Se ficou �Spouco texto⬝, adiciona orientação
+  if (text.length < 400) {
+    add({
+      title: "Texto extraído parece curto",
+      whyItMatters: "Pode ser PDF escaneado ou com conteúdo como imagem � a análise fica limitada.",
+      whatToDo: "Se for escaneado, gere um PDF pesquisável (OCR) e reenvie.",
+      severity: "attention",
+      points: 5,
+    });
+  }
+
+  // Ordenar por risco
+  const score = (s: Severity) => (s === "high" ? 2 : s === "attention" ? 1 : 0);
+  findings.sort((a, b) => score(b.severity) - score(a.severity));
+
+  const top = findings.slice(0, 5).map((f) => `⬢ ${f.title}`).join("\n");
+
+  const summary =
+    sector === "generico"
+      ? "Identifiquei pontos relevantes, mas recomendo selecionar o tipo de contrato para uma análise mais precisa."
+      : `Fiz a leitura considerando o tipo de contrato (${SECTORS.find(x=>x.key===sector)?.label}). Principais pontos:\n${top || "⬢ Nenhum ponto crítico detectado no recorte atual."}`;
+
+  const subject = `Revisão do contrato � pontos de atenção (${SECTORS.find(x=>x.key===sector)?.label || "contrato"})`;
+  const body =
+`Olá,
+
+Estou revisando este contrato e queria confirmar alguns pontos antes de seguir.
+
+Principais pontos para alinharmos:
+${top || "⬢ Não encontrei pontos críticos no recorte atual � mas gostaria de confirmar condições e cálculos."}
+
+Contexto:
+- Parte/posição no contrato: ${role || "não informado"}
+- Observação: esta é uma leitura inicial para organização e clareza.
+
+Você pode, por favor, confirmar/ajustar esses itens e indicar a versão final consolidada?
+
+Obrigada.`;
+
+  return { summary, findings, email: { subject, body } };
+}
+
+export default function EnviarPage() {
+  const [files, setFiles] = useState<File[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // �Scadastro⬝ depois do envio/análise (como você pediu)
+  const [showLead, setShowLead] = useState(false);
+  const [leadName, setLeadName] = useState("roberta");
+  const [leadEmail, setLeadEmail] = useState("");
+  const [leadPhone, setLeadPhone] = useState("");
+  const [leadRole, setLeadRole] = useState("Sou a parte que vai assinar");
+  const [sector, setSector] = useState<SectorKey>("generico");
+
+  const [error, setError] = useState<string | null>(null);
+  const [rawText, setRawText] = useState<string>("");
+  const [summary, setSummary] = useState<string>("");
+  const [findings, setFindings] = useState<Finding[]>([]);
+  const [emailDraft, setEmailDraft] = useState<{ subject: string; body: string } | null>(null);
+
+  const canAnalyze = files.length > 0 && !isAnalyzing;
+
+  const greeting = useMemo(() => {
+    const name = (leadName || "você").trim();
+    return `Olá, ${name}. Aqui está o essencial.`;
+  }, [leadName]);
+
+  async function runAnalysis() {
+    setError(null);
+
+    if (files.length === 0) {
+      setError("Envie 1 ou mais PDFs para analisar.");
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setSummary("");
+    setFindings([]);
+    setEmailDraft(null);
+    setRawText("");
+
+    try {
+      // extrai texto de todos os PDFs e concatena
+      let txtAll = "";
+      for (const f of files) {
+        const t = await extractPdfText(f);
+        if (t) txtAll += `\n\n===== ${f.name} =====\n` + t;
+      }
+      txtAll = txtAll.trim();
+      setRawText(txtAll);
+
+      if (!txtAll) {
+        setError("Nenhum PDF teve texto extraível. Se estiver escaneado, envie um PDF pesquisável (ou rode OCR).");
+        // mesmo assim abre o lead gate para você coletar dados e não �Stravar⬝
+        setShowLead(true);
+        return;
+      }
+
+      // se a pessoa deixou �SOutro/Não sei⬝, tenta adivinhar
+      const finalSector = sector === "generico" ? guessSector(txtAll) : sector;
+
+      // gera análise
+      const result = analyzeBySector(txtAll, finalSector, leadRole);
+      setSummary(result.summary);
+      setFindings(result.findings);
+      setEmailDraft(result.email);
+
+      // simula �Scarregando⬝ e só depois pede cadastro (como você pediu)
+      setTimeout(() => setShowLead(true), 350);
+
+      // rola para a seção de resultados (suave)
+      setTimeout(() => {
+        const el = document.getElementById("clara-results");
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 450);
+    } catch (e: any) {
+      setError(e?.message || "Falha ao analisar. Tente novamente.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
+
+  const totalPoints = findings.reduce((acc, f) => acc + f.points, 0);
+  const riskLabel =
+    totalPoints >= 30 ? "Atenção alta" :
+    totalPoints >= 15 ? "Atenção moderada" : "Atenção baixa";
+
+  function openEmail() {
+    if (!emailDraft) return;
+    const to = encodeURIComponent(leadEmail || "");
+    const subject = encodeURIComponent(emailDraft.subject);
+    const body = encodeURIComponent(emailDraft.body);
+    window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+  }
+
+  async function copyEmail() {
+    if (!emailDraft) return;
+    const txt = `Assunto: ${emailDraft.subject}\n\n${emailDraft.body}`;
+    await navigator.clipboard.writeText(txt);
+    alert("E-mail copiado!");
+  }
+
+  return (
+    <div style={{ background: "#fff", minHeight: "100vh", color: COLORS.ink }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
+          <div>
+            <h1 style={{ fontSize: 40, margin: 0, fontWeight: 700 }}>Resultado da análise</h1>
+            <p style={{ marginTop: 10, color: COLORS.text }}>{greeting}</p>
+          </div>
+          <a href="/" style={{
+            padding: "10px 16px",
+            borderRadius: 999,
+            border: "1px solid #E6E8EC",
+            color: COLORS.ink,
+            textDecoration: "none",
+            fontWeight: 600
+          }}>
+            Voltar para a Home
+          </a>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.35fr", gap: 18, marginTop: 22 }}>
+          {/* LEFT */}
+          <div style={{
+            border: "1px solid #E6E8EC",
+            borderRadius: 20,
+            padding: 18
+          }}>
+            <h3 style={{ margin: 0, fontSize: 18 }}>Documentos</h3>
+            <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.5 }}>
+              Envie <b>1 ou mais PDFs</b>. Se algum estiver escaneado, pode não extrair texto.
+            </p>
+
+            <input
+              type="file"
+              accept="application/pdf"
+              multiple
+              onChange={(e) => {
+                const arr = Array.from(e.target.files || []);
+                setFiles(arr);
+                setError(null);
+              }}
+            />
+
+            {files.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                {files.map((f) => (
+                  <div key={f.name} style={{
+                    marginTop: 8,
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    background: "#F7F8FA",
+                    border: "1px solid #EEF0F3",
+                    fontSize: 13
+                  }}>
+                    {f.name}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ marginTop: 14 }}>
+              <label style={{ fontSize: 13, color: COLORS.muted, fontWeight: 600 }}>Tipo de contrato</label>
+              <select
+                value={sector}
+                onChange={(e) => setSector(e.target.value as SectorKey)}
+                style={{
+                  width: "100%",
+                  marginTop: 6,
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid #E6E8EC"
+                }}
+              >
+                {SECTORS.map((s) => (
+                  <option key={s.key} value={s.key}>{s.label}</option>
+                ))}
+              </select>
+              <div style={{ marginTop: 8, fontSize: 12, color: COLORS.muted, lineHeight: 1.4 }}>
+                {SECTORS.find((s) => s.key === sector)?.hint}
+              </div>
+            </div>
+
+            <button
+              onClick={runAnalysis}
+              disabled={!canAnalyze}
+              style={{
+                marginTop: 16,
+                width: "100%",
+                padding: "16px 16px",
+                borderRadius: 999,
+                border: "none",
+                background: canAnalyze ? COLORS.ink : "#AAB2BD",
+                color: "#fff",
+                fontSize: 16,
+                fontWeight: 700,
+                cursor: canAnalyze ? "pointer" : "not-allowed"
+              }}
+            >
+              {isAnalyzing ? "Analisando..." : "Analisar agora"}
+            </button>
+
+            <p style={{ marginTop: 12, color: COLORS.muted, fontSize: 12, lineHeight: 1.5 }}>
+              Transparência: a Clara não é advogada. �0 uma ferramenta de apoio para entender melhor e decidir com mais segurança.
+            </p>
+
+            {error && (
+              <div style={{
+                marginTop: 12,
+                padding: "12px 12px",
+                borderRadius: 12,
+                background: "#FFF1F0",
+                border: "1px solid #FFCCC7",
+                color: "#A8071A",
+                fontSize: 13,
+                lineHeight: 1.4
+              }}>
+                {error}
+              </div>
+            )}
+
+            {rawText && (
+              <div style={{ marginTop: 14, fontSize: 12, color: COLORS.muted }}>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Trecho extraído (prévia)</div>
+                <div style={{
+                  padding: 10,
+                  borderRadius: 12,
+                  border: "1px solid #EEF0F3",
+                  background: "#FBFBFC",
+                  maxHeight: 140,
+                  overflow: "auto",
+                  whiteSpace: "pre-wrap"
+                }}>
+                  {clampText(rawText, 900)}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT */}
+          <div id="clara-results" style={{ display: "grid", gap: 18 }}>
+            <div style={{ border: "1px solid #E6E8EC", borderRadius: 20, padding: 18 }}>
+              <h3 style={{ margin: 0, fontSize: 18 }}>Resumo</h3>
+              <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>
+                {summary || 'Envie 1 ou mais contratos e clique em �SAnalisar agora⬝.'}
+              </p>
+              {!!findings.length && (
+                <div style={{ marginTop: 10, fontSize: 12, color: COLORS.muted }}>
+                  Nível geral: <b>{riskLabel}</b> ⬢ Pontos: <b>{totalPoints}</b>
+                </div>
+              )}
+            </div>
+
+            <div style={{ border: "1px solid #E6E8EC", borderRadius: 20, padding: 18 }}>
+              <h3 style={{ margin: 0, fontSize: 18 }}>Pontos de atenção</h3>
+              {!findings.length ? (
+                <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>
+                  Quando a análise terminar, você verá aqui os pontos mais importantes.
+                </p>
+              ) : (
+                <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                  {findings.slice(0, 8).map((f, idx) => (
+                    <div key={idx} style={{
+                      padding: 12,
+                      borderRadius: 14,
+                      border: "1px solid #EEF0F3",
+                      background: "#FBFBFC"
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                        <div style={{ fontWeight: 800 }}>{f.title}</div>
+                        <div style={{
+                          fontSize: 12,
+                          padding: "4px 10px",
+                          borderRadius: 999,
+                          background:
+                            f.severity === "high" ? "#FFF1F0" :
+                            f.severity === "attention" ? "#FFFBE6" : "#F6FFED",
+                          border:
+                            f.severity === "high" ? "1px solid #FFCCC7" :
+                            f.severity === "attention" ? "1px solid #FFE58F" : "1px solid #B7EB8F",
+                          color:
+                            f.severity === "high" ? "#A8071A" :
+                            f.severity === "attention" ? "#614700" : "#135200",
+                          fontWeight: 800
+                        }}>
+                          {f.severity === "high" ? "alto" : f.severity === "attention" ? "atenção" : "ok"}
+                        </div>
+                      </div>
+                      <div style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.5 }}>
+                        <b>Por que importa:</b> {f.whyItMatters}
+                      </div>
+                      <div style={{ marginTop: 6, color: COLORS.text, lineHeight: 1.5 }}>
+                        <b>O que fazer:</b> {f.whatToDo}
+                      </div>
+                      {f.legalHint && (
+                        <div style={{ marginTop: 6, color: COLORS.muted, fontSize: 12, lineHeight: 1.4 }}>
+                          Dica: {f.legalHint}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ border: "1px solid #E6E8EC", borderRadius: 20, padding: 18 }}>
+              <h3 style={{ margin: 0, fontSize: 18 }}>E-mail pronto</h3>
+              <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>
+                Abra com assunto e corpo preenchidos, ou copie o texto.
+              </p>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                <button
+                  onClick={openEmail}
+                  disabled={!emailDraft}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 999,
+                    border: "none",
+                    background: emailDraft ? "#9AA0A6" : "#E6E8EC",
+                    color: emailDraft ? "#fff" : "#9AA0A6",
+                    fontWeight: 800,
+                    cursor: emailDraft ? "pointer" : "not-allowed"
+                  }}
+                >
+                  Abrir e-mail
+                </button>
+
+                <button
+                  onClick={copyEmail}
+                  disabled={!emailDraft}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 999,
+                    border: "1px solid #E6E8EC",
+                    background: "#fff",
+                    color: emailDraft ? COLORS.ink : "#9AA0A6",
+                    fontWeight: 800,
+                    cursor: emailDraft ? "pointer" : "not-allowed"
+                  }}
+                >
+                  Copiar e-mail
+                </button>
+              </div>
+
+              {emailDraft && (
+                <div style={{
+                  marginTop: 12,
+                  padding: 12,
+                  borderRadius: 14,
+                  border: "1px solid #EEF0F3",
+                  background: "#FBFBFC",
+                  whiteSpace: "pre-wrap",
+                  fontSize: 13,
+                  color: COLORS.text,
+                  lineHeight: 1.5
+                }}>
+                  <b>Assunto:</b> {emailDraft.subject}
+                  {"\n\n"}
+                  {emailDraft.body}
+                </div>
+              )}
+            </div>
+
+            {/* LEAD GATE (após análise) */}
+            {showLead && (
+              <div style={{ border: "1px solid #E6E8EC", borderRadius: 20, padding: 18 }}>
+                <h3 style={{ margin: 0, fontSize: 18 }}>Para finalizar</h3>
+                <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>
+                  Preencha seus dados para salvar o resultado e melhorar as recomendações.
+                </p>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 700 }}>Nome</div>
+                    <input value={leadName} onChange={(e) => setLeadName(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid #E6E8EC" }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 700 }}>Telefone</div>
+                    <input value={leadPhone} onChange={(e) => setLeadPhone(e.target.value)} placeholder="(11) 99999-9999" style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid #E6E8EC" }} />
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 700 }}>E-mail</div>
+                    <input value={leadEmail} onChange={(e) => setLeadEmail(e.target.value)} placeholder="voce@email.com" style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid #E6E8EC" }} />
+                  </div>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 700 }}>Qual é sua posição no contrato?</div>
+                    <select value={leadRole} onChange={(e) => setLeadRole(e.target.value)} style={{ width: "100%", marginTop: 6, padding: "10px 12px", borderRadius: 12, border: "1px solid #E6E8EC" }}>
+                      <option>Sou a parte que vai assinar</option>
+                      <option>Sou a outra parte / recebi este contrato</option>
+                      <option>Sou fiador(a) / garantidor(a)</option>
+                      <option>Sou representante legal</option>
+                      <option>Estou ajudando alguém a avaliar</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 12, fontSize: 12, color: COLORS.muted }}>
+                  OK � seus dados ficam só para contato e melhoria da análise.
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
+

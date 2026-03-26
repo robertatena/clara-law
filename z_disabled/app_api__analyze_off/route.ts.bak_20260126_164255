@@ -1,0 +1,17 @@
+﻿import { NextResponse } from "next/server";
+import { analyzeContract, Role } from "@/lib/clara/analyzer";
+
+type Body = { text: string; role: Role };
+
+export async function POST(req: Request) {
+  const body = (await req.json()) as Partial<Body>;
+  const text = (body.text ?? "").toString();
+  const role = body.role as Role;
+
+  if (!text.trim()) return NextResponse.json({ error: "missing_text" }, { status: 400 });
+  if (!role || !["Contratante", "Contratado", "Consumidor (PF)"].includes(role))
+    return NextResponse.json({ error: "invalid_role" }, { status: 400 });
+
+  const result = analyzeContract({ text, role });
+  return NextResponse.json(result);
+}

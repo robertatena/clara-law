@@ -1,0 +1,42 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+function isProtectedPath(pathname: string) {
+  // Ajuste aqui se necessário
+  const protectedPrefixes = [
+    "/dashboard",
+    "/analisar",
+    "/api/analyze",
+    "/dashboard/contratos/novo",
+  ];
+  return protectedPrefixes.some((p) => pathname.startsWith(p));
+}
+
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  if (!isProtectedPath(pathname)) return NextResponse.next();
+
+  // cookie simples (protótipo)
+  const claraSession = req.cookies.get("clara_session")?.value;
+
+  // se no futuro usar NextAuth, pode considerar também:
+  const nextAuthSession =
+    req.cookies.get("next-auth.session-token")?.value ||
+    req.cookies.get("__Secure-next-auth.session-token")?.value;
+
+  const hasSession = Boolean(claraSession || nextAuthSession);
+
+  if (!hasSession) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/dashboard/:path*", "/analisar/:path*", "/api/analyze"],
+};

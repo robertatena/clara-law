@@ -1,0 +1,15 @@
+﻿import { NextResponse } from "next/server";
+import { saveUser } from "@/lib/data/users";
+
+export async function POST(req: Request) {
+  const body = await req.json();
+  if (!body?.email) {
+    return NextResponse.json({ error: "E-mail obrigatório" }, { status: 400 });
+  }
+
+  saveUser({ name: body.name, email: body.email });
+
+  const res = NextResponse.json({ ok: true });
+  res.cookies.set("session", "true", { path: "/", httpOnly: false });
+  return res;
+}

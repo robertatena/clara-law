@@ -1,0 +1,15 @@
+export default function ProdutoPage() {
+  return (
+    <div className="clara-hero-bg min-h-screen">
+      <div className="mx-auto max-w-4xl px-6 py-12">
+        <div className="clara-card p-8">
+          <div className="clara-chip-gold mb-2">Clara Law</div>
+          <h1 className="clara-section-title">Produto</h1>
+          <p className="clara-subtle">
+            Assistente jurídica inteligente para contratos, custos e educação financeira.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

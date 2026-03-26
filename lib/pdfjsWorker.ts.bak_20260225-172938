@@ -1,0 +1,20 @@
+﻿"use client";
+
+/**
+ * Fix obrigatório do pdfjs (pdfjs-dist) para rodar no Next:
+ * evita: "No GlobalWorkerOptions.workerSrc specified."
+ */
+import * as pdfjsLib from "pdfjs-dist";
+// @ts-ignore - Next/Turbopack resolve ?url para retornar URL do asset
+import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+
+try {
+  // @ts-ignore
+  if (pdfjsLib?.GlobalWorkerOptions) {
+    // @ts-ignore
+    pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc as unknown as string;
+  }
+} catch (e) {
+  // silêncio: a página não deve quebrar só por isso
+  console.warn("pdfjs worker init failed:", e);
+}

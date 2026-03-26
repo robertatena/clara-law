@@ -1,0 +1,9 @@
+﻿# gerados
+node_modules
+.next
+dist
+build
+
+# backups
+_backup_*
+**/_backup_*

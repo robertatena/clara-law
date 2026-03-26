@@ -1,0 +1,14 @@
+﻿"use client";
+import { extractPdfTextClient } from "@/lib/pdfClient";
+import React from 'react';
+import EnviarClient from './EnviarClient';
+
+export default function Page() {
+  return <EnviarClient />;
+}
+
+
+
+async function extractPdfText(file: File): Promise<string> {
+  return extractPdfTextClient(file);
+}

@@ -1,0 +1,53 @@
+﻿type AnalysisResultProps = {
+  hasText: boolean;
+  summary?: string;
+  attentionPoints: string[];
+};
+
+export function AnalysisResult({
+  hasText,
+  summary,
+  attentionPoints,
+}: AnalysisResultProps) {
+  return (
+    <section className="mt-10 space-y-6">
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">Resumo</h2>
+            <p className="mt-3 text-neutral-700 leading-relaxed">
+              {hasText
+                ? summary
+                : "Este documento parece estar em formato de imagem ou sem texto pesquisável. Para uma análise completa, envie uma versão pesquisável (OCR) ou cole o texto. Ainda assim, a Clara organizou os pontos que normalmente merecem atenção antes da assinatura."}
+            </p>
+          </div>
+          <div className="shrink-0 rounded-full border px-3 py-1 text-xs text-neutral-600">
+            {hasText ? "LEITURA OK" : "LEITURA PARCIAL"}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold">Pontos de atenção</h2>
+        <ul className="mt-4 space-y-3">
+          {attentionPoints.map((point, idx) => (
+            <li key={idx} className="flex gap-3 rounded-xl bg-neutral-50 p-4">
+              <span className="mt-2 h-2 w-2 rounded-full bg-neutral-400" />
+              <span className="text-neutral-800 leading-relaxed">{point}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold">Próximos passos sugeridos</h2>
+        <ul className="mt-4 list-disc space-y-2 pl-6 text-neutral-700 leading-relaxed">
+          <li>Confirme prazo, renovação automática e condições de rescisão (multa, aviso prévio e janelas).</li>
+          <li>Revise reajustes (índice + periodicidade) e eventuais custos adicionais (taxas, encargos, serviços).</li>
+          <li>Cheque responsabilidades e garantias (inclusive obrigações pós-encerramento).</li>
+          <li>Se houver dados pessoais, valide finalidade, base legal, retenção e compartilhamento (LGPD).</li>
+        </ul>
+      </div>
+    </section>
+  );
+}

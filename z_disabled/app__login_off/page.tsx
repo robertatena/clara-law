@@ -1,0 +1,91 @@
+�"use client";
+import React, { useMemo, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+function LoginInner() {
+  const router = useRouter();
+  const sp = useSearchParams();
+  const next = useMemo(() => sp.get("next") || "/dashboard/contratos/novo", [sp]);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const r = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data?.ok) {
+        setError(data?.error || "Não foi possível entrar.");
+        setLoading(false);
+        return;
+      }
+      // cookie já foi setado pelo /api/login �?' middleware vai liberar /dashboard
+      router.replace(next);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erro inesperado.");
+      setLoading(false);
+    }
+  }
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="w-full max-w-md rounded-2xl border bg-white p-6 shadow-sm">
+        <h1 className="text-2xl font-semibold">Entrar na Clara</h1>
+        <p className="mt-1 text-sm opacity-70">
+          Use seu e-mail para salvar histórico de análises neste dispositivo.
+        </p>
+        <form className="mt-6 space-y-4" onSubmit={onSubmit}>
+          <div>
+            <label className="text-sm font-medium">Nome (opcional)</label>
+            <input
+              className="mt-1 w-full rounded-xl border px-3 py-2 outline-none focus:ring"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Seu nome"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">E-mail</label>
+            <input
+              className="mt-1 w-full rounded-xl border px-3 py-2 outline-none focus:ring"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="voce@exemplo.com"
+              required
+              type="email"
+            />
+          </div>
+          {error ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          ) : null}
+          <button
+            type="submit"
+            className="w-full rounded-full bg-black px-4 py-2 text-white disabled:opacity-60"
+            disabled={loading}
+          >
+            {loading ? "Entrando..." : "Entrar"}
+          </button>
+          <p className="text-xs opacity-60">
+            Login leve para protótipo. Depois dá para plugar Auth/Google.
+          </p>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
+  );
+}
+

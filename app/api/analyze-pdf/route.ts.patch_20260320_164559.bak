@@ -1,0 +1,21 @@
+﻿import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    const form = await req.formData().catch(() => null);
+    const text = String(form?.get("text") || "").trim();
+
+    return NextResponse.json({
+      ok: true,
+      text,
+      findings: [],
+      message: "Rota provisória ativa. A análise avançada de PDF será plugada depois."
+    });
+  } catch (error) {
+    console.error("analyze_pdf_route_error", error);
+    return NextResponse.json(
+      { ok: false, error: "analyze_pdf_route_error" },
+      { status: 500 }
+    );
+  }
+}

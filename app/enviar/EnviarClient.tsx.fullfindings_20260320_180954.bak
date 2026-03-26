@@ -1,0 +1,1395 @@
+﻿"use client";
+
+import React, { useMemo, useState, useRef } from "react";
+import ConsumerHelp from "./ConsumerHelp";
+import BillingPanel from "./BillingPanel";
+import ComplaintBox from "./ComplaintBox";
+import { extractPdfTextClient } from "@/lib/pdfClient";
+import type { FindingLite } from "@/lib/complaints";
+type Severity = "ok" | "attention" | "high";
+type Finding = {
+  title: string;
+  whyItMatters: string;
+  whatToDo: string;
+  legalHint?: string;
+  severity: Severity;
+  points: 0 | 5 | 10;
+};
+
+type SectorKey = "aluguel" | "uniao_estavel" | "emprestimo" | "servicos" | "generico";
+
+const SECTORS: { key: SectorKey; label: string; hint: string }[] = [
+  { key: "aluguel", label: "Aluguel / Locação", hint: "Foco em garantias, reajuste, multa, responsabilidades e vistoria." },
+  { key: "uniao_estavel", label: "União estável / Família", hint: "Foco em regime de bens, partilha, patrimônio e deveres." },
+  { key: "emprestimo", label: "Empréstimo / Crédito", hint: "Foco em juros, CET, atraso, garantias, vencimento antecipado." },
+  { key: "servicos", label: "Prestação de serviços", hint: "Foco em escopo, prazo, entregáveis, SLA, rescisão e multas." },
+  { key: "generico", label: "Outro / Não sei", hint: "A Clara tenta identificar o tipo automaticamente." },
+];
+
+const COLORS = {
+  ink: "#0A2540",
+  text: "#425466",
+  muted: "#6B7C93",
+  line: "#E6E8EC",
+  soft: "#F7F8FA",
+  soft2: "#FBFBFC",
+};
+
+
+function safeText(v: unknown, fallback = ""): string {
+  return typeof v === "string" ? v : fallback;
+}
+function clampText(s: string, max = 1200) {
+  if (!s) return "";
+  const t = s.replace(/\s+/g, " ").trim();
+  return t.length > max ? t.slice(0, max) + "..." : t;
+}
+
+function guessSector(fullText: string): SectorKey {
+  const t = (fullText || "").toLowerCase();
+  if (/(uni[aã]o est[aá]vel|conviv[eê]ncia|companheir|regime de bens|partilha|pacto antenupcial)/i.test(t)) return "uniao_estavel";
+  if (/(loca[cç][aã]o|locador|locat[aá]ri|aluguel|fiador|cau[cç][aã]o|im[oó]vel|vistoria)/i.test(t)) return "aluguel";
+  if (/(empr[eé]stimo|financiamento|c[eé]dula|juros|cet|custo efetivo total|parcelas|inadimpl[eê]ncia|multa morat[oó]ria)/i.test(t)) return "emprestimo";
+  if (/(presta[cç][aã]o de servi[cç]os|contratante|contratad|escopo|sla|prazo|entreg[aá]veis|rescis[aã]o)/i.test(t)) return "servicos";
+  return "generico";
+}
+
+function analyzeBySector(
+  fullText: string,
+  sector: SectorKey,
+  role: string,
+  companyName: string = ""
+): { summary: string; findings: Finding[]; email: { subject: string; body: string } } {
+  const text = fullText || "";
+  const t = text.toLowerCase();
+  const sectorLabel = SECTORS.find((s) => s.key === sector)?.label || "Contrato";
+  const findings: Finding[] = [];
+
+  const add = (f: Finding) => {
+    const exists = findings.some((x) => x.title === f.title);
+    if (!exists) findings.push(f);
+  };
+
+  const has = (re: RegExp) => re.test(t);
+
+  // Regras gerais — valem para praticamente qualquer contrato
+  if (has(/alterar unilateralmente|altera[cç][aã]o unilateral|a exclusivo crit[eé]rio|sem anu[eê]ncia/i)) {
+    add({
+      title: "A outra parte pode mudar regras sozinha",
+      whyItMatters: "Isso pode deixar você em desvantagem sem chance real de concordar ou negociar.",
+      whatToDo: "Peça que qualquer mudança importante dependa de aviso claro e concordância das partes.",
+      legalHint: "Procure expressões como alterar unilateralmente, a exclusivo critério, sem anuência.",
+      severity: "high",
+      points: 10,
+    });
+  }
+
+  if (has(/reajustados unilateralmente|cobrados retroativamente|cobran[cç]a retroativa|reajuste unilateral/i)) {
+    add({
+      title: "Pode haver cobrança retroativa ou reajuste inesperado",
+      whyItMatters: "Você pode ser surpreendido com valores que não esperava pagar.",
+      whatToDo: "Peça critérios objetivos de reajuste e proibição de cobrança retroativa sem concordância.",
+      legalHint: "Busque reajuste unilateral, cobrança retroativa, valores poderão ser reajustados.",
+      severity: "high",
+      points: 10,
+    });
+  }
+
+  if (has(/ren[uú]ncia de direitos|renuncia a direitos|abre m[aã]o de direitos/i)) {
+    add({
+      title: "Há cláusula de renúncia de direitos",
+      whyItMatters: "Você não deveria ser obrigado a abrir mão de proteções básicas.",
+      whatToDo: "Peça a retirada da cláusula ou uma redação que preserve seus direitos legais.",
+      legalHint: "Busque renúncia de direitos, abre mão, renuncia expressamente.",
+      severity: "high",
+      points: 10,
+    });
+  }
+
+  if (has(/n[aã]o buscar assist[eê]ncia jur[ií]dica|n[aã]o buscar advogado|n[aã]o poder[aá] ajuizar|n[aã]o questionar judicialmente/i)) {
+    add({
+      title: "O contrato tenta limitar sua defesa jurídica",
+      whyItMatters: "Ninguém deve ser impedido de buscar orientação jurídica ou contestar abusos.",
+      whatToDo: "Peça remoção imediata dessa cláusula.",
+      legalHint: "Busque assistência jurídica, não ajuizar, não questionar judicialmente.",
+      severity: "high",
+      points: 10,
+    });
+  }
+
+  if (has(/qualquer conflito ser[aá] decidido exclusivamente|decidido exclusivamente pela parte a|decis[aã]o exclusiva/i)) {
+    add({
+      title: "Uma parte concentra todo o poder de decisão",
+      whyItMatters: "Isso rompe o equilíbrio mínimo que um contrato deveria ter.",
+      whatToDo: "Peça critério objetivo, mediação ou decisão conjunta entre as partes.",
+      legalHint: "Busque decidido exclusivamente, decisão exclusiva, conflito será decidido.",
+      severity: "high",
+      points: 10,
+    });
+  }
+
+  if (has(/acessar livremente contas banc[aá]rias|acessar .* comunica[cç][õo]es|mensagens|e-mails|privacidade/i)) {
+    add({
+      title: "Há risco para sua privacidade",
+      whyItMatters: "O contrato não deveria autorizar acesso amplo à sua vida financeira ou comunicações privadas.",
+      whatToDo: "Peça retirada dessa autorização ou limite claro e específico.",
+      legalHint: "Busque acessar contas, comunicações, mensagens, privacidade.",
+      severity: "high",
+      points: 10,
+    });
+  }
+
+  if (has(/n[aã]o poder[aá] trabalhar|sem autoriza[cç][aã]o da parte a|atividade remunerada sem autoriza[cç][aã]o/i)) {
+    add({
+      title: "Há restrição indevida à sua autonomia profissional",
+      whyItMatters: "Uma cláusula assim pode limitar sua independência e sua renda.",
+      whatToDo: "Peça remoção completa dessa restrição.",
+      legalHint: "Busque não poderá trabalhar, sem autorização, atividade remunerada.",
+      severity: "high",
+      points: 10,
+    });
+  }
+
+  if (has(/assumir todas as d[ií]vidas|todas as d[ií]vidas contra[ií]das pela outra parte|responder por qualquer d[ií]vida/i)) {
+    add({
+      title: "Você pode estar assumindo dívidas que não são suas",
+      whyItMatters: "Isso pode transferir para você um risco financeiro muito alto.",
+      whatToDo: "Peça limite claro de responsabilidade e exclusão de dívidas feitas pela outra parte sem sua concordância.",
+      legalHint: "Busque assumir todas as dívidas, responder por qualquer dívida.",
+      severity: "high",
+      points: 10,
+    });
+  }
+
+  if (has(/confiss[aã]o de d[ií]vida|l[ií]quida e exig[ií]vel|reconhece desde j[aá] a d[ií]vida/i)) {
+    add({
+      title: "Há cláusula de confissão automática de dívida",
+      whyItMatters: "Isso pode dificultar sua defesa se houver cobrança indevida ou valor discutível.",
+      whatToDo: "Peça remoção dessa previsão ou limite claro para quando ela se aplica.",
+      legalHint: "Busque confissão de dívida, líquida e exigível, reconhecimento automático.",
+      severity: "high",
+      points: 10,
+    });
+  }
+
+  if (has(/n[aã]o se responsabiliza|isenta de responsabilidade|sem responsabilidade|n[aã]o responde por/i)) {
+    add({
+      title: "A outra parte tenta se isentar demais de responsabilidade",
+      whyItMatters: "O contrato não deveria concentrar todo o risco em um lado só.",
+      whatToDo: "Peça uma redação mais equilibrada, com responsabilidades proporcionais.",
+      legalHint: "Busque isenta de responsabilidade, não responde, não se responsabiliza.",
+      severity: "high",
+      points: 10,
+    });
+  }
+
+  if (has(/foro|elei[cç][aã]o de foro/i)) {
+    add({
+      title: "Vale revisar o foro escolhido",
+      whyItMatters: "Dependendo do local definido, pode ficar mais difícil e caro se defender.",
+      whatToDo: "Confirme se o foro faz sentido para você e peça ajuste se criar desvantagem excessiva.",
+      legalHint: "Busque foro, eleição de foro, comarca competente.",
+      severity: "attention",
+      points: 5,
+    });
+  }
+
+  if (has(/multa\s*(?:de)?\s*\d{2,}%|multa\s*e\s*juros|juros\s*morat[oó]rios/i)) {
+    add({
+      title: "Multa ou juros podem estar pesados",
+      whyItMatters: "Encargos altos aumentam muito o custo em caso de atraso.",
+      whatToDo: "Confirme percentuais, base de cálculo e teto. Negocie clareza e redução.",
+      legalHint: "Busque multa, juros moratórios, correção e encargos.",
+      severity: "attention",
+      points: 5,
+    });
+  }
+
+  if (has(/vencimento antecipado|acelera[cç][aã]o|antecipadamente/i)) {
+    add({
+      title: "A dívida pode vencer inteira antes do esperado",
+      whyItMatters: "Um pequeno problema pode fazer tudo vencer de uma vez.",
+      whatToDo: "Peça limite de gatilhos e prazo para regularização antes do vencimento total.",
+      legalHint: "Procure termos como vencimento antecipado, aceleração, default.",
+      severity: "high",
+      points: 10,
+    });
+  }
+
+  // União estável / família
+  if (sector === "uniao_estavel") {
+    if (has(/controle total sobre todos os rendimentos|controle total sobre rendimentos|todos os rendimentos da parte b/i)) {
+      add({
+        title: "Uma parte controla totalmente a renda da outra",
+        whyItMatters: "Isso pode gerar dependência financeira e desequilíbrio na relação.",
+        whatToDo: "Peça autonomia patrimonial mínima e regras claras de administração conjunta.",
+        legalHint: "Busque controle total sobre rendimentos, administração exclusiva.",
+        severity: "high",
+        points: 10,
+      });
+    }
+
+    if (has(/renuncia previamente a qualquer direito a bens|renuncia.*bens adquiridos durante a rela[cç][aã]o/i)) {
+      add({
+        title: "Há renúncia prévia a bens construídos durante a relação",
+        whyItMatters: "Isso pode prejudicar sua proteção patrimonial em caso de separação.",
+        whatToDo: "Peça revisão da cláusula e esclarecimento do regime de bens e da partilha.",
+        legalHint: "Busque renuncia a bens, bens adquiridos durante a relação, partilha.",
+        severity: "high",
+        points: 10,
+      });
+    }
+
+    if (has(/n[aã]o questionar decis[oõ]es financeiras|decis[oõ]es financeiras tomadas pela parte a/i)) {
+      add({
+        title: "Uma parte não pode questionar decisões financeiras da outra",
+        whyItMatters: "Isso retira sua possibilidade de participar de escolhas importantes.",
+        whatToDo: "Peça decisões financeiras relevantes por consenso ou critério objetivo.",
+        legalHint: "Busque não questionar decisões financeiras.",
+        severity: "high",
+        points: 10,
+      });
+    }
+
+    if (has(/n[aã]o ter[aá] direito a qualquer compensa[cç][aã]o financeira|sem qualquer compensa[cç][aã]o financeira/i)) {
+      add({
+        title: "Há exclusão total de compensação financeira na separação",
+        whyItMatters: "Isso pode ignorar contribuições materiais e imateriais feitas durante a relação.",
+        whatToDo: "Peça redação mais equilibrada e compatível com a realidade do casal.",
+        legalHint: "Busque compensação financeira, separação, sem direito.",
+        severity: "high",
+        points: 10,
+      });
+    }
+
+    if (has(/renuncia ao direito de solicitar pens[aã]o aliment[ií]cia|sem direito a pens[aã]o/i)) {
+      add({
+        title: "Há renúncia prévia à pensão alimentícia",
+        whyItMatters: "Essa previsão pode deixar uma parte desprotegida em situação de necessidade.",
+        whatToDo: "Peça retirada dessa cláusula ou avaliação caso a caso, sem renúncia absoluta.",
+        legalHint: "Busque pensão alimentícia, renúncia à pensão.",
+        severity: "high",
+        points: 10,
+      });
+    }
+
+    if (!has(/regime de bens|partilha|patrim[oô]nio/i)) {
+      add({
+        title: "O contrato deveria explicar melhor patrimônio e partilha",
+        whyItMatters: "Sem clareza, aumentam os conflitos sobre bens e responsabilidades.",
+        whatToDo: "Inclua regras claras sobre regime de bens, patrimônio comum e partilha.",
+        severity: "attention",
+        points: 5,
+      });
+    }
+  }
+
+  // Aluguel
+  if (sector === "aluguel") {
+    if (!has(/vistoria|laudo de vistoria/i)) {
+      add({
+        title: "Pode faltar vistoria clara do imóvel",
+        whyItMatters: "Sem vistoria, fica mais difícil discutir danos e devolução.",
+        whatToDo: "Peça laudo de vistoria de entrada e de saída, com fotos e descrição detalhada.",
+        severity: "attention",
+        points: 5,
+      });
+    }
+
+    if (!has(/reajuste|igp-m|ipca/i)) {
+      add({
+        title: "O reajuste do aluguel pode estar pouco claro",
+        whyItMatters: "Falta de critério pode gerar aumento inesperado.",
+        whatToDo: "Peça índice e periodicidade de reajuste bem definidos.",
+        severity: "attention",
+        points: 5,
+      });
+    }
+
+    if (!has(/garantia|fiador|seguro fian[cç]a|cau[cç][aã]o/i)) {
+      add({
+        title: "A garantia locatícia deveria estar mais clara",
+        whyItMatters: "Isso evita surpresa sobre cobrança, devolução ou responsabilidade.",
+        whatToDo: "Peça detalhamento da garantia e das condições de devolução.",
+        severity: "attention",
+        points: 5,
+      });
+    }
+  }
+
+  // Empréstimo / crédito
+  if (sector === "emprestimo") {
+    if (!has(/cet|custo efetivo total/i)) {
+      add({
+        title: "O custo total do crédito pode não estar claro",
+        whyItMatters: "Sem isso, fica difícil entender quanto você realmente vai pagar.",
+        whatToDo: "Peça o CET e a composição completa dos encargos.",
+        severity: "high",
+        points: 10,
+      });
+    }
+
+    if (!has(/taxa de juros|juros remunerat[oó]rios|percentual/i)) {
+      add({
+        title: "A taxa de juros deveria estar mais explícita",
+        whyItMatters: "Você precisa saber claramente o percentual aplicado.",
+        whatToDo: "Peça taxa mensal, anual e forma de cálculo de maneira objetiva.",
+        severity: "attention",
+        points: 5,
+      });
+    }
+  }
+
+  // Prestação de serviços
+  if (sector === "servicos") {
+    if (!has(/escopo|entreg[aá]veis|cronograma|prazo/i)) {
+      add({
+        title: "Escopo e entregáveis podem estar vagos",
+        whyItMatters: "Isso é uma das maiores fontes de conflito em prestação de serviços.",
+        whatToDo: "Peça escopo, entregáveis, prazos e critérios de aceite bem definidos.",
+        severity: "high",
+        points: 10,
+      });
+    }
+
+    if (!has(/propriedade intelectual|direitos autorais|licen[cç]a/i)) {
+      add({
+        title: "A parte de propriedade intelectual pode estar pouco clara",
+        whyItMatters: "Isso define quem fica com código, arte, material e licença de uso.",
+        whatToDo: "Peça clareza sobre titularidade, licença, cessão e uso após rescisão.",
+        severity: "attention",
+        points: 5,
+      });
+    }
+  }
+
+  // Genérico
+  if (sector === "generico") {
+    if (!has(/prazo|vig[eê]ncia|rescis[aã]o/i)) {
+      add({
+        title: "Prazo e saída do contrato podem estar pouco claros",
+        whyItMatters: "Você precisa saber até quando o contrato vale e como pode encerrar.",
+        whatToDo: "Peça prazo, renovação e regras de rescisão bem definidas.",
+        severity: "attention",
+        points: 5,
+      });
+    }
+  }
+
+  if (text.length < 400) {
+    add({
+      title: "O texto extraído parece curto",
+      whyItMatters: "Se o PDF tiver pouco texto, a análise pode ficar limitada.",
+      whatToDo: "Se for um arquivo escaneado, tente enviar um PDF pesquisável (OCR).",
+      severity: "attention",
+      points: 5,
+    });
+  }
+
+  const score = (s: Severity) => (s === "high" ? 2 : s === "attention" ? 1 : 0);
+  findings.sort((a, b) => {
+    const sev = score(b.severity) - score(a.severity);
+    if (sev !== 0) return sev;
+    return b.points - a.points;
+  });
+
+  const mainPoints = findings.slice(0, 6).map((f) => "- " + f.title);
+  const summary = findings.length
+    ? [
+        "Leitura considerando o tipo de contrato (" + sectorLabel + "). Principais pontos:",
+        ...mainPoints
+      ].join("\n")
+    : "A Clara não encontrou sinais evidentes de risco no trecho lido, mas ainda vale revisar o contrato completo com calma.";
+
+  const subject = "Revisão do contrato — " + (findings[0]?.title || "pontos de atenção");
+
+  const body = [
+    "Olá, " + (companyName || "[NOME DA EMPRESA]") + ".",
+    "Analisei este contrato de " + sectorLabel + " e gostaria de pedir esclarecimentos e ajustes antes de seguir.",
+    "Resumo:",
+    summary.replace(/\n/g, " "),
+    "Pontos que merecem revisão:",
+    (findings.slice(0, 5).map((f) => "- " + f.title + ": " + f.whatToDo).join("\n") || "- Gostaria de revisar os pontos principais do contrato."),
+    "Minha posição no contrato:",
+    role || "não informado",
+    "Peço, por favor, uma resposta por escrito com a versão revisada ou os devidos esclarecimentos.",
+    "Obrigada."
+  ].join("\n\n");
+
+  return { summary, findings, email: { subject, body } };
+}
+
+function buildComplaintText(opts: {
+  companyName: string;
+  sectorLabel: string;
+  role: string;
+  summary: string;
+  findings: Finding[];
+}) {
+  const { companyName, sectorLabel, role, summary, findings } = opts;
+  const picks = findings.slice(0, 6);
+  const bullets = picks.length
+    ? picks.map((f) => "- " + f.title + ": " + f.whatToDo).join("\n")
+    : "- Solicito esclarecimentos e ajustes para evitar dúvidas e riscos.";
+
+  return [
+    "Olá, " + (companyName || "[NOME DA EMPRESA]") + ".",
+    "Tenho um problema relacionado a um contrato (" + sectorLabel + "). Minha posição: " + (role || "[MINHA POSIÇÃO]") + ".",
+    "Resumo (em linguagem simples):",
+    (summary || "").replace(/\n/g, " ").trim(),
+    "O que eu peço objetivamente:",
+    bullets,
+    "Prazo sugerido:",
+    "- Retorno em até 5 dias úteis, com proposta de solução e confirmação por escrito.",
+    "Obrigada."
+  ].join("\n\n");
+}
+export default function EnviarClient() {
+  const [unlocked, setUnlocked] = useState(false);
+  // Wizard
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+
+  // Inputs
+  const [files, setFiles] = useState<File[]>([]);
+  const [sector, setSector] = useState<SectorKey>("generico");
+
+  const [leadName, setLeadName] = useState("");
+const [leadEmail, setLeadEmail] = useState("");
+  const [leadRole, setLeadRole] = useState(""); // obrigatório
+  const [companyName, setCompanyName] = useState("");
+
+  const nameRef = useRef<HTMLInputElement | null>(null);
+  const emailRef = useRef<HTMLInputElement | null>(null);
+  const roleRef = useRef<HTMLSelectElement | null>(null);
+// Result
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [rawText, setRawText] = useState<string>("");
+  const [summary, setSummary] = useState<string>("");
+  const [findings, setFindings] = useState<Finding[]>([]);
+  const [emailDraft, setEmailDraft] = useState<{ subject: string; body: string } | null>(null);
+
+  // Billing (placeholder — você pode integrar Stripe depois)
+  const [billingFreeLeft] = useState<number>(2);
+  const [billingCredits] = useState<number>(0);
+  
+
+  // Mostra a etapa "Créditos" só quando os grátis acabarem
+  // Ajuste se quiser: ex. (billingFreeLeft <= 0) ou (billingFreeLeft <= 0 && billingCredits <= 0)
+  const shouldShowCreditsStep = (billingFreeLeft <= 0 && billingCredits <= 0);const [buyPack, setBuyPack] = useState<"1" | "5" | "10">("1");
+
+  // Complaint selection (para montar texto)
+  const [selectedFindings, setSelectedFindings] = useState<FindingLite[]>([]);
+  function toggleFindingForComplaint(f: FindingLite) {
+    setSelectedFindings((prev) => {
+      const key = (f.title || "").trim();
+      if (!key) return prev;
+      const exists = prev.some((x) => (x.title || "").trim() === key);
+      if (exists) return prev.filter((x) => (x.title || "").trim() !== key);
+      return [...prev, { title: f.title, whyItMatters: f.whyItMatters, whatToDo: unlocked ? f.whatToDo : '🔒 Desbloqueie para ver como se proteger' }];
+    });
+  }
+  function clearComplaintSelection() {
+    setSelectedFindings([]);
+    setUnlocked(false);
+  }
+
+  const sectorLabel = useMemo(() => SECTORS.find((s) => s.key === sector)?.label || "Contrato", [sector]);
+
+  const greeting = useMemo(() => {
+    const name = (leadName || "você").trim();
+    return "Olá, " + name + ". Vamos por etapas.";
+  }, [leadName]);
+
+  const canGoStep2 = files.length > 0;
+  const canGoStep3 = true;
+  const canAnalyze = canGoStep2 && canGoStep3 && !isAnalyzing;
+  const freePreviewCount = 2;
+  const visibleFindings = unlocked ? findings : findings.slice(0, freePreviewCount);
+
+  const totalPoints = findings.reduce((acc, f) => acc + f.points, 0);
+  const riskLabel = totalPoints >= 30 ? "Atenção alta" : totalPoints >= 15 ? "Atenção moderada" : "Atenção baixa";
+  const hasResult = (summary || "").trim().length > 0 || findings.length > 0 || !!emailDraft;
+
+  async function runAnalysis() {
+    setError(null);
+    if (files.length === 0) return setError("Envie 1 ou mais PDFs para analisar.");
+    if (!(leadEmail || "").trim()) return setError("Informe seu e-mail para continuar.");
+    if (!(leadRole || "").trim()) return setError("Selecione sua posição no contrato para a análise ficar completa.");
+
+    setIsAnalyzing(true);
+    setSummary("");
+    setFindings([]);
+    setEmailDraft(null);
+    setRawText("");
+    setSelectedFindings([]);
+    setUnlocked(false);
+
+    try {
+      let txtAll = "";
+      for (const f of files) {
+        const t = await extractPdfTextClient(f);
+        if (t) txtAll += "\n\n===== " + f.name + " =====\n" + t;
+      }
+      txtAll = txtAll.trim();
+      setRawText(txtAll);
+
+      if (!txtAll) return setError("Nenhum PDF teve texto extraível. Se estiver escaneado, envie um PDF pesquisável (OCR).");
+
+      const finalSector = sector === "generico" ? guessSector(txtAll) : sector;
+      const result = analyzeBySector(txtAll, finalSector, leadRole, companyName || "");
+
+      setSummary(result.summary);
+      setFindings(result.findings);
+      setEmailDraft(result.email);
+
+      setStep(4);
+      setTimeout(() => {
+        const el = document.getElementById("clara-results");
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    } catch (e: any) {
+      setError(e?.message || "Falha ao analisar. Tente novamente.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
+
+  function openEmail() {
+    if (!emailDraft) return;
+    const to = encodeURIComponent(leadEmail || "");
+    const subject = encodeURIComponent(emailDraft.subject);
+    const body = encodeURIComponent(emailDraft.body);
+    window.location.href = "mailto:" + to + "?subject=" + subject + "&body=" + body;
+  }
+
+  async function copyEmail() {
+    if (!emailDraft) return;
+    const txt = "Assunto: " + emailDraft.subject + "\n\n" + emailDraft.body;
+    await navigator.clipboard.writeText(txt);
+    alert("E-mail copiado!");
+  }
+
+  const complaintText = useMemo(() => {
+  if (!hasResult) return "";
+  return buildComplaintText({
+    companyName: companyName || "",
+    sectorLabel,
+    role: leadRole,
+    summary,
+    findings,
+  });
+}, [hasResult, companyName, sectorLabel, leadRole, summary, findings]);
+  // UI helpers
+  const Card: React.FC<{ title: string; subtitle?: string; children: React.ReactNode }> = ({ title, subtitle, children }) => (
+    <div style={{ border: "1px solid " + COLORS.line, borderRadius: 20, padding: 18, background: "#fff" }}>
+      <h3 style={{ margin: 0, fontSize: 18 }}>{title}</h3>
+      {subtitle ? <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>{subtitle}</p> : null}
+      <div style={{ marginTop: 12 }}>{children}</div>
+    </div>
+);
+
+  const PrimaryBtn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ children, ...props }) => (
+    <button
+      {...props}
+      style={{
+        width: "100%",
+        padding: "14px 16px",
+        borderRadius: 999,
+        border: "none",
+        background: props.disabled ? "#AAB2BD" : COLORS.ink,
+        color: "#fff",
+        fontSize: 15,
+        fontWeight: 800,
+        cursor: props.disabled ? "not-allowed" : "pointer",
+        ...((props.style as any) || {}),
+      }}
+    >
+      {children}
+    </button>
+  );
+
+  const GhostBtn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ children, ...props }) => (
+    <button
+      {...props}
+      style={{
+        padding: "10px 14px",
+        borderRadius: 999,
+        border: "1px solid " + COLORS.line,
+        background: "#fff",
+        color: COLORS.ink,
+        fontWeight: 800,
+        cursor: props.disabled ? "not-allowed" : "pointer",
+        opacity: props.disabled ? 0.6 : 1,
+        ...((props.style as any) || {}),
+      }}
+    >
+      {children}
+    </button>
+  );
+
+  return (
+    <div style={{ background: "#fff", minHeight: "100vh", color: COLORS.ink }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px" }}>
+        {/* HEADER */}
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
+          <div>
+            <h1 style={{ fontSize: 40, margin: 0, fontWeight: 800 }}>Resultado da análise</h1>
+            <p style={{ marginTop: 10, color: COLORS.text }}>{greeting}</p>
+          </div>
+
+          <a
+            href="/"
+            style={{
+              padding: "10px 16px",
+              borderRadius: 999,
+              border: "1px solid " + COLORS.line,
+              color: COLORS.ink,
+              textDecoration: "none",
+              fontWeight: 700,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            Voltar para a Home
+          </a>
+        </div>
+
+        {/* STEPS */}
+        <div style={{ marginTop: 18, border: "1px solid " + COLORS.line, borderRadius: 20, padding: 14, background: COLORS.soft2 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: COLORS.muted }}>Etapas:</span>
+
+            <GhostBtn onClick={() => setStep(1)} style={{ padding: "8px 12px", background: step === 1 ? "#EEF2FF" : "#fff" }}>
+              1) Arquivo + tipo
+            </GhostBtn>
+            <GhostBtn disabled={!canGoStep2} onClick={() => setStep(2)} style={{ padding: "8px 12px", background: step === 2 ? "#EEF2FF" : "#fff" }}>
+              2) Seus dados
+            </GhostBtn>
+            <GhostBtn disabled={!(canGoStep2 && canGoStep3)} onClick={() => setStep(3)} style={{ padding: "8px 12px", background: step === 3 ? "#EEF2FF" : "#fff" }}>
+              {shouldShowCreditsStep ? "3) Créditos" : ""}
+            </GhostBtn>
+            <GhostBtn disabled={!hasResult} onClick={() => setStep(4)} style={{ padding: "8px 12px", background: step === 4 ? "#EEF2FF" : "#fff" }}>
+              4) Resultados
+            </GhostBtn>
+          </div>
+        </div>
+
+        {/* CONTENT */}
+        <div style={{ marginTop: 18, display: "grid", gap: 18 }}>
+          {/* STEP 1 */}
+          {step === 1 && (
+            <Card
+              title="1) Envie o PDF e selecione o tipo"
+              subtitle="Escolha 1 ou mais PDFs. Se estiver escaneado (imagem), pode não extrair texto."
+            >
+              <input
+                type="file"
+                accept="application/pdf"
+                multiple
+                onChange={(e) => {
+                  const arr = Array.from(e.target.files || []);
+                  setFiles(arr);
+                  setError(null);
+                }}
+                />
+              {files.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  {files.map((f) => (
+                    <div
+                      key={f.name}
+                      style={{
+                        marginTop: 8,
+                        padding: "10px 12px",
+                        borderRadius: 12,
+                        background: COLORS.soft,
+                        border: "1px solid #EEF0F3",
+                        fontSize: 13,
+                      }}
+                    >
+                      {f.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ marginTop: 14 }}>
+                <label style={{ fontSize: 13, color: COLORS.muted, fontWeight: 800 }}>Tipo de contrato</label>
+                <select
+                  value={sector}
+                  onChange={(e) => setSector(e.target.value as SectorKey)}
+                  style={{ width: "100%", marginTop: 6, padding: "10px 12px", borderRadius: 12, border: "1px solid " + COLORS.line }}
+                >
+                  {SECTORS.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                <div style={{ marginTop: 8, fontSize: 12, color: COLORS.muted, lineHeight: 1.4 }}>
+                  {SECTORS.find((s) => s.key === sector)?.hint}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                <PrimaryBtn disabled={!canGoStep2} onClick={() => setStep(2)}>
+                  Continuar
+                </PrimaryBtn>
+              </div>
+
+              {error && (
+                <div style={{ marginTop: 12, padding: "12px 12px", borderRadius: 12, background: "#FFF1F0", border: "1px solid #FFCCC7", color: "#A8071A", fontSize: 13, lineHeight: 1.4 }}>
+                  {error}
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* STEP 2 */}
+          {step === 2 && (
+            <Card
+              title="2) Seus dados para receber a análise"
+              subtitle="Preencha só o essencial. Depois você recebe os pontos de atenção em linguagem simples."
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 800 }}>Nome</div>
+                  <input defaultValue={leadName} ref={nameRef} style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid " + COLORS.line }} />
+                </div>
+<div style={{ gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 800 }}>E-mail (obrigatório)</div>
+                  <input
+                    defaultValue={leadEmail} ref={emailRef}
+                    placeholder="voce@email.com"
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid " + COLORS.line }}
+                    />
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 800 }}>Qual é sua posição no contrato? (obrigatório)</div>
+                  <select
+                    defaultValue={leadRole} ref={roleRef}
+                    style={{ width: "100%", marginTop: 6, padding: "10px 12px", borderRadius: 12, border: "1px solid " + COLORS.line }}
+                  >
+                    <option value="" disabled>
+                      Selecione...
+                    </option>
+                    <option value="Sou a parte que vai assinar">Sou a parte que vai assinar</option>
+                    <option value="Sou a outra parte / recebi este contrato">Sou a outra parte / recebi este contrato</option>
+                    <option value="Sou fiador(a) / garantidor(a)">Sou fiador(a) / garantidor(a)</option>
+                    <option value="Sou representante legal">Sou representante legal</option>
+                    <option value="Estou ajudando alguém a avaliar">Estou ajudando alguém a avaliar</option>
+                  </select>
+                </div>
+</div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                <GhostBtn onClick={() => setStep(1)}>Voltar</GhostBtn>
+                <PrimaryBtn
+                  disabled={false}
+                  onClick={() => {
+                    const nextName = nameRef.current?.value || "";
+                    const nextEmail = emailRef.current?.value || "";
+                    const nextRole = roleRef.current?.value || "";
+
+                    setLeadName(nextName);
+                    setLeadEmail(nextEmail);
+                    setLeadRole(nextRole);
+
+                    if (!nextEmail.trim() || !nextRole.trim()) {
+                      alert("Preencha seu e-mail e sua posição no contrato para continuar.");
+                      return;
+                    }
+
+                    setStep(3);
+                  }}
+                >
+                  Continuar
+                </PrimaryBtn>
+              </div>
+
+              {error && (
+                <div style={{ marginTop: 12, padding: "12px 12px", borderRadius: 12, background: "#FFF1F0", border: "1px solid #FFCCC7", color: "#A8071A", fontSize: 13, lineHeight: 1.4 }}>
+                  {error}
+                </div>
+              )}
+            </Card>
+          )}
+
+                    {/* STEP 3 */}
+          {step === 3 && (
+            <Card
+              title="3) Receber sua análise"
+              subtitle="Veja em linguagem simples o que merece atenção no contrato."
+            >
+              <div style={{ padding: 16, border: "1px solid " + COLORS.line, borderRadius: 16, background: COLORS.soft2 }}>
+                <div style={{ fontWeight: 800, marginBottom: 8 }}>Seus créditos</div>
+                <div style={{ color: COLORS.text, lineHeight: 1.7 }}>
+                  <div><b>Grátis restantes:</b> {billingFreeLeft}</div>
+                  <div><b>Créditos pagos:</b> {billingCredits}</div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                <GhostBtn onClick={() => setStep(2)}>Voltar</GhostBtn>
+                {(billingFreeLeft > 0 || billingCredits > 0) ? (
+                  <PrimaryBtn disabled={!canAnalyze || isAnalyzing} onClick={runAnalysis}>
+                    {isAnalyzing ? "Analisando..." : "Receber análise"}
+                  </PrimaryBtn>
+                ) : (
+                  <PrimaryBtn onClick={() => alert("Checkout entra aqui")}>
+                    Pagar R$ 5 para analisar
+                  </PrimaryBtn>
+                )}
+              </div>
+
+              <p style={{ marginTop: 12, color: COLORS.muted, fontSize: 12, lineHeight: 1.5 }}>
+                A Clara traduz o contrato em linguagem simples para ajudar você a entender os pontos de atenção antes de decidir.
+              </p>
+
+              {rawText && (
+                <div style={{ marginTop: 14, fontSize: 12, color: COLORS.muted }}>
+                  <div style={{ fontWeight: 800, marginBottom: 6 }}>Trecho extraído (prévia)</div>
+                  <div style={{ padding: 10, borderRadius: 12, border: "1px solid #EEF0F3", background: COLORS.soft2, maxHeight: 140, overflow: "auto", whiteSpace: "pre-wrap" }}>
+                    {clampText(rawText, 900)}
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div style={{ marginTop: 12, padding: "12px 12px", borderRadius: 12, background: "#FFF1F0", border: "1px solid #FFCCC7", color: "#A8071A", fontSize: 13, lineHeight: 1.4 }}>
+                  {error}
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* STEP 4 */}
+          {step === 4 && (
+            <div id="clara-results" style={{ display: "grid", gap: 18 }}>
+              <Card
+                title="Veja o que pode te prejudicar no contrato"
+                subtitle={hasResult ? "A Clara separou os pontos que podem trazer risco, custo extra ou dificuldade para você se defender. Leia abaixo com calma." : "Quando a análise terminar, os pontos de atenção aparecerão aqui."}
+              >
+                <div style={{ color: COLORS.text, lineHeight: 1.7, whiteSpace: "pre-line" }}>
+                  {hasResult ? summary : "—"}
+                </div>
+
+                {!!visibleFindings.length && (
+                  <div style={{ marginTop: 10, fontSize: 12, color: COLORS.muted }}>
+                    Nível de atenção deste contrato: <b>{riskLabel}</b> — Pontuação: <b>{totalPoints}</b>
+                  </div>
+                )}
+
+                {!!visibleFindings.length && (
+                  <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
+                    {visibleFindings.map((f, idx) => (
+                      <div key={idx} style={{ padding: 12, borderRadius: 14, border: "1px solid #EEF0F3", background: COLORS.soft2 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                          <div style={{ fontWeight: 900 }}>{f.title}</div>
+                          <button
+                            onClick={() =>
+                              toggleFindingForComplaint({ title: f.title, whyItMatters: f.whyItMatters, whatToDo: unlocked ? f.whatToDo : '🔒 Desbloqueie para ver como se proteger' })
+                            }
+                            style={{
+                              padding: "8px 12px",
+                              borderRadius: 999,
+                              border: "1px solid " + COLORS.line,
+                              background: "#fff",
+                              fontWeight: 800,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Adicionar à minha defesa
+                          </button>
+                        </div>
+                        <div style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.5 }}>
+                          <b>Por que isso pode te prejudicar:</b> {f.whyItMatters}
+                        </div>
+                        <div style={{ marginTop: 6, color: COLORS.text, lineHeight: 1.5 }}>
+                          <b>O que pedir ou ajustar:</b> {f.whatToDo}
+                        </div>
+                        {f.legalHint && (
+                          <div style={{ marginTop: 6, color: COLORS.muted, fontSize: 12, lineHeight: 1.4 }}>
+                            Dica: {f.legalHint}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                                <Card
+                title="Texto pronto para Procon / Consumidor.gov / Reclame Aqui"
+                subtitle="Já deixei um modelo pronto para copiar, colar e adaptar."
+              >
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+                  <a
+                    href="https://www.consumidor.gov.br/"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: 999,
+                      border: "1px solid " + COLORS.line,
+                      background: "#fff",
+                      color: COLORS.ink,
+                      textDecoration: "none",
+                      fontWeight: 800
+                    }}
+                  >
+                    Abrir Consumidor.gov.br
+                  </a>
+
+                  <a
+                    href="https://www.procon.sp.gov.br/"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: 999,
+                      border: "1px solid " + COLORS.line,
+                      background: "#fff",
+                      color: COLORS.ink,
+                      textDecoration: "none",
+                      fontWeight: 800
+                    }}
+                  >
+                    Abrir Procon SP
+                  </a>
+
+                  <a
+                    href="https://www.reclameaqui.com.br/"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: 999,
+                      border: "1px solid " + COLORS.line,
+                      background: "#fff",
+                      color: COLORS.ink,
+                      textDecoration: "none",
+                      fontWeight: 800
+                    }}
+                  >
+                    Abrir Reclame Aqui
+                  </a>
+                </div>
+
+                <div style={{ padding: 12, borderRadius: 14, border: "1px solid #EEF0F3", background: COLORS.soft2 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                    <div style={{ fontWeight: 900 }}>Texto sugerido</div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const lista = ((selectedFindings && selectedFindings.length > 0)
+                          ? selectedFindings
+                          : (findings || []).slice(0, 5)
+                        );
+
+                        const texto = [
+                          "Prezados, solicito a revisão/correção do contrato apresentado.",
+                          "",
+                          "Identifiquei os seguintes pontos de atenção:",
+                          ...lista.map((f) => `- ${f.title}: ${f.whatToDo || f.whyItMatters || "Peço esclarecimento e ajuste dessa cláusula."}`),
+                          "",
+                          "Peço resposta com versão corrigida do contrato ou justificativa objetiva para cada ponto acima.",
+                          "",
+                          "Caso não haja solução, registrarei a demanda nos canais de defesa do consumidor."
+                        ].join("\n");
+
+                        await navigator.clipboard.writeText(texto);
+                        alert("Texto copiado!");
+                      }}
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: 999,
+                        border: "none",
+                        background: COLORS.ink,
+                        color: "#fff",
+                        fontWeight: 900,
+                        cursor: "pointer"
+                      }}
+                    >
+                      Copiar texto pronto
+                    </button>
+                  </div>
+
+                  <textarea
+                    readOnly
+                    value={[
+                      "Prezados, solicito a revisão/correção do contrato apresentado.",
+                      "",
+                      "Identifiquei os seguintes pontos de atenção:",
+                      ...(((selectedFindings && selectedFindings.length > 0)
+                        ? selectedFindings
+                        : (findings || []).slice(0, 5)
+                      ).map((f) => `- ${f.title}: ${f.whatToDo || f.whyItMatters || "Peço esclarecimento e ajuste dessa cláusula."}`)),
+                      "",
+                      "Peço resposta com versão corrigida do contrato ou justificativa objetiva para cada ponto acima.",
+                      "",
+                      "Caso não haja solução, registrarei a demanda nos canais de defesa do consumidor."
+                    ].join("\n")}
+                    style={{
+                      width: "100%",
+                      marginTop: 10,
+                      minHeight: 240,
+                      padding: 12,
+                      borderRadius: 12,
+                      border: "1px solid " + COLORS.line,
+                      fontSize: 13,
+                      lineHeight: 1.55,
+                      color: COLORS.text,
+                      background: "#fff"
+                    }}
+                  />
+
+                  <div style={{ marginTop: 8, fontSize: 12, color: COLORS.muted }}>
+                    Dica: clique em “Adicionar à minha defesa” nos pontos mais importantes para deixar sua reclamação ainda mais forte.
+                  </div>
+                </div>
+              </Card>
+
+<GhostBtn onClick={() => setStep(3)}>Voltar</GhostBtn>
+                </div>
+              </Card>              
+              <BlocoAcessoClara unlocked={unlocked} setUnlocked={setUnlocked} />
+
+              {unlocked && (
+
+
+              <Card title="Mensagem pronta para pedir correção" subtitle="Antes de reclamar, você pode enviar esta mensagem para pedir correção, esclarecimento ou nova versão do contrato.">
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <GhostBtn onClick={openEmail} disabled={!emailDraft}>Abrir mensagem</GhostBtn>
+                </div>
+
+                {emailDraft && (
+                  <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: "1px solid #EEF0F3", background: COLORS.soft2, whiteSpace: "pre-wrap", fontSize: 13, color: COLORS.text, lineHeight: 1.5 }}>
+                    <b>Assunto:</b> {emailDraft.subject}
+                    {"\n\n"}
+                    {emailDraft.body}
+                  </div>
+                )}
+              </Card>
+              )}
+
+              {/* FINAL: Reclame Aqui / Procon / gov — depois dos resultados */}              {unlocked && (
+
+              <Card
+                title="Se não resolver, use esta reclamação"
+                subtitle="Se a empresa não corrigir o problema, copie este texto e use no Consumidor.gov.br, Reclame Aqui ou Procon."
+              >
+                <div style={{ marginBottom: 12, padding: 16, borderRadius: 16, border: "1px solid #E5E7EB", background: "#F9FAFB" }}>
+                  <div style={{ fontWeight: 800, color: COLORS.ink }}>Próximos passos</div>
+                  <div style={{ marginTop: 8, fontSize: 14, color: COLORS.text, lineHeight: 1.5 }}>
+                    Se a empresa não corrigir o contrato, você pode usar estes canais:
+                  </div>
+
+                  <ul style={{ marginTop: 10, paddingLeft: 18, color: COLORS.text, lineHeight: 1.7, fontSize: 14 }}>
+                    <li>Consumidor.gov.br</li>
+                    <li>Procon</li>
+                    <li>Reclame Aqui</li>
+                  </ul>
+
+                  <div style={{ marginTop: 10, fontSize: 13, color: COLORS.muted, lineHeight: 1.5 }}>
+                    Dica: selecione os principais pontos em “Adicionar à minha defesa” antes de copiar sua reclamação.
+                  </div>
+                </div>
+                
+
+                <div style={{ display: "grid", gap: 12 }}>
+                  <div style={{ padding: 12, borderRadius: 14, border: "1px solid #EEF0F3", background: COLORS.soft2 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                      <div style={{ fontWeight: 900 }}>Reclamação pronta</div>
+                      <button
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(complaintText);
+                          alert("Texto copiado!");
+                        }}
+                        style={{
+                          padding: "10px 14px",
+                          borderRadius: 999,
+                          border: "none",
+                          background: COLORS.ink,
+                          color: "#fff",
+                          fontWeight: 900,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Copiar e usar
+                      </button>
+                    </div>
+
+                    <textarea
+                      value={complaintText}
+                      readOnly
+                      style={{
+                        width: "100%",
+                        marginTop: 10,
+                        minHeight: 220,
+                        padding: 12,
+                        borderRadius: 12,
+                        border: "1px solid " + COLORS.line,
+                        fontSize: 13,
+                        lineHeight: 1.5,
+                        color: COLORS.text,
+                        background: "#fff",
+                      }}
+                    />
+                    <div style={{ marginTop: 8, fontSize: 12, color: COLORS.muted }}>
+                      Dica: clique em “Adicionar à minha defesa” nos pontos mais importantes para deixar sua reclamação mais forte e objetiva.
+                    </div>
+                  </div>
+                </div>
+              </Card>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      </div>
+    );
+  }
+
+
+function BlocoAcessoClara({
+  unlocked,
+  setUnlocked,
+}: {
+  unlocked: boolean;
+  setUnlocked: React.Dispatch<React.SetStateAction<boolean>>;
+}) {
+  const [mostrarPrevia, setMostrarPrevia] = useState(false);
+
+  return (
+    <div
+      style={{
+        marginTop: 24,
+        borderRadius: 24,
+        border: "1px solid #E6EAF0",
+        background: "#F8FAFC",
+        padding: 20,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 16,
+          alignItems: "flex-start",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ maxWidth: 760 }}>
+          <div style={{ fontSize: 18, fontWeight: 900, color: "#0F172A" }}>
+            Desbloqueie sua análise completa
+          </div>
+          <div style={{ marginTop: 6, fontSize: 14, color: "#475569", lineHeight: 1.6 }}>
+            Receba a versão completa da análise com sugestões mais estratégicas para revisar,
+            negociar ou contestar este contrato.
+          </div>
+
+          <div
+            style={{
+              marginTop: 14,
+              display: "grid",
+              gap: 8,
+              fontSize: 13,
+              color: "#334155",
+            }}
+          >
+            <div>✔ Defesa completa sugerida pela Clara</div>
+            <div>✔ Mensagem pronta para pedir correção</div>
+            <div>✔ Texto para reclamação mais forte e objetiva</div>
+            <div>✔ Próximos passos recomendados</div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            minWidth: 280,
+            flex: "0 0 280px",
+            borderRadius: 20,
+            border: "1px solid #D8E1EA",
+            background: "#fff",
+            padding: 16,
+          }}
+        >
+          <div style={{ fontSize: 12, color: "#64748B", textTransform: "uppercase", fontWeight: 800 }}>
+            Acesso individual
+          </div>
+
+          <div style={{ marginTop: 8, fontSize: 28, fontWeight: 900, color: "#0F172A" }}>
+            R$ 19,90
+          </div>
+
+          <div style={{ marginTop: 4, fontSize: 13, color: "#64748B", lineHeight: 1.5 }}>
+            Liberação imediata da análise completa neste contrato.
+          </div>
+
+          {!unlocked ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  alert("Fluxo de pagamento em MVP: por enquanto, o clique libera a análise completa para teste.");
+                  setUnlocked(true);
+                }}
+                style={{
+                  marginTop: 14,
+                  width: "100%",
+                  padding: "13px 16px",
+                  borderRadius: 999,
+                  border: "none",
+                  background: "#0F172A",
+                  color: "#fff",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                }}
+              >
+                Pagar e liberar agora
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setUnlocked(true)}
+                style={{
+                  marginTop: 10,
+                  width: "100%",
+                  padding: "12px 16px",
+                  borderRadius: 999,
+                  border: "1px solid #CBD5E1",
+                  background: "#fff",
+                  color: "#0F172A",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                Já paguei
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMostrarPrevia((v) => !v)}
+                style={{
+                  marginTop: 10,
+                  width: "100%",
+                  padding: "11px 16px",
+                  borderRadius: 999,
+                  border: "none",
+                  background: "transparent",
+                  color: "#334155",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                {mostrarPrevia ? "Ocultar prévia" : "Ver prévia do conteúdo"}
+              </button>
+            </>
+          ) : (
+            <div
+              style={{
+                marginTop: 14,
+                borderRadius: 16,
+                background: "#ECFDF3",
+                border: "1px solid #BBF7D0",
+                padding: 12,
+                fontSize: 13,
+                color: "#166534",
+                fontWeight: 800,
+              }}
+            >
+              Pagamento confirmado. Sua análise completa foi liberada abaixo.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {!unlocked && (
+        <div
+          style={{
+            marginTop: 18,
+            borderRadius: 20,
+            border: "1px solid #DCE3EA",
+            background: "#fff",
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          <div
+            style={{
+              padding: 18,
+              filter: mostrarPrevia ? "blur(0px)" : "blur(3px)",
+              opacity: mostrarPrevia ? 0.92 : 0.70,
+              userSelect: "none",
+            }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 900, color: "#0F172A", marginBottom: 12 }}>
+              Defesa completa sugerida pela Clara
+            </div>
+
+            <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.6 }}>
+              Este é um espaço para consolidar sua argumentação antes de aceitar, assinar ou responder ao contrato.
+            </div>
+
+            <ul style={{ marginTop: 14, paddingLeft: 22, color: "#334155", lineHeight: 1.8, fontSize: 13 }}>
+              <li>Peça revisão das cláusulas que reduzem sua possibilidade de contestação.</li>
+              <li>Solicite critérios objetivos quando só uma parte puder decidir sozinha.</li>
+              <li>Peça redação mais equilibrada sobre privacidade, renda e responsabilidades financeiras.</li>
+              <li>Registre por escrito o que você aceita, o que precisa ajustar e o que não concorda em assumir.</li>
+            </ul>
+
+            <div
+              style={{
+                marginTop: 16,
+                borderRadius: 14,
+                background: "#F8FAFC",
+                padding: 14,
+                fontSize: 13,
+                color: "#334155",
+                lineHeight: 1.6,
+              }}
+            >
+              <b>Modelo de pedido:</b> Solicito a revisão dos pontos que concentram poder excessivo,
+              limitam minha defesa e ampliam obrigações sem equilíbrio contratual.
+            </div>
+          </div>
+
+          {!mostrarPrevia && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 24,
+                textAlign: "center",
+                background: "linear-gradient(to bottom, rgba(255,255,255,0.12), rgba(255,255,255,0.84))",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>🔒</div>
+                <div style={{ fontWeight: 900, color: "#0F172A", fontSize: 16 }}>
+                  Conteúdo premium bloqueado
+                </div>
+                <div style={{ marginTop: 6, fontSize: 13, color: "#475569", lineHeight: 1.5, maxWidth: 460 }}>
+                  Libere a análise completa para acessar a defesa sugerida, a mensagem pronta e os próximos passos.
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+
+
+
+
+

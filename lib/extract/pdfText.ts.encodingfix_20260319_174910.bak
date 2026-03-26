@@ -1,0 +1,53 @@
+ï¿½import * as pdfjsLib from "pdfjs-dist/webpack.mjs";
+// evita warning no Node (worker)
+(pdfjsLib as any).GlobalWorkerOptions.workerSrc = undefined;
+export async function extractPdfText(buffer: Buffer) {
+  // PDF real comeÃ§a com "%PDF-"
+  const header = buffer.subarray(0, 5).toString("utf8");
+  if (header !== "%PDF-") {
+    return {
+      text: "",
+      pageCount: 0,
+      status: "not_a_pdf" as const,
+      reason: "Arquivo nÃ£o parece um PDF vÃ¡lido (header ausente).",
+      isLikelyScanned: false,
+    };
+  }
+  try {
+    const loadingTask = (pdfjsLib as any).getDocument({
+      data: buffer,
+      stopAtErrors: false,
+      verbosity: 0,
+    });
+    const pdf = await loadingTask.promise;
+    const pageCount = pdf.numPages;
+    let all = "";
+    for (let i = 1; i <= pageCount; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const strings = content.items
+        .map((it: any) => (typeof it?.str === "string" ? it.str : ""))
+        .filter(Boolean);
+      all += strings.join(" ") + "\n";
+    }
+    const text = all.trim();
+    const isLikelyScanned = text.replace(/\s/g, "").length < 80;
+    return {
+      text,
+      pageCount,
+      status: "ok" as const,
+      reason: "",
+      isLikelyScanned,
+    };
+  } catch (e: unknown) {
+    return {
+      text: "",
+      pageCount: 0,
+      status: "error" as const,
+      reason: e instanceof Error ? e.message : String(e) ?? String(e),
+      isLikelyScanned: false,
+    };
+  }
+}
+
+

@@ -1,0 +1,769 @@
+"use client";
+
+import React, { useMemo, useState, useRef } from "react";
+import ConsumerHelp from "./ConsumerHelp";
+import ComplaintActions from "./ComplaintActions";
+import BillingPanel from "./BillingPanel";
+import ComplaintBox from "./ComplaintBox";
+import { extractPdfTextClient } from "@/lib/pdfClient";
+import type { FindingLite } from "@/lib/complaints";
+type Severity = "ok" | "attention" | "high";
+type Finding = {
+  title: string;
+  whyItMatters: string;
+  whatToDo: string;
+  legalHint?: string;
+  severity: Severity;
+  points: 0 | 5 | 10;
+};
+
+type SectorKey = "aluguel" | "uniao_estavel" | "emprestimo" | "servicos" | "generico";
+
+const SECTORS: { key: SectorKey; label: string; hint: string }[] = [
+  { key: "aluguel", label: "Aluguel / Locação", hint: "Foco em garantias, reajuste, multa, responsabilidades e vistoria." },
+  { key: "uniao_estavel", label: "União estável / Família", hint: "Foco em regime de bens, partilha, patrimônio e deveres." },
+  { key: "emprestimo", label: "Empréstimo / Crédito", hint: "Foco em juros, CET, atraso, garantias, vencimento antecipado." },
+  { key: "servicos", label: "Prestação de serviços", hint: "Foco em escopo, prazo, entregáveis, SLA, rescisão e multas." },
+  { key: "generico", label: "Outro / Não sei", hint: "A Clara tenta identificar o tipo automaticamente." },
+];
+
+const COLORS = {
+  ink: "#0A2540",
+  text: "#425466",
+  muted: "#6B7C93",
+  line: "#E6E8EC",
+  soft: "#F7F8FA",
+  soft2: "#FBFBFC",
+};
+
+
+function safeText(v: unknown, fallback = ""): string {
+  return typeof v === "string" ? v : fallback;
+}
+function clampText(s: string, max = 1200) {
+  if (!s) return "";
+  const t = s.replace(/\s+/g, " ").trim();
+  return t.length > max ? t.slice(0, max) + "..." : t;
+}
+
+function guessSector(fullText: string): SectorKey {
+  const t = (fullText || "").toLowerCase();
+  if (/(uni[aã]o est[aá]vel|conviv[eê]ncia|companheir|regime de bens|partilha|pacto antenupcial)/i.test(t)) return "uniao_estavel";
+  if (/(loca[cç][aã]o|locador|locat[aá]ri|aluguel|fiador|cau[cç][aã]o|im[oó]vel|vistoria)/i.test(t)) return "aluguel";
+  if (/(empr[eé]stimo|financiamento|c[eé]dula|juros|cet|custo efetivo total|parcelas|inadimpl[eê]ncia|multa morat[oó]ria)/i.test(t)) return "emprestimo";
+  if (/(presta[cç][aã]o de servi[cç]os|contratante|contratad|escopo|sla|prazo|entreg[aá]veis|rescis[aã]o)/i.test(t)) return "servicos";
+  return "generico";
+}
+
+function analyzeBySector(
+  fullText: string,
+  sector: SectorKey,
+  role: string
+): { summary: string; findings: Finding[]; email: { subject: string; body: string } } {
+  const text = fullText || "";
+  const t = text.toLowerCase();
+  const findings: Finding[] = [];
+  const add = (f: Finding) => findings.push(f);
+  const has = (re: RegExp) => re.test(t);
+
+  if (has(/vencimento antecipado|acelera[cç][aã]o|antecipadamente/i)) {
+    add({
+      title: "Vencimento antecipado / aceleração",
+      whyItMatters: "Pode fazer a obrigação vencer inteira por um gatilho pequeno.",
+      whatToDo: "Peça limite de gatilhos (ex: atraso > X dias) e aviso prévio para regularizar.",
+      legalHint: "Procure termos como vencimento antecipado, aceleração, default.",
+      severity: "high",
+      points: 10,
+    });
+  }
+
+  if (has(/multa\s*(?:de)?\s*\d{2,}%|multa\s*e\s*juros|juros\s*morat[oó]rios/i)) {
+    add({
+      title: "Multa/juros de atraso podem estar pesados",
+      whyItMatters: "Encargos altos aumentam muito o custo em caso de atraso.",
+      whatToDo: "Confirme percentuais, base de cálculo e teto. Negocie clareza e redução.",
+      legalHint: "Busque multa, juros moratórios, correção e encargos.",
+      severity: "attention",
+      points: 5,
+    });
+  }
+
+  if (sector === "servicos") {
+    if (!has(/escopo|entreg[aá]veis|cronograma|prazo/i)) {
+      add({
+        title: "Escopo/entregáveis pouco definidos",
+        whyItMatters: "É a principal fonte de briga em prestação de serviços.",
+        whatToDo: "Anexe escopo, entregáveis, prazos, critérios de aceite e fora de escopo.",
+        severity: "high",
+        points: 10,
+      });
+    }
+    if (!has(/propriedade intelectual|direitos autorais|licen[cç]a/i)) {
+      add({
+        title: "Propriedade intelectual não está clara",
+        whyItMatters: "Define quem fica com código/arte/material e como pode usar depois.",
+        whatToDo: "Defina titularidade, licença de uso, cessão e o que acontece na rescisão.",
+        severity: "attention",
+        points: 5,
+      });
+    }
+  }
+
+  if (text.length < 400) {
+    add({
+      title: "Texto extraído parece curto",
+      whyItMatters: "Pode ser PDF escaneado (imagem) e a análise fica limitada.",
+      whatToDo: "Se for escaneado, gere um PDF pesquisável (OCR) e reenvie.",
+      severity: "attention",
+      points: 5,
+    });
+  }
+
+  const score = (s: Severity) => (s === "high" ? 2 : s === "attention" ? 1 : 0);
+  findings.sort((a, b) => score(b.severity) - score(a.severity));
+
+  const top = findings.slice(0, 6).map((f) => "- " + f.title).join("\n");
+  const label = SECTORS.find((x) => x.key === sector)?.label || "Contrato";
+
+  const summary =
+    sector === "generico"
+      ? "Identifiquei pontos relevantes, mas recomendo selecionar o tipo de contrato para uma análise mais precisa."
+      : "Leitura considerando o tipo de contrato (" + label + "). Principais pontos:\n" +
+        (top || "- Nenhum ponto crítico detectado no recorte atual.");
+
+  const subject = "Revisão do contrato — pontos de atenção (" + label + ")";
+  const emailSubject = "Pedido de esclarecimento e ajuste contratual";
+  const emailTop = findings[0]?.title;
+  const body = `Olá, ${(companyName || "") || "[NOME DA EMPRESA]"}.
+
+Analisei o contrato de ${sectorLabel} e identifiquei alguns pontos que gostaria de esclarecer/ajustar antes de seguir.
+
+Resumo:
+${summary}
+
+Pontos de atenção:
+${findings.slice(0, 5).map((f) => "- " + f.title + ": " + f.whatToDo).join("\n") || "- Não encontrei pontos críticos no recorte atual, mas gostaria de confirmar condições e cálculos."}
+
+Contexto:
+- Minha posição no contrato: ${role || "não informado"}
+- Observação: esta é uma leitura inicial para organização e clareza.
+
+Você pode, por favor, confirmar/ajustar esses itens e indicar a versão final consolidada?
+
+Obrigada.`;
+
+  return { summary, findings, email: { subject: emailSubject, body } };
+}
+
+function buildComplaintText(opts: {
+  companyName: string;
+  sectorLabel: string;
+  role: string;
+  summary: string;
+  findings: Finding[];
+}) {
+  const { companyName, sectorLabel, role, summary, findings } = opts;
+  const picks = findings.slice(0, 6);
+  const bullets = picks.length
+    ? picks.map((f) => "- " + f.title + ": " + f.whatToDo).join("\n")
+    : "- Solicito esclarecimentos e ajustes para evitar dúvidas e riscos.";
+
+  return [
+    "Olá, " + (companyName || "[NOME DA EMPRESA]") + ".",
+    "Tenho um problema relacionado a um contrato (" + sectorLabel + "). Minha posição: " + (role || "[MINHA POSIÇÃO]") + ".",
+    "Resumo (em linguagem simples):",
+    (summary || "").replace(/\n/g, " ").trim(),
+    "O que eu peço objetivamente:",
+    bullets,
+    "Prazo sugerido:",
+    "- Retorno em até 5 dias úteis, com proposta de solução e confirmação por escrito.",
+    "Obrigada."
+  ].join("\n\n");
+}
+export default function EnviarClient() {
+  // Wizard
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+
+  // Inputs
+  const [files, setFiles] = useState<File[]>([]);
+  const [sector, setSector] = useState<SectorKey>("generico");
+
+  const [leadName, setLeadName] = useState("");
+const [leadEmail, setLeadEmail] = useState("");
+  const [leadRole, setLeadRole] = useState(""); // obrigatório
+  const [companyName, setCompanyName] = useState("");
+
+  const nameRef = useRef<HTMLInputElement | null>(null);
+  const emailRef = useRef<HTMLInputElement | null>(null);
+  const roleRef = useRef<HTMLSelectElement | null>(null);
+// Result
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [rawText, setRawText] = useState<string>("");
+  const [summary, setSummary] = useState<string>("");
+  const [findings, setFindings] = useState<Finding[]>([]);
+  const [emailDraft, setEmailDraft] = useState<{ subject: string; body: string } | null>(null);
+
+  // Billing (placeholder — você pode integrar Stripe depois)
+  const [billingFreeLeft] = useState<number>(2);
+  const [billingCredits] = useState<number>(0);
+  
+
+  // Mostra a etapa "Créditos" só quando os grátis acabarem
+  // Ajuste se quiser: ex. (billingFreeLeft <= 0) ou (billingFreeLeft <= 0 && billingCredits <= 0)
+  const shouldShowCreditsStep = (billingFreeLeft <= 0 && billingCredits <= 0);const [buyPack, setBuyPack] = useState<"1" | "5" | "10">("1");
+
+  // Complaint selection (para montar texto)
+  const [selectedFindings, setSelectedFindings] = useState<FindingLite[]>([]);
+  function toggleFindingForComplaint(f: FindingLite) {
+    setSelectedFindings((prev) => {
+      const key = (f.title || "").trim();
+      if (!key) return prev;
+      const exists = prev.some((x) => (x.title || "").trim() === key);
+      if (exists) return prev.filter((x) => (x.title || "").trim() !== key);
+      return [...prev, { title: f.title, whyItMatters: f.whyItMatters, whatToDo: f.whatToDo }];
+    });
+  }
+  function clearComplaintSelection() {
+    setSelectedFindings([]);
+  }
+
+  const sectorLabel = useMemo(() => SECTORS.find((s) => s.key === sector)?.label || "Contrato", [sector]);
+
+  const greeting = useMemo(() => {
+    const name = (leadName || "você").trim();
+    return "Olá, " + name + ". Vamos por etapas.";
+  }, [leadName]);
+
+  const canGoStep2 = files.length > 0;
+  const canGoStep3 = true;
+  const canAnalyze = canGoStep2 && canGoStep3 && !isAnalyzing;
+
+  const totalPoints = findings.reduce((acc, f) => acc + f.points, 0);
+  const riskLabel = totalPoints >= 30 ? "Atenção alta" : totalPoints >= 15 ? "Atenção moderada" : "Atenção baixa";
+  const hasResult = (summary || "").trim().length > 0 || findings.length > 0 || !!emailDraft;
+
+  async function runAnalysis() {
+    setError(null);
+    if (files.length === 0) return setError("Envie 1 ou mais PDFs para analisar.");
+    if (!(leadEmail || "").trim()) return setError("Informe seu e-mail para continuar.");
+    if (!(leadRole || "").trim()) return setError("Selecione sua posição no contrato para a análise ficar completa.");
+
+    setIsAnalyzing(true);
+    setSummary("");
+    setFindings([]);
+    setEmailDraft(null);
+    setRawText("");
+    setSelectedFindings([]);
+
+    try {
+      let txtAll = "";
+      for (const f of files) {
+        const t = await extractPdfTextClient(f);
+        if (t) txtAll += "\n\n===== " + f.name + " =====\n" + t;
+      }
+      txtAll = txtAll.trim();
+      setRawText(txtAll);
+
+      if (!txtAll) return setError("Nenhum PDF teve texto extraível. Se estiver escaneado, envie um PDF pesquisável (OCR).");
+
+      const finalSector = sector === "generico" ? guessSector(txtAll) : sector;
+      const result = analyzeBySector(txtAll, finalSector, leadRole);
+
+      setSummary(result.summary);
+      setFindings(result.findings);
+      setEmailDraft(result.email);
+
+      setStep(4);
+      setTimeout(() => {
+        const el = document.getElementById("clara-results");
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    } catch (e: any) {
+      setError(e?.message || "Falha ao analisar. Tente novamente.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
+
+  function openEmail() {
+    if (!emailDraft) return;
+    const to = encodeURIComponent(leadEmail || "");
+    const subject = encodeURIComponent(emailDraft.subject);
+    const body = encodeURIComponent(emailDraft.body);
+    window.location.href = "mailto:" + to + "?subject=" + subject + "&body=" + body;
+  }
+
+  async function copyEmail() {
+    if (!emailDraft) return;
+    const txt = "Assunto: " + emailDraft.subject + "\n\n" + emailDraft.body;
+    await navigator.clipboard.writeText(txt);
+    alert("E-mail copiado!");
+  }
+
+  const complaintText = useMemo(() => {
+  if (!hasResult) return "";
+  return buildComplaintText({
+    companyName: companyName || "",
+    sectorLabel,
+    role: leadRole,
+    summary,
+    findings,
+  });
+}, [hasResult, companyName, sectorLabel, leadRole, summary, findings]);
+  // UI helpers
+  const Card: React.FC<{ title: string; subtitle?: string; children: React.ReactNode }> = ({ title, subtitle, children }) => (
+    <div style={{ border: "1px solid " + COLORS.line, borderRadius: 20, padding: 18, background: "#fff" }}>
+      <h3 style={{ margin: 0, fontSize: 18 }}>{title}</h3>
+      {subtitle ? <p style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.6 }}>{subtitle}</p> : null}
+      <div style={{ marginTop: 12 }}>{children}</div>
+    </div>
+);
+
+  const PrimaryBtn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ children, ...props }) => (
+    <button
+      {...props}
+      style={{
+        width: "100%",
+        padding: "14px 16px",
+        borderRadius: 999,
+        border: "none",
+        background: props.disabled ? "#AAB2BD" : COLORS.ink,
+        color: "#fff",
+        fontSize: 15,
+        fontWeight: 800,
+        cursor: props.disabled ? "not-allowed" : "pointer",
+        ...((props.style as any) || {}),
+      }}
+    >
+      {children}
+    </button>
+  );
+
+  const GhostBtn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ children, ...props }) => (
+    <button
+      {...props}
+      style={{
+        padding: "10px 14px",
+        borderRadius: 999,
+        border: "1px solid " + COLORS.line,
+        background: "#fff",
+        color: COLORS.ink,
+        fontWeight: 800,
+        cursor: props.disabled ? "not-allowed" : "pointer",
+        opacity: props.disabled ? 0.6 : 1,
+        ...((props.style as any) || {}),
+      }}
+    >
+      {children}
+    </button>
+  );
+
+  return (
+    <div style={{ background: "#fff", minHeight: "100vh", color: COLORS.ink }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px" }}>
+        {/* HEADER */}
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
+          <div>
+            <h1 style={{ fontSize: 40, margin: 0, fontWeight: 800 }}>Resultado da análise</h1>
+            <p style={{ marginTop: 10, color: COLORS.text }}>{greeting}</p>
+          </div>
+
+          <a
+            href="/"
+            style={{
+              padding: "10px 16px",
+              borderRadius: 999,
+              border: "1px solid " + COLORS.line,
+              color: COLORS.ink,
+              textDecoration: "none",
+              fontWeight: 700,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            Voltar para a Home
+          </a>
+        </div>
+
+        {/* STEPS */}
+        <div style={{ marginTop: 18, border: "1px solid " + COLORS.line, borderRadius: 20, padding: 14, background: COLORS.soft2 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: COLORS.muted }}>Etapas:</span>
+
+            <GhostBtn onClick={() => setStep(1)} style={{ padding: "8px 12px", background: step === 1 ? "#EEF2FF" : "#fff" }}>
+              1) Arquivo + tipo
+            </GhostBtn>
+            <GhostBtn disabled={!canGoStep2} onClick={() => setStep(2)} style={{ padding: "8px 12px", background: step === 2 ? "#EEF2FF" : "#fff" }}>
+              2) Seus dados
+            </GhostBtn>
+            <GhostBtn disabled={!(canGoStep2 && canGoStep3)} onClick={() => setStep(3)} style={{ padding: "8px 12px", background: step === 3 ? "#EEF2FF" : "#fff" }}>
+              {shouldShowCreditsStep ? "3) Créditos" : ""}
+            </GhostBtn>
+            <GhostBtn disabled={!hasResult} onClick={() => setStep(4)} style={{ padding: "8px 12px", background: step === 4 ? "#EEF2FF" : "#fff" }}>
+              4) Resultados
+            </GhostBtn>
+          </div>
+        </div>
+
+        {/* CONTENT */}
+        <div style={{ marginTop: 18, display: "grid", gap: 18 }}>
+          {/* STEP 1 */}
+          {step === 1 && (
+            <Card
+              title="1) Envie o PDF e selecione o tipo"
+              subtitle="Escolha 1 ou mais PDFs. Se estiver escaneado (imagem), pode não extrair texto."
+            >
+              <input
+                type="file"
+                accept="application/pdf"
+                multiple
+                onChange={(e) => {
+                  const arr = Array.from(e.target.files || []);
+                  setFiles(arr);
+                  setError(null);
+                }}
+                />
+              {files.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  {files.map((f) => (
+                    <div
+                      key={f.name}
+                      style={{
+                        marginTop: 8,
+                        padding: "10px 12px",
+                        borderRadius: 12,
+                        background: COLORS.soft,
+                        border: "1px solid #EEF0F3",
+                        fontSize: 13,
+                      }}
+                    >
+                      {f.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ marginTop: 14 }}>
+                <label style={{ fontSize: 13, color: COLORS.muted, fontWeight: 800 }}>Tipo de contrato</label>
+                <select
+                  value={sector}
+                  onChange={(e) => setSector(e.target.value as SectorKey)}
+                  style={{ width: "100%", marginTop: 6, padding: "10px 12px", borderRadius: 12, border: "1px solid " + COLORS.line }}
+                >
+                  {SECTORS.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                <div style={{ marginTop: 8, fontSize: 12, color: COLORS.muted, lineHeight: 1.4 }}>
+                  {SECTORS.find((s) => s.key === sector)?.hint}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                <PrimaryBtn disabled={!canGoStep2} onClick={() => setStep(2)}>
+                  Continuar
+                </PrimaryBtn>
+              </div>
+
+              {error && (
+                <div style={{ marginTop: 12, padding: "12px 12px", borderRadius: 12, background: "#FFF1F0", border: "1px solid #FFCCC7", color: "#A8071A", fontSize: 13, lineHeight: 1.4 }}>
+                  {error}
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* STEP 2 */}
+          {step === 2 && (
+            <Card
+              title="2) Seus dados para receber a análise"
+              subtitle="Preencha só o essencial. Depois você recebe os pontos de atenção em linguagem simples."
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 800 }}>Nome</div>
+                  <input defaultValue={leadName} ref={nameRef} style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid " + COLORS.line }} />
+                </div>
+<div style={{ gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 800 }}>E-mail (obrigatório)</div>
+                  <input
+                    defaultValue={leadEmail} ref={emailRef}
+                    placeholder="voce@email.com"
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 12, border: "1px solid " + COLORS.line }}
+                    />
+                </div>
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: 12, color: COLORS.muted, fontWeight: 800 }}>Qual é sua posição no contrato? (obrigatório)</div>
+                  <select
+                    defaultValue={leadRole} ref={roleRef}
+                    style={{ width: "100%", marginTop: 6, padding: "10px 12px", borderRadius: 12, border: "1px solid " + COLORS.line }}
+                  >
+                    <option value="" disabled>
+                      Selecione...
+                    </option>
+                    <option value="Sou a parte que vai assinar">Sou a parte que vai assinar</option>
+                    <option value="Sou a outra parte / recebi este contrato">Sou a outra parte / recebi este contrato</option>
+                    <option value="Sou fiador(a) / garantidor(a)">Sou fiador(a) / garantidor(a)</option>
+                    <option value="Sou representante legal">Sou representante legal</option>
+                    <option value="Estou ajudando alguém a avaliar">Estou ajudando alguém a avaliar</option>
+                  </select>
+                </div>
+</div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                <GhostBtn onClick={() => setStep(1)}>Voltar</GhostBtn>
+                <PrimaryBtn
+                  disabled={false}
+                  onClick={() => {
+                    const nextName = nameRef.current?.value || "";
+                    const nextEmail = emailRef.current?.value || "";
+                    const nextRole = roleRef.current?.value || "";
+
+                    setLeadName(nextName);
+                    setLeadEmail(nextEmail);
+                    setLeadRole(nextRole);
+
+                    if (!nextEmail.trim() || !nextRole.trim()) {
+                      alert("Preencha seu e-mail e sua posição no contrato para continuar.");
+                      return;
+                    }
+
+                    setStep(3);
+                  }}
+                >
+                  Continuar
+                </PrimaryBtn>
+              </div>
+
+              {error && (
+                <div style={{ marginTop: 12, padding: "12px 12px", borderRadius: 12, background: "#FFF1F0", border: "1px solid #FFCCC7", color: "#A8071A", fontSize: 13, lineHeight: 1.4 }}>
+                  {error}
+                </div>
+              )}
+            </Card>
+          )}
+
+                    {/* STEP 3 */}
+          {step === 3 && (
+            <Card
+              title="3) Receber sua análise"
+              subtitle="Veja em linguagem simples o que merece atenção no contrato."
+            >
+              <div style={{ padding: 16, border: "1px solid " + COLORS.line, borderRadius: 16, background: COLORS.soft2 }}>
+                <div style={{ fontWeight: 800, marginBottom: 8 }}>Seus créditos</div>
+                <div style={{ color: COLORS.text, lineHeight: 1.7 }}>
+                  <div><b>Grátis restantes:</b> {billingFreeLeft}</div>
+                  <div><b>Créditos pagos:</b> {billingCredits}</div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                <GhostBtn onClick={() => setStep(2)}>Voltar</GhostBtn>
+                {(billingFreeLeft > 0 || billingCredits > 0) ? (
+                  <PrimaryBtn disabled={!canAnalyze || isAnalyzing} onClick={runAnalysis}>
+                    {isAnalyzing ? "Analisando..." : "Receber análise"}
+                  </PrimaryBtn>
+                ) : (
+                  <PrimaryBtn onClick={() => alert("Checkout entra aqui")}>
+                    Pagar R$ 5 para analisar
+                  </PrimaryBtn>
+                )}
+              </div>
+
+              <p style={{ marginTop: 12, color: COLORS.muted, fontSize: 12, lineHeight: 1.5 }}>
+                A Clara traduz o contrato em linguagem simples para ajudar você a entender os pontos de atenção antes de decidir.
+              </p>
+
+              {rawText && (
+                <div style={{ marginTop: 14, fontSize: 12, color: COLORS.muted }}>
+                  <div style={{ fontWeight: 800, marginBottom: 6 }}>Trecho extraído (prévia)</div>
+                  <div style={{ padding: 10, borderRadius: 12, border: "1px solid #EEF0F3", background: COLORS.soft2, maxHeight: 140, overflow: "auto", whiteSpace: "pre-wrap" }}>
+                    {clampText(rawText, 900)}
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div style={{ marginTop: 12, padding: "12px 12px", borderRadius: 12, background: "#FFF1F0", border: "1px solid #FFCCC7", color: "#A8071A", fontSize: 13, lineHeight: 1.4 }}>
+                  {error}
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* STEP 4 */}
+          {step === 4 && (
+            <div id="clara-results" style={{ display: "grid", gap: 18 }}>
+              <Card
+                title="Resultados"
+                subtitle={hasResult ? "Aqui está o essencial, de forma direta." : "Quando a análise terminar, você verá aqui os pontos mais importantes."}
+              >
+                <div style={{ color: COLORS.text, lineHeight: 1.7, whiteSpace: "pre-line" }}>
+                  {hasResult ? summary : "—"}
+                </div>
+
+                {!!findings.length && (
+                  <div style={{ marginTop: 10, fontSize: 12, color: COLORS.muted }}>
+                    Nível geral: <b>{riskLabel}</b> — Pontos: <b>{totalPoints}</b>
+                  </div>
+                )}
+
+                {!!findings.length && (
+                  <div style={{ marginTop: 14, display: "grid", gap: 10 }}>
+                    {findings.slice(0, 10).map((f, idx) => (
+                      <div key={idx} style={{ padding: 12, borderRadius: 14, border: "1px solid #EEF0F3", background: COLORS.soft2 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                          <div style={{ fontWeight: 900 }}>{f.title}</div>
+                          <button
+                            onClick={() =>
+                              toggleFindingForComplaint({ title: f.title, whyItMatters: f.whyItMatters, whatToDo: f.whatToDo })
+                            }
+                            style={{
+                              padding: "8px 12px",
+                              borderRadius: 999,
+                              border: "1px solid " + COLORS.line,
+                              background: "#fff",
+                              fontWeight: 800,
+                              cursor: "pointer",
+                            }}
+                          >
+                            + usar na reclamação
+                          </button>
+                        </div>
+                        <div style={{ marginTop: 8, color: COLORS.text, lineHeight: 1.5 }}>
+                          <b>Por que importa:</b> {f.whyItMatters}
+                        </div>
+                        <div style={{ marginTop: 6, color: COLORS.text, lineHeight: 1.5 }}>
+                          <b>O que fazer:</b> {f.whatToDo}
+                        </div>
+                        {f.legalHint && (
+                          <div style={{ marginTop: 6, color: COLORS.muted, fontSize: 12, lineHeight: 1.4 }}>
+                            Dica: {f.legalHint}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                  <GhostBtn onClick={() => setStep(3)}>Voltar</GhostBtn>
+                  <GhostBtn onClick={() => { clearComplaintSelection(); alert("Seleção para reclamação limpa."); }}>
+                    Limpar seleção
+                  </GhostBtn>
+                </div>
+              </Card>
+
+              <Card title="E-mail pronto" subtitle="Abra com assunto e corpo preenchidos, ou copie o texto.">
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <GhostBtn onClick={openEmail} disabled={!emailDraft}>Abrir e-mail</GhostBtn>
+                  <GhostBtn onClick={copyEmail} disabled={!emailDraft}>Copiar e-mail</GhostBtn>
+                </div>
+
+                {emailDraft && (
+                  <div style={{ marginTop: 12, padding: 12, borderRadius: 14, border: "1px solid #EEF0F3", background: COLORS.soft2, whiteSpace: "pre-wrap", fontSize: 13, color: COLORS.text, lineHeight: 1.5 }}>
+                    <b>Assunto:</b> {emailDraft.subject}
+                    {"\n\n"}
+                    {emailDraft.body}
+                  </div>
+                )}
+              </Card>
+
+              {/* FINAL: Reclame Aqui / Procon / gov — depois dos resultados */}
+              <Card
+                title="Resolver isso agora (Reclame Aqui / Consumidor.gov.br / Procon + mídia)"
+                subtitle="Falar é poderoso. Aqui você tem um texto pronto (simples) para copiar e colar. Use os pontos que você marcou acima para personalizar."
+              >
+                <div style={{ marginBottom: 12 }}>
+                  {hasResult && <ComplaintActions /> }
+                </div>
+
+                <div style={{ display: "grid", gap: 12 }}>
+                  <div style={{ padding: 12, borderRadius: 14, border: "1px solid #EEF0F3", background: COLORS.soft2 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                      <div style={{ fontWeight: 900 }}>Texto pronto (copiar e colar)</div>
+                      <button
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(complaintText);
+                          alert("Texto copiado!");
+                        }}
+                        style={{
+                          padding: "10px 14px",
+                          borderRadius: 999,
+                          border: "none",
+                          background: COLORS.ink,
+                          color: "#fff",
+                          fontWeight: 900,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Copiar texto
+                      </button>
+                    </div>
+
+                    <textarea
+                      value={complaintText}
+                      readOnly
+                      style={{
+                        width: "100%",
+                        marginTop: 10,
+                        minHeight: 220,
+                        padding: 12,
+                        borderRadius: 12,
+                        border: "1px solid " + COLORS.line,
+                        fontSize: 13,
+                        lineHeight: 1.5,
+                        color: COLORS.text,
+                        background: "#fff",
+                      }}
+                    />
+                    <div style={{ marginTop: 8, fontSize: 12, color: COLORS.muted }}>
+                      Dica: marque os pontos mais importantes em “Resultados” para deixar a reclamação ainda mais objetiva.
+                    </div>
+                  </div>
+
+                  {/* Mantém componentes que você já tem */}
+                  {hasResult && (
+                    <ComplaintBox
+                      companyName={safeText(companyName)}
+                      contractType={sectorLabel}
+                      summary={summary || ""}
+                      points={findings as any}
+                      email={leadEmail}
+                    />
+                  )}
+                </div>
+              </Card>
+            </div>
+          )}
+        </div>
+      </div>
+      </div>
+    );
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

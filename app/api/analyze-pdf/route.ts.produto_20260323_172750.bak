@@ -1,0 +1,77 @@
+﻿import { NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+
+function safeJson(data: any, status = 200) {
+  try {
+    return new NextResponse(JSON.stringify(data), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch {
+    return new NextResponse(
+      JSON.stringify({ error: "Erro ao serializar resposta." }),
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET() {
+  return safeJson({ ok: true });
+}
+
+export async function POST(req: Request) {
+  try {
+    const formData = await req.formData();
+
+    const contractType = String(formData.get("contractType") || "");
+    const papel = String(formData.get("papelNoContrato") || "");
+    const parte = String(formData.get("parteImportante") || "");
+    const contexto = String(formData.get("contextoExtra") || "");
+
+    // 👇 IGNORA PDF por enquanto (pra não quebrar mais)
+    const textoContrato = String(formData.get("contractText") || "");
+
+    // fallback simples SEMPRE
+    const resposta = {
+      resumo: `Análise inicial do contrato de "${contractType}".`,
+      visao_geral: [
+        "Leitura feita de forma educativa.",
+        "Foco nos principais riscos contratuais.",
+        contexto || "Sem contexto adicional."
+      ],
+      pontos_atencao: [
+        {
+          titulo: "Multa e penalidades",
+          explicacao: "Verifique quando e como a multa é aplicada.",
+          risco: "medio",
+          por_que_importa: "Pode gerar custo inesperado."
+        },
+        {
+          titulo: "Cancelamento",
+          explicacao: "Veja regras de saída do contrato.",
+          risco: "alto",
+          por_que_importa: "Impacta diretamente sua liberdade de sair."
+        }
+      ],
+      perguntas_para_negociar: [
+        "Posso cancelar sem multa?",
+        "Existe reajuste?",
+        parte ? `Podemos revisar isso: ${parte}?` : "Qual ponto merece mais atenção?"
+      ],
+      orientacao_final:
+        "Use essa análise como base inicial antes de assinar ou negociar."
+    };
+
+    return safeJson(resposta);
+
+  } catch (err: any) {
+    return safeJson(
+      {
+        error: "Erro controlado",
+        detalhe: err?.message || "desconhecido"
+      },
+      500
+    );
+  }
+}

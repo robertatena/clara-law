@@ -1,0 +1,145 @@
+﻿import { NextResponse } from "next/server";
+import OpenAI from "openai";
+import pdfParse from "pdf-parse";
+
+export const runtime = "nodejs";
+
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+function limparTexto(texto: string) {
+  return texto
+    .replace(/\r/g, "")
+    .replace(/\t/g, " ")
+    .replace(/[ ]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+async function extrairTextoDoArquivo(file: File) {
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+
+  const nome = (file.name || "").toLowerCase();
+
+  if (nome.endsWith(".pdf")) {
+    const parsed = await pdfParse(buffer);
+    return limparTexto(parsed.text || "");
+  }
+
+  // fallback simples para txt, md e arquivos textuais
+  try {
+    const texto = Buffer.from(bytes).toString("utf-8");
+    return limparTexto(texto);
+  } catch {
+    return "";
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const formData = await req.formData();
+
+    const file = formData.get("file") as File | null;
+    const textoColado = String(formData.get("contractText") || "");
+    const tipoContrato = String(formData.get("contractType") || "");
+    const papelNoContrato = String(formData.get("papelNoContrato") || "");
+    const parteImportante = String(formData.get("parteImportante") || "");
+    const contextoExtra = String(formData.get("contextoExtra") || "");
+
+    let textoContrato = textoColado.trim();
+
+    if (!textoContrato && file) {
+      textoContrato = await extrairTextoDoArquivo(file);
+    }
+
+    if (!textoContrato) {
+      return NextResponse.json(
+        { error: "Não consegui ler o contrato. Cole o texto ou envie um arquivo válido." },
+        { status: 400 }
+      );
+    }
+
+    const prompt = `
+Você é Clara, uma assistente que ajuda pessoas a entender contratos com linguagem clara, educativa, cuidadosa e respeitosa.
+
+CONTEXTO DA PESSOA
+- Tipo de contrato: ${tipoContrato || "não informado"}
+- Papel da pessoa no contrato: ${papelNoContrato || "não informado"}
+- Parte do contrato que a pessoa quer analisar com mais atenção: ${parteImportante || "não informado"}
+- Contexto adicional: ${contextoExtra || "não informado"}
+
+COMO ANALISAR
+1. Considere o papel da pessoa no contrato ao interpretar riscos, obrigações e cuidados.
+2. Dê prioridade especial ao ponto que a pessoa disse que quer analisar.
+3. Explique em português simples, sem juridiquês desnecessário.
+4. Não dê sentença jurídica definitiva.
+5. Em vez de dizer "cláusula abusiva", prefira expressões como:
+   - "ponto de atenção"
+   - "vale revisar com cuidado"
+   - "pode trazer risco"
+   - "talvez mereça negociação"
+6. Se houver algo potencialmente prejudicial, explique por quê de forma prática.
+7. Traga sugestões objetivas do que a pessoa pode perguntar, negociar ou revisar antes de assinar.
+8. Se a pessoa já assinou, destaque caminhos práticos para entender melhor a situação.
+9. Organize a resposta em JSON válido, sem markdown.
+
+FORMATO OBRIGATÓRIO DA RESPOSTA
+{
+  "resumo": "resumo curto e claro",
+  "visao_geral": [
+    "item 1",
+    "item 2",
+    "item 3"
+  ],
+  "pontos_atencao": [
+    {
+      "titulo": "nome curto do ponto",
+      "explicacao": "explicação simples",
+      "risco": "baixo, medio ou alto",
+      "por_que_importa": "por que isso importa para essa pessoa"
+    }
+  ],
+  "perguntas_para_negociar": [
+    "pergunta 1",
+    "pergunta 2"
+  ],
+  "orientacao_final": "orientação final em tom humano, cuidadoso e útil"
+}
+
+CONTRATO
+"""
+${textoContrato.slice(0, 120000)}
+"""
+`;
+
+    const response = await client.chat.completions.create({
+      model: "gpt-4.1",
+      temperature: 0.3,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "Você analisa contratos com clareza, cautela e linguagem acessível. Sempre adapta a análise ao papel da pessoa no contrato e ao ponto que ela quer investigar.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+    });
+
+    const content = response.choices[0]?.message?.content || "{}";
+    const parsed = JSON.parse(content);
+
+    return NextResponse.json(parsed);
+  } catch (error: any) {
+    console.error("Erro em /api/analyze-pdf:", error);
+    return NextResponse.json(
+      { error: error?.message || "Erro ao analisar o contrato." },
+      { status: 500 }
+    );
+  }
+}

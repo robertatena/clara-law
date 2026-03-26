@@ -1,0 +1,31 @@
+﻿import { NextResponse } from "next/server";
+import Stripe from "stripe";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_missing");
+
+export async function POST(req: Request) {
+  const body = await req.json().catch(() => ({}));
+  const email = String(body.email || "").trim().toLowerCase();
+  const origin = String(body.origin || "").trim();
+  if (!email) return NextResponse.json({ error: "email_required" }, { status: 400 });
+  if (!origin) return NextResponse.json({ error: "origin_required" }, { status: 400 });
+
+  const amount = Number(process.env.CLARA_PRICE_CENTS || "500");
+  const currency = String(process.env.CLARA_CURRENCY || "brl");
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    customer_email: email,
+    automatic_payment_methods: { enabled: true },
+    line_items: [{
+      price_data: { currency, product_data: { name: "ClaraReady — 1 análise" }, unit_amount: amount },
+      quantity: 1
+    }],
+    success_url: `${origin}/enviar?paid=1`,
+    cancel_url: `${origin}/enviar?canceled=1`,
+    metadata: { clara_email: email, credits: "1" }
+  });
+
+  return NextResponse.json({ ok: true, url: session.url, id: session.id });
+}
+

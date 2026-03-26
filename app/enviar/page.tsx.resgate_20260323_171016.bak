@@ -1,0 +1,773 @@
+﻿"use client";
+
+import { useMemo, useState } from "react";
+
+type StepKey =
+  | "contractType"
+  | "inputMethod"
+  | "contractContent"
+  | "role"
+  | "focus"
+  | "status"
+  | "name"
+  | "email"
+  | "review"
+  | "result";
+
+const CONTRACT_TYPES = [
+  "União estável / família",
+  "Locação",
+  "Compra e venda",
+  "Prestação de serviços",
+  "Trabalho",
+  "Financiamento / empréstimo",
+  "Plano de saúde",
+  "Educação",
+  "Assinatura / fidelidade",
+  "Outro",
+];
+
+const ROLE_OPTIONS = [
+  "Sou cliente / consumidor(a)",
+  "Sou contratante",
+  "Sou contratado(a) / prestador(a)",
+  "Sou locatário(a) / inquilino(a)",
+  "Sou locador(a) / proprietário(a)",
+  "Sou comprador(a)",
+  "Sou vendedor(a)",
+  "Sou empregado(a)",
+  "Sou empregador(a)",
+  "Sou aluno(a)",
+  "Sou responsável",
+  "Sou fiador(a)",
+  "Outro",
+];
+
+const FOCUS_SUGGESTIONS = [
+  "Multa de cancelamento",
+  "Prazo / vigência",
+  "Renovação automática",
+  "Reajuste de valor",
+  "Rescisão",
+  "Juros / encargos",
+  "Fidelidade",
+  "Responsabilidades",
+];
+
+const STEP_ORDER: StepKey[] = [
+  "contractType",
+  "inputMethod",
+  "contractContent",
+  "role",
+  "focus",
+  "status",
+  "name",
+  "email",
+  "review",
+  "result",
+];
+
+export default function Page() {
+  const [currentStep, setCurrentStep] = useState<StepKey>("contractType");
+
+  const [contractType, setContractType] = useState("União estável / família");
+  const [inputMethod, setInputMethod] = useState<"upload" | "paste" | "">("");
+  const [contractText, setContractText] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+
+  const [papelNoContrato, setPapelNoContrato] = useState("");
+  const [parteImportante, setParteImportante] = useState("");
+  const [statusContrato, setStatusContrato] = useState("");
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [resultado, setResultado] = useState<any>(null);
+
+  const stepIndex = STEP_ORDER.indexOf(currentStep);
+  const progress = Math.round((Math.min(stepIndex, STEP_ORDER.length - 2) / (STEP_ORDER.length - 2)) * 100);
+
+  const canContinue = useMemo(() => {
+    switch (currentStep) {
+      case "contractType":
+        return !!contractType;
+      case "inputMethod":
+        return !!inputMethod;
+      case "contractContent":
+        if (inputMethod === "upload") return !!file;
+        if (inputMethod === "paste") return contractText.trim().length > 50;
+        return false;
+      case "role":
+        return !!papelNoContrato.trim();
+      case "focus":
+        return !!parteImportante.trim();
+      case "status":
+        return !!statusContrato.trim();
+      case "name":
+        return !!nome.trim();
+      case "email":
+        return !!email.trim() && /\S+@\S+\.\S+/.test(email);
+      case "review":
+      case "result":
+        return true;
+      default:
+        return false;
+    }
+  }, [
+    currentStep,
+    contractType,
+    inputMethod,
+    contractText,
+    file,
+    papelNoContrato,
+    parteImportante,
+    statusContrato,
+    nome,
+    email,
+  ]);
+
+  function nextStep() {
+    setError("");
+
+    if (!canContinue) {
+      switch (currentStep) {
+        case "contractContent":
+          setError(
+            inputMethod === "upload"
+              ? "Envie um arquivo para continuar."
+              : "Cole pelo menos um trecho relevante do contrato para continuar."
+          );
+          break;
+        case "role":
+          setError("Conte qual é o seu papel no contrato.");
+          break;
+        case "focus":
+          setError("Conte qual parte do contrato você quer entender melhor.");
+          break;
+        case "status":
+          setError("Escolha se você já assinou ou ainda está avaliando.");
+          break;
+        case "name":
+          setError("Preencha seu nome para continuar.");
+          break;
+        case "email":
+          setError("Digite um e-mail válido.");
+          break;
+        default:
+          setError("Preencha a informação para continuar.");
+      }
+      return;
+    }
+
+    const idx = STEP_ORDER.indexOf(currentStep);
+    const next = STEP_ORDER[idx + 1];
+    if (next) setCurrentStep(next);
+  }
+
+  function prevStep() {
+    setError("");
+    const idx = STEP_ORDER.indexOf(currentStep);
+    const prev = STEP_ORDER[idx - 1];
+    if (prev) setCurrentStep(prev);
+  }
+
+  async function analisarContrato() {
+    try {
+      setLoading(true);
+      setError("");
+      setResultado(null);
+
+      const contextoExtra = `Nome: ${nome}. Situação: ${statusContrato}.`;
+
+      const formData = new FormData();
+      if (file) formData.append("file", file);
+      formData.append("contractText", contractText);
+      formData.append("contractType", contractType);
+      formData.append("papelNoContrato", papelNoContrato);
+      formData.append("parteImportante", parteImportante);
+      formData.append("contextoExtra", contextoExtra);
+
+      const res = await fetch("/api/analyze-pdf", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Não foi possível analisar o contrato.");
+      }
+
+      setResultado(data);
+      setCurrentStep("result");
+    } catch (err: any) {
+      setError(err?.message || "Ocorreu um erro ao analisar o contrato.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function StepShell({
+    eyebrow,
+    title,
+    description,
+    children,
+  }: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    children: React.ReactNode;
+  }) {
+    return (
+      <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+        <div className="mb-6">
+          <div className="mb-3 inline-flex rounded-full bg-[#eef4ff] px-3 py-1 text-xs font-semibold text-[#2854ff]">
+            {eyebrow}
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight text-[#0e2b50] md:text-4xl">{title}</h2>
+          <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">{description}</p>
+        </div>
+        {children}
+      </div>
+    );
+  }
+
+  function ChoiceButton({
+    active,
+    onClick,
+    children,
+  }: {
+    active?: boolean;
+    onClick: () => void;
+    children: React.ReactNode;
+  }) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={[
+          "w-full rounded-[22px] border px-5 py-6 text-left text-base font-medium transition",
+          active
+            ? "border-[#2854ff] bg-[#eef4ff] text-[#123047] shadow-sm"
+            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
+        ].join(" ")}
+      >
+        {children}
+      </button>
+    );
+  }
+
+  function Navigation({
+    showBack = stepIndex > 0 && currentStep !== "result",
+    continueLabel = "Continuar",
+    onContinue = nextStep,
+    disabled = !canContinue,
+  }: {
+    showBack?: boolean;
+    continueLabel?: string;
+    onContinue?: () => void;
+    disabled?: boolean;
+  }) {
+    return (
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          {showBack ? (
+            <button
+              type="button"
+              onClick={prevStep}
+              className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Voltar
+            </button>
+          ) : (
+            <div />
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={disabled}
+          className="rounded-full bg-[#0e2b50] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {continueLabel}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-[#f6f8fc] px-4 py-8 md:px-6 md:py-10">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-sm text-slate-600">Vamos por etapas.</p>
+            <h1 className="text-5xl font-black tracking-tight text-[#0e2b50] md:text-6xl">
+              Resultado da análise
+            </h1>
+          </div>
+
+          <a
+            href="/"
+            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-6 text-base font-semibold text-[#0e2b50] transition hover:bg-slate-50"
+          >
+            Voltar para a Home
+          </a>
+        </div>
+
+        <div className="mb-6 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between gap-4">
+            <span className="text-sm font-semibold text-slate-600">Progresso</span>
+            <span className="text-sm font-semibold text-[#2854ff]">{progress}%</span>
+          </div>
+          <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-[#2854ff] transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {[
+              { key: "contractType", label: "1) Contrato" },
+              { key: "role", label: "2) Seu contexto" },
+              { key: "name", label: "3) Seus dados" },
+              { key: "review", label: "4) Revisão" },
+              { key: "result", label: "5) Resultado" },
+            ].map((item) => {
+              const activeGroup =
+                (["contractType", "inputMethod", "contractContent"] as StepKey[]).includes(currentStep) && item.key === "contractType" ||
+                (["role", "focus", "status"] as StepKey[]).includes(currentStep) && item.key === "role" ||
+                (["name", "email"] as StepKey[]).includes(currentStep) && item.key === "name" ||
+                currentStep === "review" && item.key === "review" ||
+                currentStep === "result" && item.key === "result";
+
+              return (
+                <div
+                  key={item.key}
+                  className={[
+                    "rounded-full border px-4 py-2 text-sm font-semibold",
+                    activeGroup
+                      ? "border-[#2854ff] bg-[#eef4ff] text-[#2854ff]"
+                      : "border-slate-200 bg-white text-slate-500",
+                  ].join(" ")}
+                >
+                  {item.label}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {error && (
+          <div className="mb-6 rounded-[22px] border border-red-200 bg-red-50 px-5 py-6 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {currentStep === "contractType" && (
+          <StepShell
+            eyebrow="Etapa 1"
+            title="Que tipo de contrato você quer analisar?"
+            description="Vamos começar pelo básico. Isso ajuda a Clara a adaptar a leitura para a sua realidade."
+          >
+            <div className="grid gap-3 md:grid-cols-2">
+              {CONTRACT_TYPES.map((item) => (
+                <ChoiceButton
+                  key={item}
+                  active={contractType === item}
+                  onClick={() => setContractType(item)}
+                >
+                  {item}
+                </ChoiceButton>
+              ))}
+            </div>
+
+            <Navigation />
+          </StepShell>
+        )}
+
+        {currentStep === "inputMethod" && (
+          <StepShell
+            eyebrow="Etapa 1"
+            title="Como você prefere enviar o contrato?"
+            description="Escolha a forma mais fácil para você. A ideia é deixar tudo simples."
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <ChoiceButton
+                active={inputMethod === "upload"}
+                onClick={() => setInputMethod("upload")}
+              >
+                <div className="text-2xl font-semibold">Anexar arquivo</div>
+                <div className="mt-1 text-sm font-normal text-slate-500">
+                  Envie PDF, DOC, DOCX ou TXT.
+                </div>
+              </ChoiceButton>
+
+              <ChoiceButton
+                active={inputMethod === "paste"}
+                onClick={() => setInputMethod("paste")}
+              >
+                <div className="text-2xl font-semibold">Colar texto</div>
+                <div className="mt-1 text-sm font-normal text-slate-500">
+                  Cole aqui as cláusulas ou o contrato completo.
+                </div>
+              </ChoiceButton>
+            </div>
+
+            <Navigation />
+          </StepShell>
+        )}
+
+        {currentStep === "contractContent" && (
+          <StepShell
+            eyebrow="Etapa 1"
+            title={inputMethod === "upload" ? "Envie seu contrato" : "Cole o texto do contrato"}
+            description={
+              inputMethod === "upload"
+                ? "Pode ser o contrato completo ou um arquivo com as cláusulas principais."
+                : "Quanto mais contexto você trouxer, melhor tende a ficar a análise."
+            }
+          >
+            {inputMethod === "upload" ? (
+              <div className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 p-6">
+                <label className="mb-3 block text-sm font-semibold text-[#123047]">
+                  Selecione o arquivo
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  className="block w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm"
+                />
+                <p className="mt-3 text-sm text-slate-500">
+                  {file ? `Arquivo selecionado: ${file.name}` : "Nenhum arquivo selecionado ainda."}
+                </p>
+              </div>
+            ) : (
+              <div>
+                <label className="mb-3 block text-sm font-semibold text-[#123047]">
+                  Texto do contrato
+                </label>
+                <textarea
+                  value={contractText}
+                  onChange={(e) => setContractText(e.target.value)}
+                  rows={12}
+                  placeholder="Cole aqui o texto do contrato para a Clara identificar os principais pontos de atenção..."
+                  className="w-full rounded-[24px] border border-slate-300 px-5 py-6 text-base outline-none transition focus:border-[#2854ff]"
+                />
+                <p className="mt-3 text-sm text-slate-500">
+                  Dica: se você colar as partes sobre multa, prazo, cancelamento e reajuste, a análise já fica bem útil.
+                </p>
+              </div>
+            )}
+
+            <Navigation />
+          </StepShell>
+        )}
+
+        {currentStep === "role" && (
+          <StepShell
+            eyebrow="Etapa 2"
+            title="Qual é o seu papel nesse contrato?"
+            description="Essa resposta muda bastante a forma de interpretar riscos, obrigações e cuidados."
+          >
+            <div className="grid gap-3 md:grid-cols-2">
+              {ROLE_OPTIONS.map((item) => (
+                <ChoiceButton
+                  key={item}
+                  active={papelNoContrato === item}
+                  onClick={() => setPapelNoContrato(item)}
+                >
+                  {item}
+                </ChoiceButton>
+              ))}
+            </div>
+
+            {papelNoContrato === "Outro" && (
+              <div className="mt-4">
+                <input
+                  type="text"
+                  placeholder="Escreva seu papel no contrato"
+                  className="w-full rounded-[20px] border border-slate-300 px-4 py-3 text-base outline-none"
+                  onChange={(e) => setPapelNoContrato(e.target.value)}
+                />
+              </div>
+            )}
+
+            <Navigation />
+          </StepShell>
+        )}
+
+        {currentStep === "focus" && (
+          <StepShell
+            eyebrow="Etapa 2"
+            title="Qual parte você quer entender melhor?"
+            description="Pode ser um medo específico, uma cláusula, uma dúvida ou um ponto que você quer revisar com mais cuidado."
+          >
+            <div className="mb-4 flex flex-wrap gap-2">
+              {FOCUS_SUGGESTIONS.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setParteImportante(item)}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              value={parteImportante}
+              onChange={(e) => setParteImportante(e.target.value)}
+              rows={5}
+              placeholder="Ex.: quero entender se a multa está alta, se existe renovação automática ou se posso cancelar sem tanto custo."
+              className="w-full rounded-[24px] border border-slate-300 px-5 py-6 text-base outline-none transition focus:border-[#2854ff]"
+            />
+
+            <Navigation />
+          </StepShell>
+        )}
+
+        {currentStep === "status" && (
+          <StepShell
+            eyebrow="Etapa 2"
+            title="Você já assinou ou ainda está avaliando?"
+            description="Isso ajuda a Clara a ajustar a orientação final de forma mais útil para o seu momento."
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <ChoiceButton
+                active={statusContrato === "Ainda estou avaliando"}
+                onClick={() => setStatusContrato("Ainda estou avaliando")}
+              >
+                <div className="text-2xl font-semibold">Ainda estou avaliando</div>
+                <div className="mt-1 text-sm font-normal text-slate-500">
+                  Quero entender antes de decidir ou negociar.
+                </div>
+              </ChoiceButton>
+
+              <ChoiceButton
+                active={statusContrato === "Já assinei"}
+                onClick={() => setStatusContrato("Já assinei")}
+              >
+                <div className="text-2xl font-semibold">Já assinei</div>
+                <div className="mt-1 text-sm font-normal text-slate-500">
+                  Quero entender melhor o que foi combinado e meus próximos passos.
+                </div>
+              </ChoiceButton>
+            </div>
+
+            <Navigation />
+          </StepShell>
+        )}
+
+        {currentStep === "name" && (
+          <StepShell
+            eyebrow="Etapa 3"
+            title="Como você gostaria de ser chamada?"
+            description="É uma etapa rápida para deixar a experiência mais humana."
+          >
+            <input
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              type="text"
+              placeholder="Seu nome"
+              className="w-full rounded-[24px] border border-slate-300 px-5 py-6 text-2xl outline-none transition focus:border-[#2854ff]"
+            />
+
+            <Navigation />
+          </StepShell>
+        )}
+
+        {currentStep === "email" && (
+          <StepShell
+            eyebrow="Etapa 3"
+            title="Qual é o seu e-mail?"
+            description="A Clara pode usar isso em etapas futuras, como envio da análise ou geração de uma mensagem pronta."
+          >
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              placeholder="voce@email.com"
+              className="w-full rounded-[24px] border border-slate-300 px-5 py-6 text-2xl outline-none transition focus:border-[#2854ff]"
+            />
+
+            <Navigation continueLabel="Revisar respostas" />
+          </StepShell>
+        )}
+
+        {currentStep === "review" && (
+          <StepShell
+            eyebrow="Etapa 4"
+            title="Tudo certo para analisar"
+            description="Antes de continuar, veja se esse resumo representa bem o seu contexto."
+          >
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+                <div className="text-sm font-semibold text-slate-500">Tipo de contrato</div>
+                <div className="mt-1 text-2xl font-semibold text-[#123047]">{contractType}</div>
+              </div>
+
+              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+                <div className="text-sm font-semibold text-slate-500">Envio</div>
+                <div className="mt-1 text-2xl font-semibold text-[#123047]">
+                  {inputMethod === "upload" ? `Arquivo: ${file?.name || "não informado"}` : "Texto colado"}
+                </div>
+              </div>
+
+              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+                <div className="text-sm font-semibold text-slate-500">Seu papel</div>
+                <div className="mt-1 text-2xl font-semibold text-[#123047]">{papelNoContrato}</div>
+              </div>
+
+              <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+                <div className="text-sm font-semibold text-slate-500">Momento</div>
+                <div className="mt-1 text-2xl font-semibold text-[#123047]">{statusContrato}</div>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+              <div className="text-sm font-semibold text-slate-500">Ponto principal de atenção</div>
+              <div className="mt-1 text-2xl font-semibold text-[#123047]">{parteImportante}</div>
+            </div>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                type="button"
+                onClick={prevStep}
+                className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Voltar
+              </button>
+
+              <button
+                type="button"
+                onClick={analisarContrato}
+                disabled={loading}
+                className="rounded-full bg-[#0e2b50] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading ? "Analisando..." : "Analisar contrato"}
+              </button>
+            </div>
+          </StepShell>
+        )}
+
+        {currentStep === "result" && (
+          <div className="space-y-6">
+            <StepShell
+              eyebrow="Etapa 5"
+              title="Sua análise está pronta"
+              description="A Clara organizou os principais pontos para facilitar sua leitura."
+            >
+              {!resultado ? (
+                <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-6 text-slate-600">
+                  Nenhum resultado encontrado.
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {resultado?.resumo && (
+                    <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-6">
+                      <h3 className="text-xl font-bold text-[#0e2b50]">Resumo</h3>
+                      <p className="mt-3 text-base leading-7 text-slate-700">{resultado.resumo}</p>
+                    </div>
+                  )}
+
+                  {Array.isArray(resultado?.visao_geral) && resultado.visao_geral.length > 0 && (
+                    <div className="rounded-[24px] border border-slate-200 bg-white p-6">
+                      <h3 className="text-xl font-bold text-[#0e2b50]">Visão geral</h3>
+                      <ul className="mt-4 space-y-3">
+                        {resultado.visao_geral.map((item: string, idx: number) => (
+                          <li key={idx} className="rounded-[18px] bg-slate-50 px-4 py-3 text-slate-700">
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {Array.isArray(resultado?.pontos_atencao) && resultado.pontos_atencao.length > 0 && (
+                    <div className="rounded-[24px] border border-slate-200 bg-white p-6">
+                      <h3 className="text-xl font-bold text-[#0e2b50]">Pontos de atenção</h3>
+                      <div className="mt-4 space-y-4">
+                        {resultado.pontos_atencao.map((item: any, idx: number) => (
+                          <div key={idx} className="rounded-[20px] border border-slate-200 bg-slate-50 p-5">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <h4 className="text-2xl font-bold text-[#123047]">
+                                {item?.titulo || `Ponto ${idx + 1}`}
+                              </h4>
+                              {item?.risco && (
+                                <span className="rounded-full bg-[#eef4ff] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#2854ff]">
+                                  Risco {item.risco}
+                                </span>
+                              )}
+                            </div>
+
+                            {item?.explicacao && (
+                              <p className="mt-3 text-base leading-7 text-slate-700">{item.explicacao}</p>
+                            )}
+
+                            {item?.por_que_importa && (
+                              <div className="mt-3 rounded-[16px] bg-white px-4 py-3 text-sm text-slate-700">
+                                <span className="font-semibold text-[#123047]">Por que isso importa:</span>{" "}
+                                {item.por_que_importa}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {Array.isArray(resultado?.perguntas_para_negociar) &&
+                    resultado.perguntas_para_negociar.length > 0 && (
+                      <div className="rounded-[24px] border border-slate-200 bg-white p-6">
+                        <h3 className="text-xl font-bold text-[#0e2b50]">Perguntas para negociar ou revisar</h3>
+                        <ul className="mt-4 space-y-3">
+                          {resultado.perguntas_para_negociar.map((item: string, idx: number) => (
+                            <li key={idx} className="rounded-[18px] bg-slate-50 px-4 py-3 text-slate-700">
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                  {resultado?.orientacao_final && (
+                    <div className="rounded-[24px] border border-slate-200 bg-[#f8fbff] p-6">
+                      <h3 className="text-xl font-bold text-[#0e2b50]">Orientação final</h3>
+                      <p className="mt-3 text-base leading-7 text-slate-700">{resultado.orientacao_final}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="mt-8 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentStep("contractType");
+                    setResultado(null);
+                    setError("");
+                  }}
+                  className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Fazer nova análise
+                </button>
+
+                <a
+                  href="/"
+                  className="rounded-full bg-[#0e2b50] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-95"
+                >
+                  Voltar para a home
+                </a>
+              </div>
+            </StepShell>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+

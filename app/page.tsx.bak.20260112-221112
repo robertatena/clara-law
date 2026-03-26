@@ -1,0 +1,190 @@
+﻿'use client';
+
+import React, { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+type PickedFile = { name: string; size: number; type: string };
+
+function prettySize(bytes: number) {
+  if (!bytes && bytes !== 0) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let i = 0;
+  let v = bytes;
+  while (v >= 1024 && i < units.length - 1) {
+    v = v / 1024;
+    i++;
+  }
+  return ${v.toFixed(i === 0 ? 0 : 1)} ;
+}
+
+export default function Home() {
+  const router = useRouter();
+  const [files, setFiles] = useState<PickedFile[]>([]);
+  const hasFiles = useMemo(() => files.length > 0, [files]);
+
+  function onPick(list: FileList | null) {
+    if (!list) return;
+    const arr = Array.from(list).map((f) => ({ name: f.name, size: f.size, type: f.type }));
+    setFiles((prev) => [...prev, ...arr].slice(0, 10)); // limita a 10 só pra demo
+  }
+
+  function clear() {
+    setFiles([]);
+  }
+
+  function goLogin() {
+    router.push('/login');
+  }
+
+  return (
+    <main className="min-h-screen bg-white">
+      {/* HEADER */}
+      <header className="border-b">
+        <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-full border flex items-center justify-center text-xs font-semibold text-gray-700">
+              CL
+            </div>
+            <div className="leading-tight">
+              <div className="text-xs tracking-[0.25em] text-gray-500">CLARA LAW</div>
+              <div className="text-sm font-semibold text-gray-900">Contratos mais claros, em minutos</div>
+            </div>
+          </div>
+
+          <nav className="hidden md:flex items-center gap-8 text-sm text-gray-600">
+            <a className="hover:text-gray-900" href="#como">Como funciona</a>
+            <a className="hover:text-gray-900" href="#paraquem">Para quem é</a>
+            <a className="hover:text-gray-900" href="#enviar">Enviar contrato</a>
+          </nav>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push('/login')}
+              className="px-5 py-2 rounded-full border text-sm hover:bg-gray-50"
+            >
+              Entrar
+            </button>
+            <button
+              onClick={() => router.push('/login')}
+              className="px-5 py-2 rounded-full bg-sky-300 text-white text-sm hover:bg-sky-400"
+            >
+              Começar agora
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* BODY */}
+      <section className="max-w-7xl mx-auto px-6 py-10" id="enviar">
+        <h1 className="text-3xl font-semibold text-gray-900">Envie seu contrato para começar</h1>
+        <p className="mt-2 text-gray-600 max-w-3xl">
+          Você pode anexar contratos em PDF, Word, imagens, TXT ou colar o texto depois. Primeiro vamos receber seus arquivos e,
+          em seguida, você faz login para ver a análise.
+        </p>
+
+        <div className="mt-8 grid lg:grid-cols-3 gap-8">
+          {/* DROPZONE */}
+          <div className="lg:col-span-2">
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 flex flex-col items-center justify-center text-center">
+              <div className="h-12 w-12 rounded-full bg-sky-50 flex items-center justify-center">
+                <span className="text-sky-500 text-2xl">⬆</span>
+              </div>
+
+              <h3 className="mt-6 text-lg font-semibold text-gray-900">Arraste e solte seus contratos aqui</h3>
+              <p className="mt-1 text-sm text-gray-600">ou clique no botão abaixo para escolher arquivos</p>
+
+              <label className="mt-6 inline-flex cursor-pointer">
+                <input
+                  type="file"
+                  className="hidden"
+                  multiple
+                  onChange={(e) => onPick(e.target.files)}
+                  accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
+                />
+                <span className="px-7 py-3 rounded-full bg-sky-300 text-white font-semibold hover:bg-sky-400">
+                  Selecionar arquivos
+                </span>
+              </label>
+
+              <p className="mt-6 text-xs text-gray-500">
+                Não se preocupe: nesta versão os arquivos são tratados apenas para demonstração da interface.
+              </p>
+            </div>
+          </div>
+
+          {/* SIDE */}
+          <div className="space-y-6">
+            <div className="rounded-2xl border bg-white p-6 shadow-sm">
+              <div className="font-semibold text-gray-900">Contratos selecionados</div>
+              {!hasFiles ? (
+                <p className="mt-2 text-sm text-gray-600">
+                  Nenhum arquivo ainda. Anexe pelo menos um contrato para testar o fluxo da Clara.
+                </p>
+              ) : (
+                <div className="mt-3 space-y-2 max-h-40 overflow-auto">
+                  {files.map((f, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-800 truncate pr-3">{f.name}</span>
+                      <span className="text-gray-500 whitespace-nowrap">{prettySize(f.size)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={clear}
+                  className="flex-1 px-4 py-2 rounded-full border text-sm hover:bg-gray-50"
+                >
+                  Limpar lista
+                </button>
+                <button
+                  onClick={goLogin}
+                  className="flex-1 px-4 py-2 rounded-full bg-sky-300 text-white text-sm hover:bg-sky-400"
+                >
+                  Continuar para login
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border bg-white p-6 shadow-sm">
+              <div className="font-semibold text-gray-900">Visão de futuro (tipo DoNotPay brasileira)</div>
+              <p className="mt-2 text-sm text-gray-600">
+                Em breve, a Clara vai permitir que você gerencie dezenas de contratos ao mesmo tempo, com plano mensal,
+                pagamento via Apple Pay e automações para negociar, enviar notificações e acompanhar prazos críticos.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER SECTIONS (anchors do menu) */}
+      <section id="como" className="border-t bg-gray-50">
+        <div className="max-w-7xl mx-auto px-6 py-14 grid md:grid-cols-3 gap-10">
+          <div>
+            <div className="font-semibold">1. Envie o contrato</div>
+            <p className="mt-2 text-sm text-gray-600">Escolha PDF, Word, imagem ou texto.</p>
+          </div>
+          <div>
+            <div className="font-semibold">2. Faça login</div>
+            <p className="mt-2 text-sm text-gray-600">Para salvar seu histórico e ver o resultado.</p>
+          </div>
+          <div>
+            <div className="font-semibold">3. Entenda em minutos</div>
+            <p className="mt-2 text-sm text-gray-600">Riscos explicados com linguagem simples.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="paraquem" className="border-t">
+        <div className="max-w-7xl mx-auto px-6 py-14">
+          <div className="font-semibold text-lg">Para quem é</div>
+          <p className="mt-2 text-sm text-gray-600 max-w-3xl">
+            Para qualquer pessoa que queira entender melhor um contrato antes de assinar: aluguel, escola, curso, serviço,
+            academia, assinatura, trabalho e muito mais.
+          </p>
+        </div>
+      </section>
+    </main>
+  );
+}

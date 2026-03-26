@@ -1,0 +1,31 @@
+﻿import Link from "next/link";
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-h-screen bg-white text-gray-900">
+      <header className="border-b">
+        <div className="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
+          <strong className="text-lg">Clara Law</strong>
+          <nav className="flex gap-6 text-sm">
+            <Link href="/dashboard">Início</Link>
+            <Link href="/dashboard/contratos">Contratos</Link>
+            <Link href="/dashboard/contratos/novo">Nova análise</Link>
+            <Link href="/dashboard/historico">Histórico</Link>
+          </nav>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-6xl px-6 py-10">
+        {children}
+      </main>
+    </div>
+  );
+}
+
+
+
+
