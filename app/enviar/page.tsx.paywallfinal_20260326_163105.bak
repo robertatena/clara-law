@@ -622,43 +622,36 @@ export default function Page() {
         )}
 
         {Array.isArray(resultado.pontos_atencao) && resultado.pontos_atencao.length > 0 && (
-  <div className="rounded-[18px] border border-slate-200 bg-white p-5">
-    <h3 className="text-xl font-bold text-[#0e2b50]">Pontos que pedem atenção</h3>
+          <div className="rounded-[18px] border border-slate-200 bg-white p-5">
+            <h3 className="text-xl font-bold text-[#0e2b50]">Pontos que pedem atenção</h3>
+            <div className="mt-3 space-y-3">
+              {resultado.pontos_atencao.map((item: any, idx: number) => (
+                <div key={idx} className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h4 className="text-lg font-bold text-[#123047]">
+                      {item.titulo || `Ponto ${idx + 1}`}
+                    </h4>
+                    {item.risco && (
+                      <span className="rounded-full bg-[#eef4ff] px-3 py-1 text-xs font-semibold text-[#2854ff]">
+                        Risco {item.risco}
+                      </span>
+                    )}
+                  </div>
 
-    <div className="mt-3 space-y-3">
-      {resultado.pontos_atencao.slice(0, 3).map((item: any, idx: number) => (
-        <div key={idx} className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <h4 className="text-lg font-bold text-[#123047]">
-              {item.titulo || `Ponto ${idx + 1}`}
-            </h4>
-            {item.risco && (
-              <span className="rounded-full bg-[#eef4ff] px-3 py-1 text-xs font-semibold text-[#2854ff]">
-                Risco {item.risco}
-              </span>
-            )}
+                  {item.explicacao && (
+                    <p className="mt-2 text-base leading-7 text-slate-700">{item.explicacao}</p>
+                  )}
+
+                  {item.por_que_importa && (
+                    <p className="mt-2 text-sm text-slate-700">
+                      <span className="font-semibold text-[#123047]">Por que isso importa:</span> {item.por_que_importa}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-
-          {item.explicacao && (
-            <p className="mt-2 text-base leading-7 text-slate-700">{item.explicacao}</p>
-          )}
-
-          {item.por_que_importa && (
-            <p className="mt-2 text-sm text-slate-700">
-              <span className="font-semibold text-[#123047]">Por que isso importa:</span> {item.por_que_importa}
-            </p>
-          )}
-        </div>
-      ))}
-    </div>
-
-    {resultado.pontos_atencao.length > 3 && (
-      <div className="mt-4 rounded-[14px] border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-        + {resultado.pontos_atencao.length - 3} pontos adicionais disponíveis na análise completa
-      </div>
-    )}
-  </div>
-)}
+        )}
 
         {Array.isArray(resultado.base_legal) && resultado.base_legal.length > 0 && (
           <div className="rounded-[18px] border border-slate-200 bg-white p-5">
@@ -689,7 +682,7 @@ export default function Page() {
 
             <button
               type="button"
-              onClick={() => window.location.href = "https://buy.stripe.com/28E6oH7Wc58p2cb6mj57W00"}
+              onClick={() => setUnlockedAnalysis(true)}
               className="rounded-full bg-[#0e2b50] px-6 py-3 text-sm font-semibold text-white"
             >
               {unlockedAnalysis ? "Análise liberada" : "Ver análise completa"}
@@ -706,7 +699,8 @@ export default function Page() {
                 <li>• perguntas para revisar com advogado ou com a outra parte</li>
               </ul>
             </div>
-          ) : ( <div className="mt-4 space-y-4">
+          ) : (
+            <div className="mt-4 space-y-4">
               {resultado.analise_completa && (
                 <div className="rounded-[14px] bg-slate-50 p-4">
                   <h4 className="text-lg font-bold text-[#123047]">Análise completa</h4>
@@ -788,7 +782,6 @@ export default function Page() {
     </main>
   );
 }
-
 
 
 

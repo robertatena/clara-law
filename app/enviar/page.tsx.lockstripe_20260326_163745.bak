@@ -689,7 +689,7 @@ export default function Page() {
 
             <button
               type="button"
-              onClick={() => window.location.href = "https://buy.stripe.com/28E6oH7Wc58p2cb6mj57W00"}
+              onClick={() => setUnlockedAnalysis(true)}
               className="rounded-full bg-[#0e2b50] px-6 py-3 text-sm font-semibold text-white"
             >
               {unlockedAnalysis ? "Análise liberada" : "Ver análise completa"}
@@ -706,7 +706,8 @@ export default function Page() {
                 <li>• perguntas para revisar com advogado ou com a outra parte</li>
               </ul>
             </div>
-          ) : ( <div className="mt-4 space-y-4">
+          ) : (
+            <div className="mt-4 space-y-4">
               {resultado.analise_completa && (
                 <div className="rounded-[14px] bg-slate-50 p-4">
                   <h4 className="text-lg font-bold text-[#123047]">Análise completa</h4>
