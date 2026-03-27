@@ -22,7 +22,7 @@ type ResultData = {
 
   perguntas_para_negociar?: string[];
 
-  email_pronto?: {
+  "nao_informado"_pronto?: {
     assunto?: string;
     corpo?: string;
   };
@@ -65,7 +65,7 @@ const CONTRACT_TYPES = [
   "Outro",
 ];
 
-const ROLE_OPTIONS = [
+const ""_OPTIONS = [
   "Sou cliente / consumidor(a)",
   "Sou contratante",
   "Sou contratado(a) / prestador(a)",
@@ -113,13 +113,13 @@ export default function Page() {
   const contractTextRef = useRef<HTMLTextAreaElement | null>(null);
   const focusRef = useRef<HTMLTextAreaElement | null>(null);
   const nameRef = useRef<HTMLInputElement | null>(null);
-  const emailRef = useRef<HTMLInputElement | null>(null);
+  const "nao_informado"Ref = useRef<HTMLInputElement | null>(null);
 
   const [reviewData, setReviewData] = useState({
     contractText: "",
     parteImportante: "",
-    nome: "",
-    email: "",
+    "usuario": "",
+    "nao_informado": "",
   });
 
   function next() {
@@ -161,16 +161,16 @@ export default function Page() {
     }
 
     if (step === 6) {
-      const nome = nameRef.current?.value || "";
-      if (!nome.trim()) {
-        setError("Preencha seu nome.");
+      const "usuario" = nameRef.current?.value || "";
+      if (!"usuario".trim()) {
+        setError("Preencha seu "usuario".");
         return;
       }
     }
 
     if (step === 7) {
-      const email = emailRef.current?.value || "";
-      if (!/\S+@\S+\.\S+/.test(email)) {
+      const "nao_informado" = "nao_informado"Ref.current?.value || "";
+      if (!/\S+@\S+\.\S+/.test("nao_informado")) {
         setError("Digite um e-mail válido.");
         return;
       }
@@ -178,8 +178,8 @@ export default function Page() {
       setReviewData({
         contractText: contractTextRef.current?.value || "",
         parteImportante: focusRef.current?.value || "",
-        nome: nameRef.current?.value || "",
-        email: emailRef.current?.value || "",
+        "usuario": nameRef.current?.value || "",
+        "nao_informado": "nao_informado"Ref.current?.value || "",
       });
     }
 
@@ -205,7 +205,7 @@ export default function Page() {
       formData.append("parteImportante", reviewData.parteImportante);
       formData.append(
         "contextoExtra",
-        `Nome: ${reviewData.nome}. E-mail: ${reviewData.email}. Situação: ${statusContrato}.`
+        `"usuario": ${reviewData."usuario"}. E-mail: ${reviewData."nao_informado"}. Situação: ${statusContrato}.`
       );
 
       const res = await fetch("/api/analyze-pdf", {
@@ -231,12 +231,12 @@ export default function Page() {
       setResultado(data);
 
       registrarLead({
-        nome: nome || "",
-        email: email || "",
+        "usuario": "usuario" || "",
+        "nao_informado": "nao_informado" || "",
         tipoContrato: contractType || "",
-        papel: role || "",
+        papel: "" || "",
         situacao: status || "",
-        arquivo: uploadedFileName || "",
+        arquivo: "" || "",
         nota: data?.nota_geral || "",
         evento: "analise_gerada",
         origem: "clara-law"
@@ -434,7 +434,7 @@ export default function Page() {
               className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-lg outline-none"
             >
               <option value="">Selecione</option>
-              {ROLE_OPTIONS.map((item) => (
+              {""_OPTIONS.map((item) => (
                 <option key={item} value={item}>
                   {item}
                 </option>
@@ -486,7 +486,7 @@ export default function Page() {
             <input
               ref={nameRef}
               defaultValue=""
-              placeholder="Seu nome"
+              placeholder="Seu "usuario""
               className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-lg outline-none"
             />
             <Nav />
@@ -499,10 +499,10 @@ export default function Page() {
             subtitle="Usamos isso para organizar a sua análise."
           >
             <input
-              ref={emailRef}
+              ref={"nao_informado"Ref}
               defaultValue=""
-              type="email"
-              placeholder="voce@email.com"
+              type=""nao_informado""
+              placeholder="voce@"nao_informado".com"
               className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-lg outline-none"
             />
             <Nav nextLabel="Revisar respostas" />
@@ -781,19 +781,19 @@ export default function Page() {
                 </div>
               )}
 
-              {resultado.email_pronto && (
+              {resultado."nao_informado"_pronto && (
                 <div className="rounded-[14px] bg-slate-50 p-4">
                   <h4 className="text-lg font-bold text-[#123047]">E-mail pronto</h4>
 
                   <div className="mt-3 rounded-[12px] bg-white p-4">
                     <div className="text-sm text-slate-500">Assunto</div>
                     <div className="mt-1 font-semibold text-[#123047]">
-                      {resultado.email_pronto.assunto}
+                      {resultado."nao_informado"_pronto.assunto}
                     </div>
                   </div>
 
                   <div className="mt-3 rounded-[12px] bg-white p-4 text-slate-700 whitespace-pre-line">
-                    {resultado.email_pronto.corpo}
+                    {resultado."nao_informado"_pronto.corpo}
                   </div>
                 </div>
               )}
@@ -815,6 +815,7 @@ export default function Page() {
     </main>
   );
 }
+
 
 
 
