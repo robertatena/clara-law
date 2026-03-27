@@ -82,20 +82,6 @@ const ROLE_OPTIONS = [
 ];
 
 export default function Page() {
-  async function registrarLead(payload: any) {
-    try {
-      await fetch("/api/lead", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-    } catch (err) {
-      console.error("Erro ao registrar lead:", err);
-    }
-  }
-
   const [step, setStep] = useState(1);
 
   const [contractType, setContractType] = useState("União estável / família");
@@ -229,19 +215,6 @@ export default function Page() {
 
       setUnlockedAnalysis(false);
       setResultado(data);
-
-      registrarLead({
-        nome: nome || "",
-        email: email || "",
-        tipoContrato: contractType || "",
-        papel: role || "",
-        situacao: status || "",
-        arquivo: uploadedFileName || "",
-        nota: data?.nota_geral || "",
-        evento: "analise_gerada",
-        origem: "clara-law"
-      });
-
       setStep(9);
     } catch (err: any) {
       setError(err?.message || "Erro ao analisar o contrato.");
