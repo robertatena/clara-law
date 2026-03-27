@@ -231,12 +231,12 @@ export default function Page() {
       setResultado(data);
 
       registrarLead({
-        nome: nome || "",
-        email: email || "",
+        nome: "usuario",
+        email: "nao_informado",
         tipoContrato: contractType || "",
-        papel: role || "",
+        papel: "",
         situacao: status || "",
-        arquivo: uploadedFileName || "",
+        arquivo: "",
         nota: data?.nota_geral || "",
         evento: "analise_gerada",
         origem: "clara-law"
@@ -815,6 +815,7 @@ export default function Page() {
     </main>
   );
 }
+
 
 
 
