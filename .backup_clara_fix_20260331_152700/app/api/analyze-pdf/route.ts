@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -123,7 +123,7 @@ Obrigada.`
         "Use esta análise como mapa inicial. Se houver custo alto, prazo longo ou obrigação pouco clara, vale revisar com cuidado antes de assinar.",
       paywall: {
         locked: true,
-        cta: "Desbloquear análise completa do seu contrato",
+        cta: "Veja a análise completa",
         subtexto: "Disponível após o pagamento"
       }
     };

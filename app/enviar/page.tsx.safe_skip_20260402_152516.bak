@@ -278,7 +278,7 @@ export default function Page() {
     onNext?: () => void;
   }) {
     return (
-      <div className="mt-8 flex items-center justify-between mobile-action-row">
+      <div className="mt-8 flex items-center justify-between">
         <div>
           {!hideBack && step > 1 ? (
             <button
@@ -305,7 +305,7 @@ export default function Page() {
   }
 
   return (
-    <main className="clara-mobile-fix min-h-screen bg-[#f6f8fc] px-4 py-8 md:px-6 md:py-10">
+    <main className="min-h-screen bg-[#f6f8fc] px-4 py-8 md:px-6 md:py-10">
       <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
@@ -444,12 +444,39 @@ export default function Page() {
           </Shell>
         )}
 
-        {step === 4 && (() => {
-          setTimeout(() => setStep(6), 0)
-          return null
-        })()}
+        {step === 4 && (
+          <Shell
+            title=""
+            subtitle="Pode ser multa, cancelamento, prazo, reajuste ou qualquer ponto que te preocupe."
+          >
+            <textarea
+              ref={focusRef}
+              defaultValue=""
+              rows={6}
+              placeholder="Ex.: quero entender se a multa está alta e se existe renovação automática."
+              className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none"
+            />
+            <Nav />
+          </Shell>
+        )}
 
-        {step === 5 && null}
+        {step === 5 && (
+          <Shell
+            title=""
+            subtitle="Essa informação muda a orientação final."
+          >
+            <select
+              value={statusContrato}
+              onChange={(e) => setStatusContrato(e.target.value)}
+              className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-lg outline-none"
+            >
+              <option value="">Selecione</option>
+              <option value="Ainda estou avaliando">Ainda estou avaliando</option>
+              <option value="Já assinei">Já assinei</option>
+            </select>
+            <Nav />
+          </Shell>
+        )}
 
         {step === 6 && (
           <Shell
@@ -487,7 +514,7 @@ export default function Page() {
             title="Tudo certo para analisar"
             subtitle="Veja se esse resumo representa bem o seu contexto."
           >
-            <div className="grid gap-4 md:grid-cols-2 mobile-summary-grid">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
                 <div className="text-sm text-slate-500">Tipo de contrato</div>
                 <div className="mt-1 text-lg font-semibold text-[#123047]">{contractType}</div>
@@ -505,24 +532,20 @@ export default function Page() {
                 <div className="mt-1 text-lg font-semibold text-[#123047]">{papelNoContrato}</div>
               </div>
 
-              {statusContrato ? (
-                <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
-                  <div className="text-sm text-slate-500">Situação</div>
-                  <div className="mt-1 text-lg font-semibold text-[#123047]">{statusContrato}</div>
-                </div>
-              ) : null}
+              <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
+                <div className="text-sm text-slate-500">Situação</div>
+                <div className="mt-1 text-lg font-semibold text-[#123047]">{statusContrato}</div>
+              </div>
             </div>
 
-            {reviewData.parteImportante ? (
-              <div className="mt-4 rounded-[18px] border border-slate-200 bg-slate-50 p-4">
-                <div className="text-sm text-slate-500">Ponto principal de atenção</div>
-                <div className="mt-1 text-lg font-semibold text-[#123047]">
-                  {reviewData.parteImportante}
-                </div>
+            <div className="mt-4 rounded-[18px] border border-slate-200 bg-slate-50 p-4">
+              <div className="text-sm text-slate-500">Ponto principal de atenção</div>
+              <div className="mt-1 text-lg font-semibold text-[#123047]">
+                {reviewData.parteImportante}
               </div>
-            ) : null}
+            </div>
 
-            <div className="mt-8 flex items-center justify-between mobile-action-row">
+            <div className="mt-8 flex items-center justify-between">
               <button
                 type="button"
                 onClick={back}
@@ -789,88 +812,6 @@ export default function Page() {
   </Shell>
 )}
       </div>
-    
-      <style jsx global>{`
-        .clara-mobile-style-patch {}
-
-        @media (max-width: 768px) {
-          .clara-mobile-fix {
-            padding-left: 16px !important;
-            padding-right: 16px !important;
-          }
-
-          .clara-mobile-fix h1 {
-            font-size: 2.7rem !important;
-            line-height: 0.95 !important;
-            letter-spacing: -0.03em !important;
-          }
-
-          .clara-mobile-fix h2 {
-            font-size: 2rem !important;
-            line-height: 1.05 !important;
-          }
-
-          .clara-mobile-fix .mobile-summary-grid,
-          .clara-mobile-fix [class*="md:grid-cols-2"] {
-            grid-template-columns: 1fr !important;
-          }
-
-          .clara-mobile-fix .mobile-action-row {
-            flex-direction: column-reverse !important;
-            align-items: stretch !important;
-            gap: 12px !important;
-          }
-
-          .clara-mobile-fix .mobile-action-row button,
-          .clara-mobile-fix .mobile-action-row a {
-            width: 100% !important;
-            justify-content: center !important;
-          }
-
-          .clara-mobile-fix input,
-          .clara-mobile-fix select,
-          .clara-mobile-fix textarea {
-            font-size: 16px !important;
-            min-height: 52px !important;
-          }
-
-          .clara-mobile-fix textarea {
-            min-height: 180px !important;
-          }
-
-          .clara-mobile-fix [class*="rounded-[24px]"],
-          .clara-mobile-fix [class*="rounded-[20px]"],
-          .clara-mobile-fix [class*="rounded-[18px]"] {
-            border-radius: 18px !important;
-          }
-
-          .clara-mobile-fix [class*="p-5"] {
-            padding: 18px !important;
-          }
-
-          .clara-mobile-fix [class*="p-4"] {
-            padding: 16px !important;
-          }
-
-          .clara-mobile-fix [class*="px-5"] {
-            padding-left: 18px !important;
-            padding-right: 18px !important;
-          }
-
-          .clara-mobile-fix [class*="py-4"] {
-            padding-top: 14px !important;
-            padding-bottom: 14px !important;
-          }
-
-          .clara-mobile-fix [class*="text-lg"] {
-            font-size: 1rem !important;
-          }
-
-          .clara-mobile-fix [class*="text-sm"] {
-            font-size: 0.9rem !important;
-          }
-        }
-      `}</style>
     </main>
   );
 }
@@ -888,4 +829,3 @@ export default function Page() {
 
 
 // force redeploy 2026-03-27 17:30:28
-

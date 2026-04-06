@@ -1,0 +1,98 @@
+/* === CLARA_BRAND_TOKENS (pode ajustar depois com o brandbook) === */
+:root{
+  --clara-ink: #0B1220;      /* texto principal */
+  --clara-ink2:#111827;
+  --clara-muted:#667085;     /* texto secundário */
+  --clara-border:#E6E8EF;
+
+  --clara-mint:#14B8A6;      /* acento 1 */
+  --clara-lilac:#7C3AED;     /* acento 2 */
+  --clara-rose:#FB7185;      /* acento 3 opcional */
+  --clara-cream:#F7F7FB;     /* fundo claro */
+  --clara-card:#FFFFFF;
+
+  --clara-glow: 0 18px 60px rgba(124,58,237,.18);
+  --clara-glow2: 0 18px 60px rgba(20,184,166,.16);
+}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root {
+  color-scheme: light;
+}
+html, body {
+  height: 100%;
+}
+body {
+  background: #FFFFFF;
+  color: #0F172A;
+  font-feature-settings: "kern";
+}
+.clara-shell {
+  min-height: 100vh;
+  background: #FFFFFF;
+  color: #0F172A;
+}
+.clara-title {
+  letter-spacing: 0.22em;
+  font-weight: 600;
+}
+.clara-muted { color: rgba(15, 23, 42, 0.62); }
+.clara-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+.clara-h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.clara-button-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: #0F172A;
+  color: white;
+  transition: opacity .15s ease;
+}
+.clara-button-primary:hover { opacity: .9; }
+.clara-button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: rgba(15, 23, 42, 0.06);
+  color: #0F172A;
+  transition: background .15s ease;
+}
+.clara-button-secondary:hover { background: rgba(15, 23, 42, 0.09); }
+:root{
+  /* Brandbook - Clara Law */
+  --clara-gold:#D4AF37;      /* Dourado fosco */
+  --clara-sky:#A8D8F0;       /* Azul-celeste */
+  --clara-white:#FFFFFF;     /* Branco puro */
+  --clara-gray:#F2F2F2;      /* Cinza neutro */
+  --clara-ink:#0A2540;       /* texto (neutro escuro, para legibilidade) */
+  --clara-bg: #FFFFFF;
+  --clara-card: #FFFFFF;
+  --clara-border: rgba(10,37,64,0.10);
+}
+html, body{
+  background: var(--clara-bg);
+  color: var(--clara-ink);
+  font-family: "Montserrat", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+.clara-title{
+  font-family: "Raleway", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+.clara-soft{
+  background: linear-gradient(180deg, rgba(168,216,240,0.35), rgba(255,255,255,0.0));
+}

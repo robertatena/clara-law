@@ -1,0 +1,148 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+
+export default function Home() {
+  return (
+    <main className="mx-auto max-w-7xl px-6 py-16">
+      {/* Header */}
+      <header className="flex items-center justify-between mb-16">
+        <div className="flex items-center gap-3">
+          <Image
+            src="/brand/clara-logo.png"
+            alt="Clara Law"
+            width={44}
+            height={44}
+          />
+          <div>
+            <strong className="block leading-tight">CLARA LAW</strong>
+            <span className="text-sm text-slate-500">
+              Inteligência para um mundo mais claro.
+            </span>
+          </div>
+        </div>
+
+        <Link
+          href="/analisar"
+          className="rounded-full border px-5 py-2 text-sm hover:bg-slate-50"
+        >
+          Ver resultados / Demo
+        </Link>
+      </header>
+
+      {/* Hero */}
+      <section className="grid grid-cols-1 gap-16 lg:grid-cols-2">
+        <div>
+          <span className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-1 text-xs text-white mb-6">
+            <span className="h-2 w-2 rounded-full bg-yellow-400"></span>
+            Clareza antes de assinar
+          </span>
+
+          <h1 className="text-5xl font-semibold leading-tight mb-6">
+            Entenda seu contrato em minutos 
+            <br />
+            <span className="text-slate-500">sem juridiquês.</span>
+          </h1>
+
+          <p className="text-lg text-slate-600 max-w-xl">
+            A Clara ajuda você a tomar decisões seguras antes de assinar.
+            Ela traduz contratos, destaca riscos reais e prepara um e-mail
+            pronto para validar ou negociar com um advogado.
+          </p>
+
+          <div className="mt-10 flex items-center gap-4">
+            <Link
+              href="/enviar"
+              className="rounded-full bg-slate-900 px-8 py-4 text-white hover:bg-slate-800"
+            >
+              Começar análise
+            </Link>
+
+            <span className="text-sm text-slate-500">
+              Cadastro rápido  Sem cartão
+            </span>
+          </div>
+
+          <div className="mt-6 rounded-xl border border-slate-200 p-5 max-w-xl">
+            <strong>Transparência</strong>
+            <p className="text-sm text-slate-600 mt-1">
+              A Clara não é advogada. É uma ferramenta de apoio para entender,
+              levantar dúvidas e decidir com mais segurança.
+            </p>
+          </div>
+        </div>
+
+        {/* Como funciona */}
+        <div className="rounded-3xl border border-slate-200 p-8 bg-slate-50">
+          <h2 className="text-xl font-semibold mb-6">Como funciona</h2>
+
+          <ol className="space-y-5 text-slate-700">
+            <li className="flex gap-4">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-medium">
+                1
+              </span>
+              <p>
+                <strong>Cadastro rápido</strong><br />
+                Você informa quem é e seu papel no contrato (quem paga,
+                quem presta ou representante).
+              </p>
+            </li>
+
+            <li className="flex gap-4">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-medium">
+                2
+              </span>
+              <p>
+                <strong>Envio do contrato</strong><br />
+                Faça upload do PDF. A Clara lê o texto ou solicita OCR se necessário.
+              </p>
+            </li>
+
+            <li className="flex gap-4">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-medium">
+                3
+              </span>
+              <p>
+                <strong>Análise objetiva</strong><br />
+                Resumo claro, pontos de atenção e riscos que realmente importam.
+              </p>
+            </li>
+
+            <li className="flex gap-4">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-700 font-medium">
+                4
+              </span>
+              <p>
+                <strong>E-mail pronto</strong><br />
+                Texto estruturado para validar com advogado ou negociar com a outra parte.
+              </p>
+            </li>
+          </ol>
+
+          <div className="mt-8">
+            <h3 className="font-medium mb-3">O que a Clara procura</h3>
+            <div className="flex flex-wrap gap-2">
+              {[
+                "Multas e fidelidade",
+                "Prazos e vigência",
+                "Renovação automática",
+                "Rescisão e aviso prévio",
+                "Reajustes e valores",
+                "Responsabilidades",
+                "LGPD e dados pessoais",
+              ].map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full bg-white px-4 py-2 text-sm border"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}

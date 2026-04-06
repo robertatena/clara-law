@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 
@@ -24,7 +24,8 @@ const PAPEL_OPTIONS: PapelOption[] = [
   { value: "empregado", label: "Sou empregado(a)" },
   { value: "empregador", label: "Sou empregador(a)/empresa" },
   { value: "fiador", label: "Sou fiador(a)" },
-  { value: "outro", label: "Outro" }];
+  { value: "outro", label: "Outro" },
+];
 
 export default function EnviarClient() {
   const [arquivo, setArquivo] = useState<File | null>(null);
