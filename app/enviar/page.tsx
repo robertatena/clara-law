@@ -1,8 +1,11 @@
-"use client";
+﻿"use client";
 
+
+import LegalInsightsCard from "@/components/LegalInsightsCard"
 import { useRef, useState } from "react";
 
 type ResultData = {
+  score?: number;
   nota_geral?: number;
   resumo?: string;
   visao_geral?: string[];
@@ -82,7 +85,9 @@ const ROLE_OPTIONS = [
 ];
 
 export default function Page() {
-  async function registrarLead(payload: any) {
+
+  // ✅ cálculo correto central
+async function registrarLead(payload: any) {
     try {
       await fetch("/api/lead", {
         method: "POST",
@@ -108,7 +113,9 @@ export default function Page() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<ResultData | null>(null);
-  const [unlockedAnalysis, setUnlockedAnalysis] = useState(false);
+
+
+const [unlockedAnalysis, setUnlockedAnalysis] = useState(false);
 
   const contractTextRef = useRef<HTMLTextAreaElement | null>(null);
   const focusRef = useRef<HTMLTextAreaElement | null>(null);
@@ -317,7 +324,7 @@ export default function Page() {
 
           <a
             href="/"
-            className="rounded-full border border-slate-200 bg-white px-6 py-4 text-base font-semibold text-[#0e2b50]"
+            className="rounded-full border border-slate-200 bg-white px-6 py-4 text-[15px] font-semibold text-[#0e2b50]"
           >
             Voltar para a Home
           </a>
@@ -545,7 +552,7 @@ export default function Page() {
 
         {step === 9 && (
   <Shell
-    title="Sua análise está pronta"
+    title="Resumo inicial do contrato"
     subtitle="A Clara organizou os principais pontos para facilitar sua leitura."
   >
     {!resultado ? (
@@ -554,46 +561,50 @@ export default function Page() {
       </div>
     ) : (
       <div className="space-y-5">
-        <div className="rounded-[18px] border border-slate-200 bg-[#f8fbff] p-5">
-          <div className="text-sm font-semibold text-slate-500">Nota do contrato</div>
-          <div className="mt-2 flex items-end gap-3">
-            <div className="text-4xl font-black text-[#0e2b50]">
-              {resultado.nota_geral ?? "-"}
-            </div>
-            <div className="pb-1 text-sm text-slate-500">/ 10</div>
-          </div>
-          <p className="mt-3 text-sm text-slate-600">
-            Quanto menor a nota, maior tende a ser a necessidade de revisar o contrato com atenção antes de seguir.
-          </p>
-        </div>
-
-        <div className="rounded-[18px] border border-slate-200 bg-white p-5">
-          <h3 className="text-xl font-bold text-[#0e2b50]">Nível de risco por área</h3>
-          <p className="mt-2 text-sm text-slate-600">
-            Este quadro mostra onde o contrato pode exigir mais cuidado.
-          </p>
-
-          <div className="mt-4 space-y-4">
-            {[
-              { label: "Impacto financeiro", value: resultado.grafico_risco?.financeiro ?? 68 },
-              { label: "Saída do contrato", value: resultado.grafico_risco?.saida ?? 82 },
-              { label: "Obrigações e responsabilidades", value: resultado.grafico_risco?.obrigacoes ?? 63 },
-            ].map((item, idx) => (
-              <div key={idx}>
-                <div className="mb-1 flex items-center justify-between text-sm">
-                  <span className="font-semibold text-slate-700">{item.label}</span>
-                  <span className="text-slate-500">{item.value}/100</span>
-                </div>
-                <div className="h-3 rounded-full bg-slate-100">
-                  <div
-                    className="h-3 rounded-full bg-[#2854ff]"
-                    style={{ width: `${item.value}%` }}
-                  />
-                </div>
+        {resultado.grafico_risco && (() => {
+          const areas = [
+            { label: "Impacto financeiro", value: resultado.grafico_risco!.financeiro ?? 0 },
+            { label: "Saída do contrato", value: resultado.grafico_risco!.saida ?? 0 },
+            { label: "Obrigações e responsabilidades", value: resultado.grafico_risco!.obrigacoes ?? 0 },
+          ];
+          function areaStyle(v: number) {
+            if (v >= 60) return { bar: "bg-red-500", badge: "bg-red-100 text-red-700", label: "Alto risco" };
+            if (v >= 35) return { bar: "bg-amber-400", badge: "bg-amber-100 text-amber-700", label: "Atenção" };
+            return { bar: "bg-green-500", badge: "bg-green-100 text-green-700", label: "Baixo risco" };
+          }
+          return (
+            <div className="rounded-[18px] border border-slate-200 bg-white p-6">
+              <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-slate-400">Diagnóstico do contrato</div>
+              <h3 className="text-xl font-bold text-[#0e2b50]">Quanto ainda falta para seu contrato estar seguro</h3>
+              <p className="mt-1 text-sm text-slate-500">Quanto maior a barra, maior a exposição ainda presente nessa área.</p>
+              <div className="mt-5 space-y-5">
+                {areas.map((item, idx) => {
+                  const s = areaStyle(item.value);
+                  return (
+                    <div key={idx}>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="font-semibold text-slate-700">{item.label}</span>
+                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s.badge}`}>
+                          {s.label}
+                        </span>
+                      </div>
+                      <div className="relative h-2 rounded-full bg-slate-100">
+                        <div
+                          className={`h-2 rounded-full ${s.bar} transition-all`}
+                          style={{ width: `${item.value}%` }}
+                        />
+                      </div>
+                      <div className="mt-1 text-right text-xs text-slate-400">{item.value}% de exposição</div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-        </div>
+              <p className="mt-5 rounded-[12px] bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                A análise completa mostra exatamente o que fazer em cada uma dessas áreas.
+              </p>
+            </div>
+          );
+        })()}
 
         {resultado.resumo && (
           <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-5">
@@ -602,67 +613,68 @@ export default function Page() {
           </div>
         )}
 
-        {Array.isArray(resultado.riscos_principais) && resultado.riscos_principais.length > 0 && (
-          <div className="rounded-[18px] border border-slate-200 bg-white p-5">
-            <h3 className="text-xl font-bold text-[#0e2b50]">Onde estão os principais riscos</h3>
-            <div className="mt-3 space-y-3">
-              {resultado.riscos_principais.map((item: any, idx: number) => (
-                <div key={idx} className="rounded-[14px] bg-slate-50 p-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h4 className="text-lg font-bold text-[#123047]">{item.titulo}</h4>
-                    {item.risco && (
-                      <span className="rounded-full bg-[#eef4ff] px-3 py-1 text-xs font-semibold text-[#2854ff]">
-                        Risco {item.risco}
-                      </span>
-                    )}
+        {(() => {
+          const todosPontos = [
+            ...(resultado.riscos_principais || []).map((r: any) => ({
+              titulo: r.titulo,
+              explicacao: r.linguagem_simples,
+              risco: r.risco,
+              por_que_importa: undefined as string | undefined,
+            })),
+            ...(resultado.pontos_atencao || []).map((p: any) => ({
+              titulo: p.titulo,
+              explicacao: p.explicacao,
+              risco: p.risco,
+              por_que_importa: p.por_que_importa as string | undefined,
+            })),
+          ];
+          if (todosPontos.length === 0) return null;
+          function riscoStyles(risco?: string) {
+            const r = (risco || "").toLowerCase();
+            if (r === "alto") return { card: "bg-red-50 border-red-200", badge: "bg-red-100 text-red-700" };
+            if (r === "medio" || r === "médio") return { card: "bg-amber-50 border-amber-200", badge: "bg-amber-100 text-amber-700" };
+            if (r === "baixo") return { card: "bg-green-50 border-green-200", badge: "bg-green-100 text-green-700" };
+            return { card: "bg-slate-50 border-slate-200", badge: "bg-slate-100 text-slate-700" };
+          }
+          return (
+            <div className="rounded-[18px] border border-slate-200 bg-white p-5">
+              <h3 className="text-xl font-bold text-[#0e2b50]">Pontos de atenção</h3>
+              <div className="mt-3 space-y-3">
+                {todosPontos.slice(0, 2).map((item, idx) => {
+                  const styles = riscoStyles(item.risco);
+                  return (
+                    <div key={idx} className={`rounded-[14px] border p-4 ${styles.card}`}>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h4 className="text-lg font-bold text-[#123047]">{item.titulo || `Ponto ${idx + 1}`}</h4>
+                        {item.risco && (
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${styles.badge}`}>
+                            Risco {item.risco}
+                          </span>
+                        )}
+                      </div>
+                      {item.explicacao && (
+                        <p className="mt-2 text-base leading-7 text-slate-700">{item.explicacao}</p>
+                      )}
+                      {item.por_que_importa && (
+                        <div className="mt-3 rounded-[10px] bg-white px-4 py-3">
+                          <span className="text-sm font-semibold text-[#123047]">Por que importa: </span>
+                          <span className="text-sm text-slate-700">{item.por_que_importa}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {todosPontos.length > 2 && (
+                  <div className="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 p-4 text-center">
+                    <span className="text-sm text-slate-500">
+                      🔒 + {todosPontos.length - 2} pontos adicionais na análise completa
+                    </span>
                   </div>
-                  <p className="mt-2 text-base leading-7 text-slate-700">
-                    {item.linguagem_simples}
-                  </p>
-                </div>
-              ))}
+                )}
+              </div>
             </div>
-          </div>
-        )}
-
-        {Array.isArray(resultado.pontos_atencao) && resultado.pontos_atencao.length > 0 && (
-  <div className="rounded-[18px] border border-slate-200 bg-white p-5">
-    <h3 className="text-xl font-bold text-[#0e2b50]">Pontos que pedem atenção</h3>
-
-    <div className="mt-3 space-y-3">
-      {resultado.pontos_atencao.slice(0, 3).map((item: any, idx: number) => (
-        <div key={idx} className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <h4 className="text-lg font-bold text-[#123047]">
-              {item.titulo || `Ponto ${idx + 1}`}
-            </h4>
-            {item.risco && (
-              <span className="rounded-full bg-[#eef4ff] px-3 py-1 text-xs font-semibold text-[#2854ff]">
-                Risco {item.risco}
-              </span>
-            )}
-          </div>
-
-          {item.explicacao && (
-            <p className="mt-2 text-base leading-7 text-slate-700">{item.explicacao}</p>
-          )}
-
-          {item.por_que_importa && (
-            <p className="mt-2 text-sm text-slate-700">
-              <span className="font-semibold text-[#123047]">Por que isso importa:</span> {item.por_que_importa}
-            </p>
-          )}
-        </div>
-      ))}
-    </div>
-
-    {resultado.pontos_atencao.length > 3 && (
-      <div className="mt-4 rounded-[14px] border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-        + {resultado.pontos_atencao.length - 3} pontos adicionais disponíveis na análise completa
-      </div>
-    )}
-  </div>
-)}
+          );
+        })()}
 
         {Array.isArray(resultado.base_legal) && resultado.base_legal.length > 0 && (
           <div className="rounded-[18px] border border-slate-200 bg-white p-5">
@@ -672,111 +684,128 @@ export default function Page() {
                 <div key={idx} className="rounded-[14px] bg-slate-50 p-4">
                   <div className="font-semibold text-[#123047]">{item.titulo}</div>
                   <div className="mt-1 text-sm text-slate-700">{item.fundamento}</div>
+                  {item.titulo && (
+                    <a
+                      href={`https://www.jusbrasil.com.br/busca?q=${encodeURIComponent(`${item.titulo} ${contractType}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-block text-sm font-semibold text-[#2854ff] hover:underline"
+                    >
+                      Ver no JusBrasil →
+                    </a>
+                  )}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <div className="rounded-[18px] border border-slate-200 bg-white p-5">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h3 className="text-xl font-bold text-[#0e2b50]">
-                {resultado.paywall?.cta || "Desbloquear análise completa do seu contrato"}
-              </h3>
-              <p className="mt-1 text-sm text-slate-600">
-                {unlockedAnalysis
-                  ? "Conteúdo liberado."
-                  : (resultado.paywall?.subtexto || "Disponível após o pagamento")}
-              </p>
-            </div>
+        <LegalInsightsCard contractType={contractType} pontos={resultado.pontos_atencao} />
 
-            <button
-              type="button"
-              onClick={() => window.location.href = "https://buy.stripe.com/28E6oH7Wc58p2cb6mj57W00"}
-              className="rounded-full bg-[#0e2b50] px-6 py-3 text-sm font-semibold text-white"
-            >
-              {unlockedAnalysis ? "Análise liberada" : "Desbloquear análise completa do seu contrato"}
-            </button>
-          </div>
-
-          {!unlockedAnalysis ? (
-            <div className="mt-4 rounded-[14px] border border-dashed border-slate-300 bg-slate-50 p-5">
-              <div className="text-base font-semibold text-slate-700">🔒 Conteúdo liberado após pagamento</div>
-              <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                <li>• leitura detalhada cláusula por cláusula</li>
-                <li>• recomendações práticas para negociar</li>
-                <li>• e-mail pronto com cada ponto do contrato</li>
-                <li>• perguntas para revisar com advogado ou com a outra parte</li>
-              </ul>
-            </div>
-          ) : ( <div className="mt-4 space-y-4">
-              {resultado.analise_completa && (
-                <div className="rounded-[14px] bg-slate-50 p-4">
-                  <h4 className="text-lg font-bold text-[#123047]">Análise completa</h4>
-
-                  {Array.isArray(resultado.analise_completa.leitura_detalhada) &&
-                    resultado.analise_completa.leitura_detalhada.length > 0 && (
-                      <div className="mt-3">
-                        <div className="mb-2 text-sm font-semibold text-slate-500">Leitura detalhada</div>
-                        <ul className="space-y-2">
-                          {resultado.analise_completa.leitura_detalhada.map((item: string, idx: number) => (
-                            <li key={idx} className="rounded-[12px] bg-white px-4 py-3 text-slate-700">
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                  {Array.isArray(resultado.analise_completa.recomendacoes) &&
-                    resultado.analise_completa.recomendacoes.length > 0 && (
-                      <div className="mt-4">
-                        <div className="mb-2 text-sm font-semibold text-slate-500">Recomendações</div>
-                        <ul className="space-y-2">
-                          {resultado.analise_completa.recomendacoes.map((item: string, idx: number) => (
-                            <li key={idx} className="rounded-[12px] bg-white px-4 py-3 text-slate-700">
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                </div>
-              )}
-
-              {Array.isArray(resultado.perguntas_para_negociar) && resultado.perguntas_para_negociar.length > 0 && (
-                <div className="rounded-[14px] bg-slate-50 p-4">
-                  <h4 className="text-lg font-bold text-[#123047]">Perguntas para negociar</h4>
-                  <ul className="mt-3 space-y-2">
-                    {resultado.perguntas_para_negociar.map((item: string, idx: number) => (
-                      <li key={idx} className="rounded-[12px] bg-white px-4 py-3 text-slate-700">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {resultado.email_pronto && (
-                <div className="rounded-[14px] bg-slate-50 p-4">
-                  <h4 className="text-lg font-bold text-[#123047]">E-mail pronto</h4>
-
-                  <div className="mt-3 rounded-[12px] bg-white p-4">
-                    <div className="text-sm text-slate-500">Assunto</div>
-                    <div className="mt-1 font-semibold text-[#123047]">
-                      {resultado.email_pronto.assunto}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 rounded-[12px] bg-white p-4 text-slate-700 whitespace-pre-line">
-                    {resultado.email_pronto.corpo}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+        <div className="rounded-[18px] border-2 border-[#0e2b50] bg-white p-8">
+          <h3 className="text-xl font-bold text-[#0e2b50]">
+            Você está a um clique de evitar um problema no seu contrato
+          </h3>
+          <p className="mt-1 text-sm text-slate-600">
+            {resultado.paywall?.subtexto || "Desbloqueie a análise completa e proteja-se antes de assinar."}
+          </p>
+          <ul className="mt-4 space-y-2 text-sm text-slate-600">
+            <li>• Leitura detalhada cláusula por cláusula</li>
+            <li>• Recomendações práticas para negociar</li>
+            <li>• E-mail pronto com cada ponto do contrato</li>
+            <li>• Perguntas para revisar com advogado ou com a outra parte</li>
+          </ul>
+          <button
+            type="button"
+            onClick={() => window.location.href = "https://buy.stripe.com/28E6oH7Wc58p2cb6mj57W00"}
+            className="mt-6 w-full rounded-full bg-[#0e2b50] py-3 text-sm font-semibold text-white"
+          >
+            Desbloquear análise completa →
+          </button>
+          <p className="mt-3 text-center text-xs text-slate-400">Acesso imediato · Pagamento único</p>
         </div>
+
+        {unlockedAnalysis && (
+          <div className="space-y-4">
+            {resultado.analise_completa && (
+              <div className="rounded-[14px] bg-slate-50 p-4">
+                <h4 className="text-lg font-bold text-[#123047]">Análise completa</h4>
+
+                {Array.isArray(resultado.analise_completa.leitura_detalhada) &&
+                  resultado.analise_completa.leitura_detalhada.length > 0 && (
+                    <div className="mt-3">
+                      <div className="mb-2 text-sm font-semibold text-slate-500">Leitura detalhada</div>
+                      <ul className="space-y-2">
+                        {resultado.analise_completa.leitura_detalhada.map((item: string, idx: number) => (
+                          <li key={idx} className="rounded-[12px] bg-white px-4 py-3 text-slate-700">
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                {Array.isArray(resultado.analise_completa.recomendacoes) &&
+                  resultado.analise_completa.recomendacoes.length > 0 && (
+                    <div className="mt-4">
+                      <div className="mb-2 text-sm font-semibold text-slate-500">Recomendações</div>
+                      <ul className="space-y-2">
+                        {resultado.analise_completa.recomendacoes.map((item: string, idx: number) => (
+                          <li key={idx} className="rounded-[12px] bg-white px-4 py-3 text-slate-700">
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+              </div>
+            )}
+
+            {Array.isArray(resultado.perguntas_para_negociar) && resultado.perguntas_para_negociar.length > 0 && (
+              <div className="rounded-[14px] bg-slate-50 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <h4 className="text-lg font-bold text-[#123047]">Perguntas para negociar</h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const texto = resultado.perguntas_para_negociar!
+                        .map((q: string, i: number) => `${i + 1}. ${q}`)
+                        .join("\n");
+                      navigator.clipboard.writeText(texto);
+                    }}
+                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-[#0e2b50]"
+                  >
+                    Copiar tudo
+                  </button>
+                </div>
+                <ul className="mt-3 space-y-2">
+                  {resultado.perguntas_para_negociar.map((item: string, idx: number) => (
+                    <li key={idx} className="rounded-[12px] bg-white px-4 py-3 text-slate-700">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {resultado.email_pronto && (
+              <div className="rounded-[14px] bg-slate-50 p-4">
+                <h4 className="text-lg font-bold text-[#123047]">E-mail pronto</h4>
+
+                <div className="mt-3 rounded-[12px] bg-white p-4">
+                  <div className="text-sm text-slate-500">Assunto</div>
+                  <div className="mt-1 font-semibold text-[#123047]">
+                    {resultado.email_pronto.assunto}
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-[12px] bg-white p-4 text-slate-700 whitespace-pre-line">
+                  {resultado.email_pronto.corpo}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {resultado.orientacao_final && (
           <div className="rounded-[18px] border border-slate-200 bg-[#f8fbff] p-5">
@@ -888,4 +917,19 @@ export default function Page() {
 
 
 // force redeploy 2026-03-27 17:30:28
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
