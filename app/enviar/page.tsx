@@ -292,15 +292,15 @@ const [unlockedAnalysis, setUnlockedAnalysis] = useState(false);
       setResultado(data);
 
       registrarLead({
-        nome: "usuario",
-        email: "nao_informado",
+        nome: reviewData.nome || "",
+        email: reviewData.email || "",
         tipoContrato: contractType || "",
-        papel: "",
-        situacao: status || "",
-        arquivo: "",
+        papel: papelNoContrato || "",
+        situacao: statusContrato || "",
+        arquivo: inputMethod === "upload" ? (fileName || "upload") : "texto_colado",
         nota: data?.nota_geral || "",
         evento: "analise_gerada",
-        origem: "clara-law"
+        origem: "clara-law",
       });
 
       setStep(9);

@@ -1,4 +1,6 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
@@ -6,25 +8,21 @@ export async function POST(req: NextRequest) {
     const webhookUrl = process.env.GOOGLE_SHEETS_WEBHOOK_URL;
 
     if (!webhookUrl) {
-      return NextResponse.json({ ok: false, error: "Webhook não configurado" }, { status: 200 });
+      console.warn("GOOGLE_SHEETS_WEBHOOK_URL não configurado.");
+      return NextResponse.json({ ok: true });
     }
 
-    try {
-      await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-        cache: "no-store",
-      });
-    } catch (err) {
-      console.error("Erro ao enviar lead para planilha:", err);
-    }
+    const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+
+    await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, data: agora }),
+    });
 
     return NextResponse.json({ ok: true });
-  } catch (err) {
-    console.error("Erro na rota /api/lead:", err);
-    return NextResponse.json({ ok: false }, { status: 200 });
+  } catch (err: any) {
+    console.error("Erro ao enviar lead:", err?.message);
+    return NextResponse.json({ ok: true }); // não bloqueia o usuário
   }
 }
