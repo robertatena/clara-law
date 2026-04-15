@@ -2,7 +2,7 @@
 
 
 import LegalInsightsCard from "@/components/LegalInsightsCard"
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type ResultData = {
   score?: number;
@@ -116,6 +116,7 @@ async function registrarLead(payload: any) {
 
 
 const [unlockedAnalysis, setUnlockedAnalysis] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const contractTextRef = useRef<HTMLTextAreaElement | null>(null);
   const focusRef = useRef<HTMLTextAreaElement | null>(null);
@@ -128,6 +129,59 @@ const [unlockedAnalysis, setUnlockedAnalysis] = useState(false);
     nome: "",
     email: "",
   });
+
+  // Restaura análise após retorno do pagamento Stripe
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("unlocked") === "true") {
+      const saved = localStorage.getItem("clara_resultado");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.resultado) {
+            setResultado(parsed.resultado);
+            if (parsed.contractType) setContractType(parsed.contractType);
+            setUnlockedAnalysis(true);
+            setStep(9);
+            window.history.replaceState({}, "", "/enviar");
+          }
+        } catch {
+          // ignora erro de parse
+        }
+      }
+    }
+  }, []);
+
+  async function handleCheckout() {
+    if (!resultado) return;
+    setCheckoutLoading(true);
+    setError("");
+    // Persiste resultado para restaurar após o redirect
+    localStorage.setItem(
+      "clara_resultado",
+      JSON.stringify({ resultado, contractType })
+    );
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: reviewData.email || "nao_informado@clara.law",
+          origin: window.location.origin,
+        }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setError("Não foi possível iniciar o pagamento. Tente novamente.");
+      }
+    } catch {
+      setError("Erro ao iniciar o pagamento.");
+    } finally {
+      setCheckoutLoading(false);
+    }
+  }
 
   function next() {
     setError("");
@@ -561,6 +615,125 @@ const [unlockedAnalysis, setUnlockedAnalysis] = useState(false);
       </div>
     ) : (
       <div className="space-y-5">
+        {/* Card de Nota */}
+        {(() => {
+          const nota = resultado.nota_geral ?? resultado.score ?? null;
+          if (nota === null) return null;
+          const faltam = Math.max(0, 100 - nota);
+
+          const config =
+            nota >= 70
+              ? {
+                  ring: "#22c55e",
+                  ringLight: "#bbf7d0",
+                  bg: "from-green-50 to-white",
+                  border: "border-green-200",
+                  text: "text-green-600",
+                  badge: "bg-green-100 text-green-700",
+                  label: "Bom",
+                  emoji: "🟡",
+                  headline: "Ainda há brechas que podem te custar caro.",
+                  sub: "Contratos com nota abaixo de 80 ainda expõem você a riscos evitáveis.",
+                  stat: "1 em cada 3 contratos nessa faixa gera algum tipo de disputa.",
+                }
+              : nota >= 45
+              ? {
+                  ring: "#f59e0b",
+                  ringLight: "#fde68a",
+                  bg: "from-amber-50 to-white",
+                  border: "border-amber-200",
+                  text: "text-amber-500",
+                  badge: "bg-amber-100 text-amber-700",
+                  label: "Precisa de atenção",
+                  emoji: "🔶",
+                  headline: "Seu contrato tem brechas que podem ser usadas contra você.",
+                  sub: "Cláusulas mal redigidas são a principal causa de prejuízo em contratos comuns.",
+                  stat: "Contratos nessa faixa têm 2x mais chance de gerar cobranças inesperadas.",
+                }
+              : {
+                  ring: "#ef4444",
+                  ringLight: "#fecaca",
+                  bg: "from-red-50 to-white",
+                  border: "border-red-200",
+                  text: "text-red-500",
+                  badge: "bg-red-100 text-red-700",
+                  label: "Em risco",
+                  emoji: "🔴",
+                  headline: "Esse contrato tem falhas sérias que precisam ser resolvidas antes de assinar.",
+                  sub: "Assinar sem revisar pode gerar obrigações que você não esperava.",
+                  stat: "Contratos com essa nota são os mais comuns em disputas jurídicas.",
+                };
+
+          return (
+            <div className={`rounded-[20px] border ${config.border} bg-gradient-to-b ${config.bg} p-6 shadow-sm`}>
+
+              {/* Topo: badge de status */}
+              <div className="mb-4 flex items-center justify-between">
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${config.badge}`}>
+                  {config.emoji} {config.label}
+                </span>
+                <span className="text-xs text-slate-400">Segurança contratual</span>
+              </div>
+
+              {/* Linha principal: círculo + texto */}
+              <div className="flex items-center gap-5">
+                {/* Círculo */}
+                <div className="relative flex-shrink-0">
+                  <div
+                    className="flex h-24 w-24 items-center justify-center rounded-full border-[6px]"
+                    style={{ borderColor: config.ringLight }}
+                  >
+                    <div
+                      className="absolute inset-0 rounded-full border-[6px]"
+                      style={{
+                        borderColor: config.ring,
+                        clipPath: `inset(0 ${100 - nota}% 0 0 round 100px)`,
+                      }}
+                    />
+                    <div className="text-center">
+                      <span className={`block text-3xl font-black leading-none ${config.text}`}>{nota}</span>
+                      <span className="text-[11px] font-semibold text-slate-400">/100</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Texto ao lado */}
+                <div className="flex-1">
+                  <p className="text-base font-bold leading-snug text-[#0e2b50]">
+                    {config.headline}
+                  </p>
+                  {faltam > 0 && (
+                    <p className={`mt-1 text-sm font-semibold ${config.text}`}>
+                      Faltam {faltam} pontos para blindar seu contrato.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Barra de progresso com gap visível */}
+              <div className="mt-5">
+                <div className="mb-1 flex justify-between text-xs text-slate-400">
+                  <span>Proteção atual</span>
+                  <span>{nota}/100</span>
+                </div>
+                <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-3 rounded-full transition-all duration-700"
+                    style={{ width: `${nota}%`, backgroundColor: config.ring }}
+                  />
+                  {faltam > 0 && (
+                    <div
+                      className="absolute right-0 top-0 h-3 rounded-r-full"
+                      style={{ width: `${faltam}%`, background: "repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(0,0,0,0.06) 4px, rgba(0,0,0,0.06) 8px)" }}
+                    />
+                  )}
+                </div>
+                <p className="mt-2 text-xs text-slate-500 italic">{config.stat}</p>
+              </div>
+            </div>
+          );
+        })()}
+
         {resultado.grafico_risco && (() => {
           const areas = [
             { label: "Impacto financeiro", value: resultado.grafico_risco!.financeiro ?? 0 },

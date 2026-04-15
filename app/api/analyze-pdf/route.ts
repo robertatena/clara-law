@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     const contexto = String(formData.get("contextoExtra") || "");
 
     const resposta = {
-      nota_geral: 6.8,
+      nota_geral: 68,
 grafico_risco: {
   financeiro: 68,
   saida: 82,
@@ -139,4 +139,5 @@ Obrigada.`
     );
   }
 }
+
 
