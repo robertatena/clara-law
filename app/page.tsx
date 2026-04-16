@@ -30,8 +30,9 @@ export default function Home() {
             <ClaraIcon size={32} />
             <span style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: "0.14em", color: "#A8D8F0" }}>CLARA LAW</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
             <a href="#como-funciona" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Como funciona</a>
+            <a href="#forum" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Encontrar fórum</a>
             <a href="#aprenda" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Aprenda</a>
             <Link href="/enviar" style={{ background: "#1a2340", color: "#fff", fontSize: 13, fontWeight: 600, padding: "10px 22px", borderRadius: 40, textDecoration: "none" }}>
               Analisar meu contrato
@@ -40,63 +41,56 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* AVISO: não é escritório de advocacia */}
-      <div style={{ background: "#FBF8EF", borderBottom: "1px solid #EAD98A", padding: "10px 24px", textAlign: "center" }}>
-        <span style={{ fontSize: 12, color: "#92700A" }}>
-          ⚠️ <strong style={{ fontWeight: 600 }}>A Clara não é um escritório de advocacia.</strong>
-          {" "}As análises são orientativas e não substituem a consulta com um advogado.
-        </span>
-      </div>
-
       {/* HERO */}
-      <section style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "80px 24px 72px" }}>
-        <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
+      <section style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "72px 24px 64px" }}>
+        <div style={{ maxWidth: 740, margin: "0 auto", textAlign: "center" }}>
 
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 40, padding: "6px 18px", marginBottom: 32 }}>
+          {/* Social proof badge */}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 40, padding: "6px 18px", marginBottom: 28 }}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
-            <span style={{ fontSize: 12, color: "#065f46", fontWeight: 500 }}>Inteligência jurídica para quem não tem advogado</span>
+            <span style={{ fontSize: 12, color: "#065f46", fontWeight: 600 }}>Mais de 1.000 brasileiros já usaram · gratuito</span>
           </div>
 
           <h1 style={{
             fontFamily: "'Raleway', sans-serif",
             fontWeight: 800,
-            fontSize: "clamp(40px, 6vw, 64px)",
+            fontSize: "clamp(36px, 6vw, 62px)",
             lineHeight: 1.1,
             color: "#1a2340",
-            marginBottom: 24,
+            marginBottom: 20,
             letterSpacing: "-0.025em",
           }}>
-            Você tem direitos.<br />
-            <span style={{ color: "#D4AF37" }}>A Clara</span> te ajuda<br />
-            <span style={{ color: "#5BA8D4" }}>a fazer valer.</span>
+            Empresa te ignorando?<br />
+            <span style={{ color: "#D4AF37" }}>A Clara escreve</span><br />
+            <span style={{ color: "#5BA8D4" }}>o e-mail certo pra você.</span>
           </h1>
 
-          <p style={{ fontSize: "clamp(16px, 2vw, 19px)", lineHeight: 1.75, color: "#4b5563", marginBottom: 16, maxWidth: 540, margin: "0 auto 16px" }}>
-            Analise seu contrato, descubra brechas e saiba exatamente o que fazer —
-            tudo em minutos, <strong style={{ color: "#1a2340" }}>sem juridiquês.</strong>
+          <p style={{ fontSize: "clamp(16px, 2vw, 19px)", lineHeight: 1.8, color: "#4b5563", marginBottom: 14, maxWidth: 560, margin: "0 auto 14px" }}>
+            Descubra seus direitos, gere um e-mail com base na lei e, se precisar,
+            saiba exatamente qual fórum acionar — <strong style={{ color: "#1a2340" }}>em minutos, sem advogado.</strong>
           </p>
 
-          <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 40, lineHeight: 1.6 }}>
-            📧 Muitos casos se resolvem com um simples e-mail — a Clara escreve pra você, com a lei certa.
+          <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 36, lineHeight: 1.7 }}>
+            Defeito no produto · Cobrança indevida · Serviço não prestado · Voo cancelado · Aluguel abusivo
           </p>
 
-          <div style={{ display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
             <Link href="/enviar" style={{ background: "#1a2340", color: "#fff", fontSize: 16, fontWeight: 700, padding: "18px 40px", borderRadius: 40, textDecoration: "none" }}>
-              Analisar meu contrato
+              Resolver o meu problema →
             </Link>
-            <a href="#aprenda" style={{ fontSize: 15, color: "#1a2340", fontWeight: 500, padding: "17px 30px", borderRadius: 40, border: "1.5px solid #D1CCC4", textDecoration: "none" }}>
-              Ver meus direitos
+            <a href="#forum" style={{ fontSize: 15, color: "#1a2340", fontWeight: 500, padding: "17px 26px", borderRadius: 40, border: "1.5px solid #D1CCC4", textDecoration: "none" }}>
+              Achar o fórum pelo CEP
             </a>
           </div>
 
-          <p style={{ fontSize: 12, color: "#bbb" }}>Sem cartão · Sem cadastro · Resultado em minutos</p>
+          <p style={{ fontSize: 12, color: "#bbb", marginBottom: 40 }}>Sem cartão · Sem cadastro · Resultado em minutos</p>
 
           {/* 3 stats */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, maxWidth: 520, margin: "40px auto 0" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, maxWidth: 520, margin: "0 auto" }}>
             {[
-              { num: "É de graça", lbl: "Abrir ação no Juizado Especial" },
-              { num: "Sem advogado", lbl: "Para causas até R$28 mil" },
-              { num: "2–6 meses", lbl: "Prazo médio com acordo" },
+              { num: "Grátis", lbl: "Juizado Especial até R$28 mil" },
+              { num: "Sem advogado", lbl: "Para a maioria dos casos" },
+              { num: "2–6 meses", lbl: "Prazo médio para acordo" },
             ].map((s, i) => (
               <div key={i} style={{ background: "#1a2340", borderRadius: 14, padding: "16px 12px" }}>
                 <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 13, color: "#D4AF37", marginBottom: 4, lineHeight: 1.2 }}>{s.num}</div>
@@ -128,6 +122,29 @@ export default function Home() {
                 <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.7 }}>{s.d}</div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* MÓDULO FÓRUM */}
+      <section id="forum" style={{ background: "#F8F7F4", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ display: "grid", gap: 48, alignItems: "flex-start" }} className="grid-2col">
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>módulo fórum</p>
+              <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(24px, 3vw, 34px)", color: "#1a2340", lineHeight: 1.2, marginBottom: 12 }}>
+                Precisa ir ao fórum?<br />Digite o CEP e<br />a Clara te mostra onde ir.
+              </h2>
+              <p style={{ fontSize: 16, color: "#4b5563", lineHeight: 1.75, marginBottom: 20, maxWidth: 420 }}>
+                Juizado Especial Cível é gratuito e não exige advogado para causas até R$28 mil. A Clara mostra o fórum certo, o e-mail do cartório e o que você precisa levar.
+              </p>
+              <Link href="/forum" style={{ fontSize: 13, color: "#185FA5", fontWeight: 500, textDecoration: "none" }}>
+                Ver guia completo: como funciona a audiência →
+              </Link>
+            </div>
+            <div>
+              <ForumBuscador compact />
+            </div>
           </div>
         </div>
       </section>
@@ -244,25 +261,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* MÓDULO FÓRUM */}
-      <section id="forum" style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>módulo fórum</p>
-          <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(24px, 3vw, 34px)", color: "#1a2340", lineHeight: 1.2, marginBottom: 12 }}>
-            Se precisar ir ao fórum,<br />a Clara te leva pela mão.
-          </h2>
-          <p style={{ fontSize: 16, color: "#4b5563", lineHeight: 1.75, marginBottom: 36, maxWidth: 520 }}>
-            Digite o CEP da empresa — a Clara mostra o fórum competente, o e-mail do cartório e o que você precisa levar.
-          </p>
-          <ForumBuscador compact />
-          <p style={{ marginTop: 20, fontSize: 13 }}>
-            <Link href="/forum" style={{ color: "#A8D8F0", fontWeight: 500, textDecoration: "none" }}>
-              Ver guia completo do fórum: o que levar, como funciona a audiência →
-            </Link>
-          </p>
-        </div>
-      </section>
-
       {/* CTA FINAL */}
       <section style={{ background: "#1a2340", padding: "80px 24px" }}>
         <div style={{ maxWidth: 600, margin: "0 auto", textAlign: "center" }}>
@@ -279,7 +277,6 @@ export default function Home() {
             Começar gratuitamente
           </Link>
           <p style={{ fontSize: 12, color: "rgba(168,216,240,0.3)", marginTop: 16 }}>Sem cartão · Sem cadastro obrigatório</p>
-          <p style={{ fontSize: 12, color: "rgba(168,216,240,0.3)", marginTop: 8 }}>A Clara não é um escritório de advocacia. Análises são orientativas.</p>
         </div>
       </section>
 
@@ -290,11 +287,16 @@ export default function Home() {
             <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: "0.12em", color: "#A8D8F0" }}>CLARA LAW</div>
             <div style={{ fontSize: 11, color: "rgba(168,216,240,0.3)", marginTop: 3 }}>Inteligência para um mundo mais claro.</div>
           </div>
-          <div style={{ display: "flex", gap: 24 }}>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
             {["Como funciona", "Aprenda", "Privacidade"].map((l) => (
               <a key={l} href="#" style={{ fontSize: 12, color: "rgba(168,216,240,0.4)", textDecoration: "none" }}>{l}</a>
             ))}
           </div>
+        </div>
+        <div style={{ maxWidth: 1100, margin: "12px auto 0", paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+          <p style={{ fontSize: 11, color: "rgba(168,216,240,0.25)", textAlign: "center", lineHeight: 1.7 }}>
+            A Clara não é um escritório de advocacia. As análises e os textos gerados são orientativos e não substituem a consulta com um advogado.
+          </p>
         </div>
       </footer>
 
