@@ -78,7 +78,7 @@ export default function Home() {
               Reivindicar meus direitos
             </Link>
             <a href="#aprenda" style={{ fontSize: 15, color: "#1a2340", fontWeight: 500, padding: "17px 30px", borderRadius: 40, border: "1.5px solid #D1CCC4", textDecoration: "none" }}>
-              Ver meus casos →
+              Ver meus direitos
             </a>
           </div>
 
