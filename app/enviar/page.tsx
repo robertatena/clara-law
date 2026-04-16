@@ -114,6 +114,7 @@ export default function Page() {
   const [loadingForo, setLoadingForo] = useState(false);
   const [nomeEmpresa, setNomeEmpresa] = useState("");
   const [valorCausa, setValorCausa] = useState("");
+  const [defaultDescricaoJec, setDefaultDescricaoJec] = useState("");
   const descricaoJecRef = useRef<HTMLTextAreaElement | null>(null);
   const [peticaoJec, setPeticaoJec] = useState<{ assunto: string; corpo: string } | null>(null);
 
@@ -691,6 +692,7 @@ export default function Page() {
                 <textarea
                   ref={descricaoJecRef}
                   rows={8}
+                  defaultValue={defaultDescricaoJec}
                   placeholder="Ex: Em 05/01/2026, contratei o serviço X da empresa Y pelo valor de R$ Z. A empresa não cumpriu o combinado porque..."
                   className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none leading-relaxed"
                 />
@@ -1027,7 +1029,13 @@ export default function Page() {
               </div>
               <button
                 type="button"
-                onClick={() => { setResultado(null); setForoJec(null); setPeticaoJec(null); window.scrollTo(0, 0); escolherModo("jec"); }}
+                onClick={() => {
+                  const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
+                  if (cia && cia.id !== "outra") setNomeEmpresa(cia.nome);
+                  setDefaultDescricaoJec(descricaoCasoRef.current?.value || "");
+                  setResultado(null); setForoJec(null); setPeticaoJec(null);
+                  window.scrollTo(0, 0); escolherModo("jec");
+                }}
                 className="rounded-full bg-[#0e2b50] text-white text-sm font-semibold px-6 py-3 cursor-pointer">
                 Gerar minha petição JEC
               </button>
