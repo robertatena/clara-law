@@ -2,379 +2,337 @@
 
 import Link from "next/link";
 
-const ClaraIcon = ({ size = 40 }: { size?: number }) => (
+const ClaraIcon = ({ size = 36 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
     <circle cx="20" cy="20" r="17" stroke="#D4AF37" strokeWidth="1.8" fill="none" />
-    <polygon
-      points="20,9 31,29 9,29"
-      fill="none"
-      stroke="#D4AF37"
-      strokeWidth="1.8"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const EmailIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <rect x="1" y="3" width="14" height="10" rx="2" stroke="#185FA5" strokeWidth="1.3" />
-    <path d="M1 5l7 5 7-5" stroke="#185FA5" strokeWidth="1.3" strokeLinecap="round" />
-  </svg>
-);
-
-const SmallEmailIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-    <rect x="1" y="3" width="14" height="10" rx="2" stroke="#A8D8F0" strokeWidth="1.4" />
-    <path d="M1 5l7 5 7-5" stroke="#A8D8F0" strokeWidth="1.4" strokeLinecap="round" />
+    <polygon points="20,9 31,29 9,29" fill="none" stroke="#D4AF37" strokeWidth="1.8" strokeLinejoin="round" />
   </svg>
 );
 
 const situations = [
-  {
-    icon: "📦",
-    color: "gold",
-    title: "Comprei algo com defeito e a loja não quer resolver",
-    desc: "Você tem direito à troca, conserto ou devolução do dinheiro. A loja é obrigada por lei.",
-    badges: ["resolve por e-mail", "sem advogado"],
-  },
-  {
-    icon: "💳",
-    color: "blue",
-    title: "Cobraram algo que eu não devo ou meu nome foi ao Serasa",
-    desc: "Cobrança errada ou nome sujo indevido dá direito a indenização — mesmo sem ir ao fórum.",
-    badges: ["resolve por e-mail", "sem advogado"],
-  },
-  {
-    icon: "✈️",
-    color: "gold",
-    title: "Meu voo atrasou ou foi cancelado",
-    desc: "A companhia aérea é obrigada a te dar assistência e reembolso. Muita gente não sabe que tem esse direito.",
-    badges: ["resolve por e-mail", "JEC disponível"],
-  },
-  {
-    icon: "🔧",
-    color: "blue",
-    title: "Paguei por um serviço que não foi entregue",
-    desc: "Tem direito ao dinheiro de volta e, dependendo do caso, a uma indenização por todo transtorno.",
-    badges: ["resolve por e-mail", "sem advogado"],
-  },
-  {
-    icon: "🏠",
-    color: "gold",
-    title: "Meu aluguel tem cláusula abusiva",
-    desc: "Algumas cláusulas de contrato de locação são ilegais — mesmo que você já tenha assinado.",
-    badges: ["pode resolver por e-mail", "JEC disponível"],
-  },
-  {
-    icon: "📱",
-    color: "blue",
-    title: "Meu plano de internet ou celular não funciona como prometido",
-    desc: "Velocidade menor que a contratada é descumprimento de contrato. Você pode pedir desconto ou cancelamento sem multa.",
-    badges: ["resolve por e-mail", "sem advogado"],
-  },
+  { icon: "📦", color: "gold", title: "Comprei algo com defeito e a loja não quer resolver", desc: "Você tem direito à troca, conserto ou devolução do dinheiro. A loja é obrigada por lei.", badges: ["resolve por e-mail", "sem advogado"] },
+  { icon: "💳", color: "blue", title: "Cobraram algo que eu não devo ou meu nome foi ao Serasa", desc: "Cobrança errada ou nome sujo indevido dá direito a indenização — mesmo sem ir ao fórum.", badges: ["resolve por e-mail", "sem advogado"] },
+  { icon: "✈️", color: "gold", title: "Meu voo atrasou ou foi cancelado", desc: "A companhia é obrigada a te dar assistência e reembolso. Muita gente não sabe desse direito.", badges: ["resolve por e-mail", "JEC disponível"] },
+  { icon: "🔧", color: "blue", title: "Paguei por um serviço que não foi entregue", desc: "Tem direito ao dinheiro de volta e, dependendo do caso, a uma indenização.", badges: ["resolve por e-mail", "sem advogado"] },
+  { icon: "🏠", color: "gold", title: "Meu aluguel tem cláusula abusiva", desc: "Algumas cláusulas são ilegais — mesmo que você já tenha assinado.", badges: ["pode resolver por e-mail", "JEC disponível"] },
+  { icon: "📱", color: "blue", title: "Meu plano de internet não funciona como prometido", desc: "Velocidade menor que a contratada é descumprimento. Você pode pedir cancelamento sem multa.", badges: ["resolve por e-mail", "sem advogado"] },
 ];
 
-const badgeStyle = (label: string) => {
-  if (label === "resolve por e-mail" || label === "pode resolver por e-mail")
-    return "bg-green-50 text-green-800 border border-green-100";
-  if (label === "sem advogado")
-    return "bg-blue-50 text-blue-800 border border-blue-100";
-  return "bg-amber-50 text-amber-800 border border-amber-100";
-};
+const badgeCls = (l: string) =>
+  l === "resolve por e-mail" || l === "pode resolver por e-mail"
+    ? "bg-green-50 text-green-800 border border-green-100"
+    : l === "sem advogado"
+    ? "bg-blue-50 text-blue-800 border border-blue-100"
+    : "bg-amber-50 text-amber-800 border border-amber-100";
 
 export default function Home() {
   return (
-    <main className="bg-[#F8F7F4] min-h-screen font-montserrat">
+    <main className="bg-[#F8F7F4] min-h-screen" style={{ fontFamily: "'Montserrat', sans-serif" }}>
 
-      {/* — NAV — */}
-      <nav className="bg-white border-b border-[#ECE9E2] sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-8 h-[62px] flex items-center justify-between">
+      {/* NAV */}
+      <nav style={{ background: "#fff", borderBottom: "0.5px solid #ECE9E2" }} className="sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-8 flex items-center justify-between" style={{ height: 64 }}>
           <div className="flex items-center gap-3">
-            <ClaraIcon size={34} />
-            <span className="font-raleway font-bold text-sm tracking-[0.14em] text-[#A8D8F0]">
+            <ClaraIcon size={32} />
+            <span style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: "0.14em", color: "#A8D8F0" }}>
               CLARA LAW
             </span>
           </div>
-          <div className="hidden md:flex items-center gap-7">
-            <a href="#como-funciona" className="text-xs text-[#999] hover:text-[#1a2340] transition-colors">
-              Como funciona
-            </a>
-            <a href="#aprenda" className="text-xs text-[#999] hover:text-[#1a2340] transition-colors">
-              Aprenda
-            </a>
-            <a href="#forum" className="text-xs text-[#999] hover:text-[#1a2340] transition-colors">
-              Encontrar fórum
-            </a>
-            <Link
-              href="/enviar"
-              className="bg-[#1a2340] text-white text-xs font-medium px-5 py-2 rounded-full hover:bg-[#253056] transition-colors"
-            >
+          <div className="hidden md:flex items-center gap-8">
+            {[["#como-funciona", "Como funciona"], ["#aprenda", "Aprenda"], ["#forum", "Encontrar fórum"]].map(([href, label]) => (
+              <a key={label} href={href} style={{ fontSize: 12, color: "#999", textDecoration: "none" }}
+                className="hover:text-[#1a2340] transition-colors">{label}</a>
+            ))}
+            <Link href="/enviar"
+              style={{ background: "#1a2340", color: "#fff", fontSize: 12, fontWeight: 500, padding: "9px 22px", borderRadius: 32, textDecoration: "none" }}
+              className="hover:bg-[#253056] transition-colors">
               Analisar meu caso →
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* — HERO — */}
-      <section className="bg-white">
-        <div className="max-w-5xl mx-auto px-8 py-20">
-          <div className="inline-flex items-center gap-2 border border-[#E8E4DA] px-4 py-1.5 rounded-full text-[11px] tracking-wider text-[#999] mb-6">
-            <span className="w-2 h-2 rounded-full bg-[#D4AF37] inline-block" />
-            Inteligência jurídica para todos
-          </div>
+      {/* HERO — duas colunas */}
+      <section style={{ background: "#fff", borderBottom: "0.5px solid #ECE9E2" }}>
+        <div className="max-w-6xl mx-auto px-8 py-16 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
-          <h1 className="font-raleway font-bold text-[42px] leading-[1.18] text-[#1a2340] mb-5 tracking-tight">
-            Você tem direitos.<br />
-            A <span className="text-[#D4AF37]">Clara</span> te ajuda<br />
-            a <span className="text-[#A8D8F0]">fazer valer.</span>
-          </h1>
-
-          <p className="text-[15px] leading-relaxed text-[#6b7280] font-light mb-5 max-w-lg">
-            Analise contratos, descubra seus direitos e saiba exatamente o que
-            fazer — tudo em minutos,{" "}
-            <strong className="text-[#1a2340] font-medium">sem juridiquês.</strong>
-          </p>
-
-          <div className="inline-flex items-center gap-2 bg-blue-50 border border-[#A8D8F0] rounded-xl px-4 py-2.5 text-[13px] text-blue-800 mb-8">
-            <EmailIcon />
-            <span>
-              <strong className="font-medium">Muitos casos se resolvem por e-mail</strong>{" "}
-              — sem precisar sair de casa.
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            <Link
-              href="/enviar"
-              className="bg-[#1a2340] text-white text-[13px] font-medium px-7 py-3.5 rounded-full hover:bg-[#253056] transition-colors"
-            >
-              Analisar meu contrato
-            </Link>
-            <a
-              href="#aprenda"
-              className="text-[13px] text-[#1a2340] px-6 py-3.5 rounded-full border border-[#C8C3BA] hover:bg-[#F8F7F4] transition-colors"
-            >
-              Aprenda seus direitos
-            </a>
-          </div>
-          <p className="text-[11px] text-[#bbb] mt-4 tracking-wide">
-            Sem cartão · Sem cadastro obrigatório · Resultado em minutos
-          </p>
-        </div>
-      </section>
-
-      {/* — STATS — */}
-      <div className="bg-[#1a2340]">
-        <div className="max-w-5xl mx-auto px-8 py-7 grid grid-cols-1 md:grid-cols-3 gap-px">
-          {[
-            { num: "É de graça", lbl: "Abrir uma ação no Juizado Especial não custa nada" },
-            { num: "Sem advogado", lbl: "Para causas até R$28 mil, você mesmo pode entrar com a ação" },
-            { num: "Resolve em meses", lbl: "A maioria dos casos tem resultado em 2 a 6 meses, com acordo" },
-          ].map((s, i) => (
-            <div key={i} className="px-6 first:pl-0 last:pr-0 border-r border-white/[0.07] last:border-none">
-              <div className="font-raleway font-bold text-[19px] text-[#D4AF37] mb-1.5 leading-tight">{s.num}</div>
-              <div className="text-[12px] text-[#A8D8F0]/60 font-light leading-snug">{s.lbl}</div>
+          {/* Esquerda */}
+          <div>
+            <div className="inline-flex items-center gap-2 mb-6"
+              style={{ border: "0.5px solid #E8E4DA", padding: "6px 16px", borderRadius: 24, fontSize: 11, color: "#999", letterSpacing: "0.05em" }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#D4AF37", display: "inline-block" }} />
+              Inteligência jurídica para todos
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* — E-MAIL ANTES DO FÓRUM — */}
-      <section className="bg-white">
-        <div className="max-w-5xl mx-auto px-8 py-16">
-          <p className="text-[10px] font-medium tracking-[0.1em] text-[#D4AF37] uppercase mb-2">o caminho certo</p>
-          <h2 className="font-raleway font-bold text-[26px] text-[#1a2340] leading-snug mb-3">
-            Primeiro o e-mail.<br />O fórum é o último recurso.
-          </h2>
-          <p className="text-[14px] text-[#6b7280] font-light leading-relaxed mb-10 max-w-md">
-            Antes de ir ao fórum, tente resolver por e-mail. Muitas empresas
-            atendem na hora que recebem uma notificação bem feita. A Clara gera
-            esse e-mail pra você.
-          </p>
+            <h1 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, lineHeight: 1.15, color: "#1a2340", marginBottom: 20, letterSpacing: "-0.01em" }}
+              className="text-[38px] lg:text-[46px]">
+              Você tem direitos.{" "}
+              <span style={{ color: "#D4AF37" }}>A Clara</span>{" "}
+              te ajuda{" "}
+              <span style={{ color: "#A8D8F0" }}>a fazer valer.</span>
+            </h1>
 
-          <div className="bg-[#F8F7F4] border border-[#E0DDD6] rounded-2xl p-8 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-            <div>
-              <h3 className="font-raleway font-bold text-[19px] text-[#1a2340] leading-snug mb-3">
-                E-mail de notificação pronto — com fundamento legal
-              </h3>
-              <p className="text-[13px] text-[#6b7280] font-light leading-relaxed mb-6">
-                Você conta o que aconteceu. A Clara gera um e-mail com a
-                linguagem certa, o artigo de lei correto e o tom que faz a
-                empresa levar a sério.
-              </p>
-              <Link
-                href="/enviar"
-                className="inline-block bg-[#1a2340] text-white text-[12px] font-medium px-5 py-2.5 rounded-full hover:bg-[#253056] transition-colors"
-              >
-                Gerar meu e-mail agora
+            <p style={{ fontSize: 15, lineHeight: 1.8, color: "#6b7280", fontWeight: 300, marginBottom: 20, maxWidth: 440 }}>
+              Analise contratos, descubra seus direitos e saiba exatamente o que
+              fazer — tudo em minutos,{" "}
+              <strong style={{ color: "#1a2340", fontWeight: 500 }}>sem juridiquês.</strong>
+            </p>
+
+            <div className="flex items-start gap-3 mb-8 p-4 rounded-xl"
+              style={{ background: "#EBF6FD", border: "0.5px solid #A8D8F0", maxWidth: 440 }}>
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, marginTop: 2 }}>
+                <rect x="1" y="3" width="14" height="10" rx="2" stroke="#185FA5" strokeWidth="1.3" />
+                <path d="M1 5l7 5 7-5" stroke="#185FA5" strokeWidth="1.3" strokeLinecap="round" />
+              </svg>
+              <span style={{ fontSize: 13, color: "#185FA5", lineHeight: 1.6 }}>
+                <strong style={{ fontWeight: 600 }}>Muitos casos se resolvem por e-mail</strong>
+                {" "}— sem precisar sair de casa ou contratar advogado.
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <Link href="/enviar"
+                style={{ background: "#1a2340", color: "#fff", fontSize: 14, fontWeight: 500, padding: "14px 30px", borderRadius: 32, textDecoration: "none" }}
+                className="hover:bg-[#253056] transition-colors">
+                Analisar meu contrato
               </Link>
+              <a href="#aprenda"
+                style={{ fontSize: 14, color: "#1a2340", padding: "13px 24px", borderRadius: 32, border: "0.5px solid #C8C3BA", textDecoration: "none" }}
+                className="hover:bg-[#F8F7F4] transition-colors">
+                Ver meus direitos
+              </a>
+            </div>
+            <p style={{ fontSize: 11, color: "#bbb", marginTop: 14 }}>
+              Sem cartão · Sem cadastro obrigatório · Resultado em minutos
+            </p>
+          </div>
+
+          {/* Direita — card da Clara em ação */}
+          <div className="hidden lg:block">
+            <div style={{ background: "#F8F7F4", border: "0.5px solid #E0DDD6", borderRadius: 20, padding: 28 }}>
+              <div className="flex items-center gap-2 mb-5">
+                <ClaraIcon size={20} />
+                <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.1em", color: "#1a2340" }}>CLARA ANALISOU SEU CASO</span>
+              </div>
+
+              <div style={{ background: "#fff", border: "0.5px solid #E8E4DA", borderRadius: 10, padding: "11px 14px", marginBottom: 10, fontSize: 13, color: "#1a2340", fontWeight: 500 }}>
+                📦 Produto com defeito — loja recusou a troca
+              </div>
+
+              <div style={{ background: "#fff", border: "0.5px solid #E8E4DA", borderRadius: 12, padding: 16, marginBottom: 14 }}>
+                <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", color: "#D4AF37", marginBottom: 10, textTransform: "uppercase" }}>
+                  O que a Clara encontrou
+                </div>
+                {[
+                  { icon: "✅", text: "Direito à troca garantido pelo CDC art. 18" },
+                  { icon: "✅", text: "E-mail de notificação gerado — resolve em 48h na maioria dos casos" },
+                  { icon: "🏛️", text: "Se não resolver: Foro de Pinheiros · jec.pinheiros@tjsp.jus.br" },
+                ].map((r, i) => (
+                  <div key={i} className="flex gap-2 items-start"
+                    style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.6, marginBottom: i < 2 ? 8 : 0, fontWeight: 300 }}>
+                    <span style={{ fontSize: 14, flexShrink: 0 }}>{r.icon}</span>
+                    <span>{r.text}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <span style={{ fontSize: 11, background: "#F0FDF4", color: "#166534", border: "0.5px solid #bbf7d0", padding: "4px 12px", borderRadius: 20, fontWeight: 500 }}>
+                  resolve por e-mail
+                </span>
+                <span style={{ fontSize: 11, background: "#EBF6FD", color: "#185FA5", border: "0.5px solid #bae6fd", padding: "4px 12px", borderRadius: 20, fontWeight: 500 }}>
+                  sem advogado
+                </span>
+                <span style={{ fontSize: 10, color: "#ccc", marginLeft: "auto" }}>orientativo</span>
+              </div>
             </div>
 
-            {/* Mock de e-mail */}
-            <div className="bg-white border border-[#E0DDD6] rounded-xl p-5">
-              <div className="flex items-center gap-2 mb-3 pb-3 border-b border-[#F0EDE8]">
-                <span className="w-2 h-2 rounded-full bg-[#D4AF37]" />
-                <span className="text-[11px] font-medium text-[#1a2340]">Notificação — produto com defeito</span>
-                <span className="text-[10px] text-[#aaa] ml-auto">juridico@empresa.com.br</span>
-              </div>
-              <div className="text-[11px] text-[#6b7280] leading-relaxed">
-                <strong className="text-[#1a2340] font-medium block mb-1">Prezados,</strong>
-                Adquiri o produto X em 10/03/2025 (NF 4821). O item apresentou
-                defeito dentro da garantia e as tentativas de resolução foram ignoradas.
-                <br /><br />
-                Nos termos do{" "}
-                <strong className="text-[#1a2340] font-medium">art. 18 do CDC</strong>
-                , solicito troca ou reembolso em até 5 dias úteis, sob pena de
-                ingresso no Juizado Especial com pedido de dano moral.
-                <br />
-                <span className="inline-block mt-2 text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                  Gerado pela Clara · orientativo
-                </span>
-              </div>
+            <div className="grid grid-cols-3 gap-3 mt-4">
+              {[
+                { num: "É de graça", lbl: "Abrir ação no Juizado Especial" },
+                { num: "Sem advogado", lbl: "Para causas até R$28 mil" },
+                { num: "2–6 meses", lbl: "Prazo médio com acordo" },
+              ].map((s, i) => (
+                <div key={i} style={{ background: "#1a2340", borderRadius: 12, padding: "14px 12px" }}>
+                  <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 12, color: "#D4AF37", marginBottom: 4, lineHeight: 1.2 }}>{s.num}</div>
+                  <div style={{ fontSize: 10, color: "rgba(168,216,240,0.5)", lineHeight: 1.45, fontWeight: 300 }}>{s.lbl}</div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      {/* — COMO FUNCIONA — */}
-      <section id="como-funciona" className="bg-[#F8F7F4]">
-        <div className="max-w-5xl mx-auto px-8 py-16">
-          <p className="text-[10px] font-medium tracking-[0.1em] text-[#D4AF37] uppercase mb-2">como funciona</p>
-          <h2 className="font-raleway font-bold text-[26px] text-[#1a2340] mb-8">Simples assim.</h2>
+      {/* E-MAIL ANTES DO FÓRUM */}
+      <section style={{ background: "#fff", borderBottom: "0.5px solid #ECE9E2" }}>
+        <div className="max-w-6xl mx-auto px-8 py-16 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div>
+            <p style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.1em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 8 }}>o caminho certo</p>
+            <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 27, color: "#1a2340", lineHeight: 1.25, marginBottom: 14 }}>
+              Primeiro o e-mail.<br />O fórum é o último recurso.
+            </h2>
+            <p style={{ fontSize: 14, color: "#6b7280", fontWeight: 300, lineHeight: 1.8, marginBottom: 24 }}>
+              Antes de ir ao fórum, tente resolver por e-mail. Muitas empresas
+              atendem na hora que recebem uma notificação bem feita.{" "}
+              <strong style={{ color: "#1a2340", fontWeight: 500 }}>A Clara gera esse e-mail pra você.</strong>
+            </p>
+            <Link href="/enviar"
+              style={{ background: "#1a2340", color: "#fff", fontSize: 13, fontWeight: 500, padding: "13px 26px", borderRadius: 32, textDecoration: "none", display: "inline-block" }}
+              className="hover:bg-[#253056] transition-colors">
+              Gerar meu e-mail agora
+            </Link>
+          </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 border border-[#E8E4DA] rounded-2xl overflow-hidden bg-white">
+          <div style={{ background: "#fff", border: "0.5px solid #E0DDD6", borderRadius: 16, padding: 22 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, paddingBottom: 12, borderBottom: "0.5px solid #F0EDE8" }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#D4AF37", display: "inline-block" }} />
+              <span style={{ fontSize: 11, fontWeight: 500, color: "#1a2340" }}>Notificação — produto com defeito</span>
+              <span style={{ fontSize: 10, color: "#aaa", marginLeft: "auto" }}>juridico@empresa.com.br</span>
+            </div>
+            <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.75 }}>
+              <strong style={{ color: "#1a2340", fontWeight: 500, display: "block", marginBottom: 6 }}>Prezados,</strong>
+              Adquiri o produto X em 10/03/2025 (NF 4821). O item apresentou defeito dentro
+              da garantia e as tentativas de resolução foram ignoradas.
+              <br /><br />
+              Nos termos do{" "}
+              <strong style={{ color: "#1a2340", fontWeight: 500 }}>art. 18 do CDC</strong>, solicito troca ou
+              reembolso em até 5 dias úteis, sob pena de ingresso no Juizado Especial com
+              pedido de dano moral.
+              <br />
+              <span style={{ display: "inline-block", marginTop: 10, fontSize: 10, background: "#EBF6FD", color: "#185FA5", padding: "3px 10px", borderRadius: 20, fontWeight: 500 }}>
+                Gerado pela Clara · orientativo
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* COMO FUNCIONA */}
+      <section id="como-funciona" style={{ background: "#F8F7F4", borderBottom: "0.5px solid #ECE9E2" }}>
+        <div className="max-w-6xl mx-auto px-8 py-14">
+          <p style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.1em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 8 }}>como funciona</p>
+          <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 26, color: "#1a2340", marginBottom: 28 }}>Simples assim.</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4"
+            style={{ border: "0.5px solid #E8E4DA", borderRadius: 16, overflow: "hidden", background: "#fff" }}>
             {[
               { n: "1", t: "Conta o que aconteceu", d: "Ou envie o contrato em PDF. Sem formulário complicado." },
               { n: "2", t: "Clara analisa", d: "Explica os riscos, cita a lei e mostra o que você pode fazer." },
               { n: "3", t: "E-mail pronto pra enviar", d: "Notificação gerada. Muitos casos se encerram aqui mesmo." },
               { n: "4", t: "Se precisar: o fórum certo", d: "Digite o CEP. Clara mostra onde ir, e-mail e o que levar." },
             ].map((s, i) => (
-              <div key={i} className="p-6 border-r border-[#F0EDE8] last:border-none">
-                <div className="w-8 h-8 rounded-full border border-[#D4AF37] flex items-center justify-center text-[11px] font-medium text-[#D4AF37] mb-4">
-                  {s.n}
-                </div>
-                <div className="text-[13px] font-medium text-[#1a2340] mb-2">{s.t}</div>
-                <div className="text-[12px] text-[#9ca3af] leading-relaxed font-light">{s.d}</div>
+              <div key={i} style={{ padding: "22px 20px", borderRight: i < 3 ? "0.5px solid #F0EDE8" : "none" }}>
+                <div style={{ width: 30, height: 30, borderRadius: "50%", border: "0.5px solid #D4AF37", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 500, color: "#D4AF37", marginBottom: 14 }}>{s.n}</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: "#1a2340", marginBottom: 6 }}>{s.t}</div>
+                <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.6, fontWeight: 300 }}>{s.d}</div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* — APRENDA — */}
-      <section id="aprenda" className="bg-white">
-        <div className="max-w-5xl mx-auto px-8 py-16">
+      {/* APRENDA */}
+      <section id="aprenda" style={{ background: "#fff", borderBottom: "0.5px solid #ECE9E2" }}>
+        <div className="max-w-6xl mx-auto px-8 py-16">
           <div className="flex items-end justify-between mb-8">
             <div>
-              <p className="text-[10px] font-medium tracking-[0.1em] text-[#D4AF37] uppercase mb-2">aprenda</p>
-              <h2 className="font-raleway font-bold text-[26px] text-[#1a2340] leading-snug">
+              <p style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.1em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 8 }}>aprenda</p>
+              <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 26, color: "#1a2340", lineHeight: 1.25, marginBottom: 6 }}>
                 Você tem mais direitos<br />do que imagina.
               </h2>
-              <p className="text-[14px] text-[#6b7280] font-light mt-2">
-                Guias por situação. Linguagem simples. O que fazer, passo a passo.
-              </p>
+              <p style={{ fontSize: 14, color: "#6b7280", fontWeight: 300 }}>Guias por situação. Linguagem simples. O que fazer, passo a passo.</p>
             </div>
-            <Link href="/enviar" className="text-[12px] text-[#A8D8F0] font-medium whitespace-nowrap hidden md:block">
-              Ver todos os guias →
-            </Link>
           </div>
 
-          <div className="bg-[#1a2340] rounded-2xl p-7 flex items-center justify-between gap-6 mb-4">
+          <div style={{ background: "#1a2340", borderRadius: 16, padding: "24px 28px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, marginBottom: 14 }}>
             <div>
-              <h3 className="font-raleway font-bold text-[17px] text-white leading-snug mb-2">
+              <h3 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 17, color: "#fff", lineHeight: 1.35, marginBottom: 8 }}>
                 Sabia que você pode resolver muita coisa sem sair de casa?
               </h3>
-              <p className="text-[13px] text-[#A8D8F0]/70 font-light leading-relaxed">
-                E-mail bem escrito, com a lei certa — é o que resolve a maioria
-                dos casos de consumidor. Sem fila, sem fórum, sem advogado. A
-                Clara escreve esse e-mail com você.
+              <p style={{ fontSize: 13, color: "rgba(168,216,240,0.7)", fontWeight: 300, lineHeight: 1.65 }}>
+                E-mail bem escrito, com a lei certa — é o que resolve a maioria dos casos de consumidor. Sem fila, sem fórum, sem advogado.
               </p>
             </div>
-            <span className="font-raleway font-bold text-[64px] text-[#D4AF37]/10 leading-none flex-shrink-0 hidden md:block">!</span>
+            <span style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 64, color: "rgba(212,175,55,0.12)", lineHeight: 1, flexShrink: 0 }} className="hidden md:block">!</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {situations.map((sit, i) => (
-              <Link
-                href="/enviar"
-                key={i}
-                className="bg-[#F8F7F4] border border-[#E8E4DA] rounded-2xl p-5 hover:border-[#A8D8F0] transition-colors group block"
-              >
-                <div className="flex gap-3 items-start mb-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[18px] flex-shrink-0 ${sit.color === "gold" ? "bg-amber-50" : "bg-blue-50"}`}>
+              <Link href="/enviar" key={i}
+                style={{ background: "#F8F7F4", border: "0.5px solid #E8E4DA", borderRadius: 16, padding: 18, textDecoration: "none", display: "block" }}
+                className="hover:border-[#A8D8F0] transition-colors group">
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0, background: sit.color === "gold" ? "#FBF5E6" : "#EBF6FD" }}>
                     {sit.icon}
                   </div>
                   <div>
-                    <div className="text-[13px] font-medium text-[#1a2340] leading-snug mb-1">{sit.title}</div>
-                    <div className="text-[11px] text-[#9ca3af] leading-relaxed font-light">{sit.desc}</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: "#1a2340", lineHeight: 1.35, marginBottom: 4 }}>{sit.title}</div>
+                    <div style={{ fontSize: 11, color: "#9ca3af", lineHeight: 1.55, fontWeight: 300 }}>{sit.desc}</div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between border-t border-[#F0EDE8] pt-3">
-                  <div className="flex gap-1.5 flex-wrap">
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "0.5px solid #F0EDE8", paddingTop: 10 }}>
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                     {sit.badges.map((b) => (
-                      <span key={b} className={`text-[10px] font-medium px-2.5 py-1 rounded-full ${badgeStyle(b)}`}>{b}</span>
+                      <span key={b} className={`text-[10px] font-medium px-2.5 py-1 rounded-full ${badgeCls(b)}`}>{b}</span>
                     ))}
                   </div>
-                  <span className="text-[#ccc] text-sm group-hover:text-[#A8D8F0] transition-colors">→</span>
+                  <span style={{ fontSize: 13, color: "#ccc" }} className="group-hover:text-[#A8D8F0] transition-colors">→</span>
                 </div>
               </Link>
             ))}
           </div>
 
-          <div className="text-center mt-6">
-            <Link href="/enviar" className="text-[13px] text-[#A8D8F0] font-medium">
+          <div style={{ textAlign: "center", marginTop: 20 }}>
+            <Link href="/enviar" style={{ fontSize: 13, color: "#A8D8F0", fontWeight: 500, textDecoration: "none" }}>
               Ver todos os guias de direitos →
             </Link>
           </div>
         </div>
       </section>
 
-      {/* — MÓDULO FÓRUM — */}
-      <section id="forum" className="bg-[#F8F7F4]">
-        <div className="max-w-5xl mx-auto px-8 py-16">
-          <p className="text-[10px] font-medium tracking-[0.1em] text-[#D4AF37] uppercase mb-2">módulo fórum</p>
-          <h2 className="font-raleway font-bold text-[26px] text-[#1a2340] leading-snug mb-3">
+      {/* FÓRUM */}
+      <section id="forum" style={{ background: "#F8F7F4", borderBottom: "0.5px solid #ECE9E2" }}>
+        <div className="max-w-6xl mx-auto px-8 py-16">
+          <p style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.1em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 8 }}>módulo fórum</p>
+          <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 26, color: "#1a2340", lineHeight: 1.25, marginBottom: 10 }}>
             Se precisar ir ao fórum,<br />a Clara te leva pela mão.
           </h2>
-          <p className="text-[14px] text-[#6b7280] font-light leading-relaxed mb-8 max-w-md">
-            Digite o CEP da empresa ou pessoa — a Clara mostra onde fica o
-            fórum, o e-mail do cartório e tudo que você precisa levar.
+          <p style={{ fontSize: 14, color: "#6b7280", fontWeight: 300, lineHeight: 1.7, marginBottom: 28, maxWidth: 440 }}>
+            Digite o CEP da empresa ou pessoa — a Clara mostra o fórum competente, o e-mail do cartório e tudo que você precisa levar.
           </p>
 
-          <div className="bg-[#1a2340] rounded-2xl p-9 grid grid-cols-1 md:grid-cols-2 gap-9 items-center">
+          <div style={{ background: "#1a2340", borderRadius: 20, padding: 36 }}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
             <div>
-              <h3 className="font-raleway font-bold text-[20px] text-white leading-snug mb-3">
+              <h3 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 20, color: "#fff", lineHeight: 1.3, marginBottom: 12 }}>
                 CEP → fórum certo<br />em segundos.
               </h3>
-              <p className="text-[13px] text-[#A8D8F0]/70 font-light leading-relaxed mb-6">
-                Sem precisar pesquisar, ligar ou se perder. A Clara encontra o
-                fórum correto para o seu caso, com endereço, e-mail e horário
-                de atendimento.
+              <p style={{ fontSize: 13, color: "rgba(168,216,240,0.7)", fontWeight: 300, lineHeight: 1.75, marginBottom: 24 }}>
+                Sem precisar pesquisar ou ligar. A Clara encontra o fórum correto, com endereço, e-mail e horário de atendimento.
               </p>
-              <Link
-                href="/enviar"
-                className="inline-block bg-white text-[#1a2340] text-[12px] font-medium px-5 py-2.5 rounded-full hover:bg-[#F8F7F4] transition-colors"
-              >
+              <Link href="/enviar"
+                style={{ background: "#fff", color: "#1a2340", fontSize: 12, fontWeight: 500, padding: "11px 22px", borderRadius: 32, textDecoration: "none", display: "inline-block" }}
+                className="hover:bg-[#F8F7F4] transition-colors">
                 Encontrar meu fórum
               </Link>
             </div>
 
-            <div className="bg-white/5 border border-[#A8D8F0]/20 rounded-xl p-5">
-              <div className="text-[10px] tracking-[0.08em] text-[#A8D8F0]/40 font-medium mb-3 uppercase">CEP da empresa ou pessoa</div>
-              <div className="bg-white/7 border border-[#A8D8F0]/20 rounded-lg px-4 py-3 text-[13px] text-white font-light mb-4 flex items-center gap-1.5">
-                05673-030
-                <span className="w-[1.5px] h-3.5 bg-[#D4AF37] inline-block" />
+            <div style={{ background: "rgba(255,255,255,0.05)", border: "0.5px solid rgba(168,216,240,0.18)", borderRadius: 14, padding: 22 }}>
+              <div style={{ fontSize: 10, letterSpacing: "0.08em", color: "rgba(168,216,240,0.4)", fontWeight: 500, marginBottom: 10, textTransform: "uppercase" }}>CEP da empresa ou pessoa</div>
+              <div style={{ background: "rgba(255,255,255,0.07)", border: "0.5px solid rgba(168,216,240,0.2)", borderRadius: 8, padding: "11px 14px", fontSize: 13, color: "#fff", display: "flex", alignItems: "center", gap: 6, marginBottom: 16 }}>
+                05673-030 <span style={{ width: 1.5, height: 14, background: "#D4AF37", display: "inline-block" }} />
               </div>
-              <div className="border-t border-[#A8D8F0]/10 pt-4">
-                <div className="text-[10px] tracking-[0.07em] text-[#A8D8F0]/35 mb-2 uppercase">Resultado</div>
-                <div className="text-[14px] font-medium text-white mb-1">Foro de Pinheiros</div>
-                <div className="text-[11px] text-[#A8D8F0]/50 leading-relaxed">
-                  Av. Pedroso de Morais, 1553 — Pinheiros<br />
-                  Seg–Sex, 9h–17h · atendimento presencial e online
+              <div style={{ borderTop: "0.5px solid rgba(168,216,240,0.1)", paddingTop: 14 }}>
+                <div style={{ fontSize: 10, letterSpacing: "0.07em", color: "rgba(168,216,240,0.35)", marginBottom: 8, textTransform: "uppercase" }}>Resultado</div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#fff", marginBottom: 4 }}>Foro de Pinheiros</div>
+                <div style={{ fontSize: 11, color: "rgba(168,216,240,0.5)", lineHeight: 1.65 }}>
+                  Av. Pedroso de Morais, 1553 — Pinheiros<br />Seg–Sex, 9h–17h
                 </div>
-                <div className="flex items-center gap-2 mt-2 text-[11px] text-[#A8D8F0]">
-                  <SmallEmailIcon />
-                  <strong className="font-medium">jec.pinheiros@tjsp.jus.br</strong>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 11, color: "#A8D8F0", fontWeight: 500 }}>
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                    <rect x="1" y="3" width="14" height="10" rx="2" stroke="#A8D8F0" strokeWidth="1.4" />
+                    <path d="M1 5l7 5 7-5" stroke="#A8D8F0" strokeWidth="1.4" strokeLinecap="round" />
+                  </svg>
+                  jec.pinheiros@tjsp.jus.br
                 </div>
               </div>
             </div>
@@ -382,73 +340,67 @@ export default function Home() {
         </div>
       </section>
 
-      {/* — ANALISAR CONTRATO — */}
-      <section className="bg-white">
-        <div className="max-w-5xl mx-auto px-8 py-16">
-          <p className="text-[10px] font-medium tracking-[0.1em] text-[#D4AF37] uppercase mb-2">análise de contrato</p>
-          <h2 className="font-raleway font-bold text-[26px] text-[#1a2340] leading-snug mb-3">
+      {/* ANÁLISE DE CONTRATO */}
+      <section style={{ background: "#fff", borderBottom: "0.5px solid #ECE9E2" }}>
+        <div className="max-w-6xl mx-auto px-8 py-16">
+          <p style={{ fontSize: 10, fontWeight: 500, letterSpacing: "0.1em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 8 }}>análise de contrato</p>
+          <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 26, color: "#1a2340", lineHeight: 1.25, marginBottom: 10 }}>
             Vai assinar algo?<br />Deixa a Clara ler primeiro.
           </h2>
-          <p className="text-[14px] text-[#6b7280] font-light leading-relaxed mb-8 max-w-md">
-            Envie o PDF do contrato e a Clara destaca cláusulas abusivas, riscos
-            reais e o que você deve negociar antes de assinar.
+          <p style={{ fontSize: 14, color: "#6b7280", fontWeight: 300, lineHeight: 1.7, marginBottom: 24, maxWidth: 440 }}>
+            Envie o PDF e a Clara destaca cláusulas abusivas, riscos reais e o que você deve negociar antes de assinar.
           </p>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-            {[
-              "Multas e fidelidade", "Prazos e vigência", "Renovação automática", "Rescisão e aviso prévio",
-              "Reajustes e valores", "Responsabilidades", "LGPD e dados pessoais", "Cláusulas abusivas",
-            ].map((item) => (
-              <span key={item} className="rounded-xl border border-[#E8E4DA] bg-[#F8F7F4] px-4 py-2.5 text-[12px] text-[#6b7280] font-light">
+          <div className="flex flex-wrap gap-2 mb-8">
+            {["Multas e fidelidade", "Prazos e vigência", "Renovação automática", "Rescisão e aviso prévio", "Reajustes e valores", "Responsabilidades", "LGPD e dados pessoais", "Cláusulas abusivas"].map((item) => (
+              <span key={item} style={{ border: "0.5px solid #E8E4DA", background: "#F8F7F4", padding: "8px 16px", borderRadius: 10, fontSize: 12, color: "#6b7280", fontWeight: 300 }}>
                 {item}
               </span>
             ))}
           </div>
-
-          <Link
-            href="/enviar"
-            className="inline-block bg-[#1a2340] text-white text-[13px] font-medium px-7 py-3.5 rounded-full hover:bg-[#253056] transition-colors"
-          >
+          <Link href="/enviar"
+            style={{ background: "#1a2340", color: "#fff", fontSize: 13, fontWeight: 500, padding: "13px 28px", borderRadius: 32, textDecoration: "none", display: "inline-block" }}
+            className="hover:bg-[#253056] transition-colors">
             Analisar meu contrato
           </Link>
-          <p className="text-[11px] text-[#bbb] mt-3">Sem cartão · Sem cadastro obrigatório</p>
         </div>
       </section>
 
-      {/* — CTA FINAL — */}
-      <section className="bg-[#F8F7F4]">
-        <div className="max-w-5xl mx-auto px-8 py-20 text-center">
-          <div className="flex justify-center mb-6">
+      {/* CTA FINAL */}
+      <section style={{ background: "#F8F7F4" }}>
+        <div className="max-w-6xl mx-auto px-8 py-20 text-center">
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
             <ClaraIcon size={52} />
           </div>
-          <h2 className="font-raleway font-bold text-[30px] text-[#1a2340] leading-snug mb-4">
-            Clareza é o começo<br />
-            de qualquer <span className="text-[#D4AF37]">justiça.</span>
+          <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 30, color: "#1a2340", lineHeight: 1.25, marginBottom: 14 }}>
+            Clareza é o começo<br />de qualquer{" "}
+            <span style={{ color: "#D4AF37" }}>justiça.</span>
           </h2>
-          <p className="text-[14px] text-[#6b7280] font-light leading-relaxed mb-8">
+          <p style={{ fontSize: 14, color: "#6b7280", fontWeight: 300, lineHeight: 1.7, marginBottom: 32 }}>
             Sem medo, sem juridiquês, sem enrolação.<br />
             Entenda seus direitos e saiba o que fazer — agora.
           </p>
-          <Link
-            href="/enviar"
-            className="inline-block bg-[#1a2340] text-white text-[14px] font-medium px-9 py-4 rounded-full hover:bg-[#253056] transition-colors"
-          >
+          <Link href="/enviar"
+            style={{ background: "#1a2340", color: "#fff", fontSize: 14, fontWeight: 500, padding: "16px 40px", borderRadius: 32, textDecoration: "none", display: "inline-block" }}
+            className="hover:bg-[#253056] transition-colors">
             Começar gratuitamente
           </Link>
-          <p className="text-[11px] text-[#bbb] mt-4 tracking-wide">Sem cartão · Sem cadastro obrigatório</p>
+          <p style={{ fontSize: 11, color: "#bbb", marginTop: 14 }}>
+            Sem cartão · Sem cadastro obrigatório
+          </p>
         </div>
       </section>
 
-      {/* — FOOTER — */}
-      <footer className="bg-[#1a2340]">
-        <div className="max-w-5xl mx-auto px-8 py-7 flex items-center justify-between">
+      {/* FOOTER */}
+      <footer style={{ background: "#1a2340" }}>
+        <div className="max-w-6xl mx-auto px-8 py-7 flex items-center justify-between">
           <div>
-            <div className="font-raleway font-bold text-[13px] tracking-[0.12em] text-[#A8D8F0]">CLARA LAW</div>
-            <div className="text-[11px] text-[#A8D8F0]/35 mt-1 font-light">Inteligência para um mundo mais claro.</div>
+            <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: "0.12em", color: "#A8D8F0" }}>CLARA LAW</div>
+            <div style={{ fontSize: 11, color: "rgba(168,216,240,0.35)", marginTop: 3, fontWeight: 300 }}>Inteligência para um mundo mais claro.</div>
           </div>
-          <div className="flex gap-6">
+          <div style={{ display: "flex", gap: 24 }}>
             {["Como funciona", "Aprenda", "Fórum", "Privacidade"].map((l) => (
-              <a key={l} href="#" className="text-[11px] text-[#A8D8F0]/40 hover:text-[#A8D8F0] transition-colors">{l}</a>
+              <a key={l} href="#" style={{ fontSize: 11, color: "rgba(168,216,240,0.4)", textDecoration: "none" }}
+                className="hover:text-[#A8D8F0] transition-colors">{l}</a>
             ))}
           </div>
         </div>
