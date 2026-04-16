@@ -1,797 +1,86 @@
-/* === CLARA_BRAND_TOKENS (pode ajustar depois com o brandbook) === */
-:root{
-  --clara-ink: #0B1220;      /* texto principal */
-  --clara-ink2:#111827;
-  --clara-muted:#667085;     /* texto secundário */
-  --clara-border:#E6E8EF;
-
-  --clara-mint:#14B8A6;      /* acento 1 */
-  --clara-lilac:#7C3AED;     /* acento 2 */
-  --clara-rose:#FB7185;      /* acento 3 opcional */
-  --clara-cream:#F7F7FB;     /* fundo claro */
-  --clara-card:#FFFFFF;
-
-  --clara-glow: 0 18px 60px rgba(124,58,237,.18);
-  --clara-glow2: 0 18px 60px rgba(20,184,166,.16);
-}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* — FONTES DO BRANDBOOK — */
+@layer base {
+  .font-raleway  { font-family: 'Raleway', sans-serif; }
+  .font-montserrat { font-family: 'Montserrat', sans-serif; }
+}
+
+/* — TOKENS CLARA LAW (brandbook v1.0) — */
+:root {
+  --clara-gold:    #D4AF37;   /* dourado fosco — ícone e destaques */
+  --clara-sky:     #A8D8F0;   /* azul-celeste — logotipo e fundos */
+  --clara-ink:     #1a2340;   /* azul-marinho — texto principal */
+  --clara-muted:   #6b7280;   /* texto secundário */
+  --clara-bg:      #F8F7F4;   /* off-white — fundo da página */
+  --clara-border:  #E8E4DA;   /* bordas suaves */
+}
+
 :root {
   color-scheme: light;
 }
+
 html, body {
   height: 100%;
 }
+
 body {
-  background: #FFFFFF;
-  color: #0F172A;
-  font-feature-settings: "kern";
-}
-.clara-shell {
-  min-height: 100vh;
-  background: #FFFFFF;
-  color: #0F172A;
-}
-.clara-title {
-  letter-spacing: 0.22em;
-  font-weight: 600;
-}
-.clara-muted { color: rgba(15, 23, 42, 0.62); }
-.clara-card {
-  background: #FFFFFF;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 18px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
-}
-.clara-h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-.clara-button-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  padding: 0.55rem 0.9rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  background: #0F172A;
-  color: white;
-  transition: opacity .15s ease;
-}
-.clara-button-primary:hover { opacity: .9; }
-.clara-button-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  padding: 0.55rem 0.9rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  background: rgba(15, 23, 42, 0.06);
-  color: #0F172A;
-  transition: background .15s ease;
-}
-.clara-button-secondary:hover { background: rgba(15, 23, 42, 0.09); }
-:root{
-  /* Brandbook - Clara Law */
-  --clara-gold:#D4AF37;      /* Dourado fosco */
-  --clara-sky:#A8D8F0;       /* Azul-celeste */
-  --clara-white:#FFFFFF;     /* Branco puro */
-  --clara-gray:#F2F2F2;      /* Cinza neutro */
-  --clara-ink:#0A2540;       /* texto (neutro escuro, para legibilidade) */
-  --clara-bg: #FFFFFF;
-  --clara-card: #FFFFFF;
-  --clara-border: rgba(10,37,64,0.10);
-}
-html, body{
   background: var(--clara-bg);
   color: var(--clara-ink);
-  font-family: "Montserrat", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-}
-.clara-title{
-  font-family: "Raleway", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-}
-.clara-soft{
-  background: linear-gradient(180deg, rgba(168,216,240,0.35), rgba(255,255,255,0.0));
+  font-family: 'Montserrat', sans-serif;
+  font-feature-settings: "kern";
+  -webkit-font-smoothing: antialiased;
 }
 
-/* === CLARA APPLE MOBILE PATCH === */
+/* — MOBILE ESSENTIALS — */
 @media (max-width: 768px) {
   html, body {
-    -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
   body {
-    background: #f5f5f7 !important;
-  }
-
-  main {
-    padding-left: 18px !important;
-    padding-right: 18px !important;
+    background: #f5f5f7;
   }
 
   h1 {
-    font-size: clamp(2.6rem, 8vw, 3.3rem) !important;
-    line-height: 0.98 !important;
-    letter-spacing: -0.04em !important;
+    font-size: clamp(2.4rem, 7.5vw, 3rem);
+    line-height: 1.02;
+    letter-spacing: -0.05em;
+    text-wrap: balance;
   }
 
   h2 {
-    letter-spacing: -0.03em !important;
+    font-size: clamp(1.7rem, 5.5vw, 2.2rem);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
   }
 
-  p {
-    line-height: 1.5 !important;
+  input, select, textarea {
+    font-size: 16px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.92);
   }
+}
 
-  button,
-  a[role="button"],
-  a[class*="rounded"],
-  button[class*="rounded"] {
-    border-radius: 9999px !important;
-    min-height: 54px !important;
-    padding-left: 22px !important;
-    padding-right: 22px !important;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(15,23,42,0.06);
+/* — CLASSES DE SUPORTE (usadas em /enviar) — */
+.clara-mobile-fix {
+  min-height: 100svh;
+}
+
+@media (max-width: 640px) {
+  .mobile-action-row {
+    flex-direction: column;
+    gap: 10px;
   }
-
-  input,
-  select,
-  textarea {
-    border-radius: 20px !important;
-    min-height: 54px !important;
-    font-size: 16px !important;
-    background: rgba(255,255,255,0.9) !important;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+  .mobile-action-row > * {
+    width: 100%;
+    justify-content: center;
   }
-
-  textarea {
-    min-height: 170px !important;
-  }
-
-  [class*="grid-cols-2"],
-  [class*="md:grid-cols-2"],
-  [class*="lg:grid-cols-2"] {
+  .mobile-summary-grid {
     grid-template-columns: 1fr !important;
   }
-
-  [class*="rounded-[24px]"],
-  [class*="rounded-[20px]"],
-  [class*="rounded-[18px]"],
-  [class*="rounded-2xl"],
-  [class*="rounded-xl"] {
-    border-radius: 24px !important;
-  }
-
-  [class*="border"] {
-    border-color: rgba(15,23,42,0.08) !important;
-  }
-
-  [class*="bg-slate-50"],
-  [class*="bg-white"] {
-    background: rgba(255,255,255,0.72) !important;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    box-shadow: 0 1px 2px rgba(15,23,42,0.03), 0 12px 40px rgba(15,23,42,0.05);
-  }
-
-  [class*="p-5"] {
-    padding: 20px !important;
-  }
-
-  [class*="p-4"] {
-    padding: 18px !important;
-  }
-
-  [class*="px-5"] {
-    padding-left: 20px !important;
-    padding-right: 20px !important;
-  }
-
-  [class*="py-4"] {
-    padding-top: 14px !important;
-    padding-bottom: 14px !important;
-  }
-
-  [class*="text-lg"] {
-    font-size: 1.03rem !important;
-  }
-
-  [class*="text-sm"] {
-    font-size: 0.92rem !important;
-  }
-
-  [class*="justify-between"] {
-    gap: 12px;
-  }
-
-  [class*="flex items-center justify-between"] {
-    flex-wrap: wrap;
-  }
 }
-/* === END CLARA APPLE MOBILE PATCH === */
-
-/* === CLARA MOBILE REFINEMENT === */
-@media (max-width: 768px) {
-  body {
-    background: #f5f5f7 !important;
-  }
-
-  main {
-    padding-left: 18px !important;
-    padding-right: 18px !important;
-  }
-
-  h1 {
-    font-size: clamp(2.2rem, 7vw, 2.8rem) !important;
-    line-height: 1.02 !important;
-    letter-spacing: -0.045em !important;
-    max-width: 9ch !important;
-  }
-
-  h2 {
-    font-size: clamp(1.7rem, 6vw, 2.15rem) !important;
-    line-height: 1.06 !important;
-    letter-spacing: -0.035em !important;
-  }
-
-  p {
-    line-height: 1.48 !important;
-  }
-
-  button,
-  a[role="button"],
-  a[class*="rounded"],
-  button[class*="rounded"] {
-    min-height: 52px !important;
-    border-radius: 9999px !important;
-  }
-
-  input,
-  select,
-  textarea {
-    min-height: 52px !important;
-    font-size: 16px !important;
-    border-radius: 18px !important;
-  }
-
-  textarea {
-    min-height: 150px !important;
-  }
-
-  [class*="grid-cols-2"],
-  [class*="md:grid-cols-2"],
-  [class*="lg:grid-cols-2"] {
-    grid-template-columns: 1fr !important;
-  }
-
-  [class*="bg-white"],
-  [class*="bg-slate-50"] {
-    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04) !important;
-  }
-
-  [class*="rounded-[24px]"],
-  [class*="rounded-[20px]"],
-  [class*="rounded-[18px]"] {
-    border-radius: 22px !important;
-  }
-
-  [class*="p-5"] {
-    padding: 18px !important;
-  }
-
-  [class*="p-4"] {
-    padding: 16px !important;
-  }
-
-  [class*="text-lg"] {
-    font-size: 1rem !important;
-  }
-
-  [class*="text-sm"] {
-    font-size: 0.92rem !important;
-  }
-
-  [class*="justify-between"] {
-    gap: 12px !important;
-  }
-
-  [class*="flex items-center justify-between"] {
-    align-items: flex-start !important;
-    flex-wrap: wrap !important;
-  }
-
-  /* home: topo mais elegante */
-  img[alt*="logo"],
-  img[src*="logo"] {
-    max-width: 42px !important;
-    height: auto !important;
-  }
-
-  /* home: botão secundário mais leve */
-  a[href*="demo"],
-  a[href*="resultado"],
-  a[href*="result"],
-  button[class*="border"] {
-    min-height: 46px !important;
-    padding-left: 18px !important;
-    padding-right: 18px !important;
-  }
-
-  /* enviar: botão voltar menor e menos dominante */
-  a[href="/"],
-  a[href="./"],
-  a[href="../"] {
-    min-height: 44px !important;
-    padding-left: 16px !important;
-    padding-right: 16px !important;
-    font-size: 0.95rem !important;
-  }
-
-  /* evitar título esmagado no fluxo */
-  .clara-mobile-title,
-  [class*="text-5xl"],
-  [class*="text-6xl"] {
-    font-size: clamp(2.2rem, 7vw, 2.9rem) !important;
-    line-height: 1.02 !important;
-  }
-}
-/* === END CLARA MOBILE REFINEMENT === */
-
-/* === CLARA APPLE AWARD MOBILE OVERRIDE === */
-@media (max-width: 768px) {
-  html, body {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-  }
-
-  body {
-    background: #f5f5f7 !important;
-  }
-
-  main {
-    padding-left: 20px !important;
-    padding-right: 20px !important;
-  }
-
-  /* o grande problema era o h1 estreito demais */
-  h1 {
-    max-width: none !important;
-    width: auto !important;
-    font-size: clamp(2.8rem, 8vw, 3.45rem) !important;
-    line-height: 0.96 !important;
-    letter-spacing: -0.055em !important;
-    text-wrap: balance !important;
-    word-break: normal !important;
-    overflow-wrap: normal !important;
-    margin-bottom: 12px !important;
-  }
-
-  h2 {
-    font-size: clamp(1.9rem, 6vw, 2.3rem) !important;
-    line-height: 1.04 !important;
-    letter-spacing: -0.04em !important;
-    text-wrap: balance !important;
-  }
-
-  p {
-    line-height: 1.5 !important;
-  }
-
-  /* cards mais leves */
-  [class*="bg-white"],
-  [class*="bg-slate-50"] {
-    background: rgba(255,255,255,0.82) !important;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    box-shadow: 0 8px 30px rgba(15,23,42,0.05) !important;
-  }
-
-  [class*="rounded-[24px]"],
-  [class*="rounded-[20px]"],
-  [class*="rounded-[18px]"],
-  [class*="rounded-2xl"],
-  [class*="rounded-xl"] {
-    border-radius: 24px !important;
-  }
-
-  [class*="p-5"] {
-    padding: 20px !important;
-  }
-
-  [class*="p-4"] {
-    padding: 18px !important;
-  }
-
-  /* grids sempre em 1 coluna no mobile */
-  [class*="grid-cols-2"],
-  [class*="md:grid-cols-2"],
-  [class*="lg:grid-cols-2"] {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* inputs e selects mais iOS */
-  input,
-  select,
-  textarea {
-    min-height: 54px !important;
-    font-size: 16px !important;
-    border-radius: 18px !important;
-    background: rgba(255,255,255,0.92) !important;
-  }
-
-  textarea {
-    min-height: 160px !important;
-  }
-
-  /* botões */
-  button,
-  a[role="button"],
-  button[class*="rounded"],
-  a[class*="rounded"] {
-    min-height: 52px !important;
-    border-radius: 9999px !important;
-  }
-
-  /* home: deixa CTA secundário menos dominante */
-  a[href*="demo"],
-  a[href*="resultado"],
-  a[href*="result"] {
-    min-height: 44px !important;
-    padding-left: 16px !important;
-    padding-right: 16px !important;
-    font-size: 0.96rem !important;
-    box-shadow: 0 3px 12px rgba(15,23,42,0.05) !important;
-  }
-
-  /* fluxo /enviar: botão voltar mais discreto */
-  a[href="/"],
-  a[href="./"],
-  a[href="../"] {
-    min-height: 42px !important;
-    padding-left: 15px !important;
-    padding-right: 15px !important;
-    font-size: 0.95rem !important;
-    box-shadow: none !important;
-  }
-
-  /* linhas flex com justify-between costumam estragar no mobile */
-  [class*="flex items-center justify-between"] {
-    align-items: flex-start !important;
-    gap: 14px !important;
-  }
-
-  /* na home e no fluxo, os blocos do topo precisam respirar */
-  [class*="mb-8"] {
-    margin-bottom: 20px !important;
-  }
-
-  [class*="mt-8"] {
-    margin-top: 20px !important;
-  }
-
-  /* tipografia utilitária */
-  [class*="text-lg"] {
-    font-size: 1rem !important;
-  }
-
-  [class*="text-sm"] {
-    font-size: 0.92rem !important;
-  }
-}
-/* === END CLARA APPLE AWARD MOBILE OVERRIDE === */
-
-/* === CLARA APPLE HOME MOBILE FINAL === */
-@media (max-width: 768px) {
-  body {
-    background: #f5f5f7 !important;
-  }
-
-  main {
-    padding-left: 22px !important;
-    padding-right: 22px !important;
-  }
-
-  h1 {
-    font-size: clamp(2.55rem, 7.6vw, 3.1rem) !important;
-    line-height: 1.02 !important;
-    letter-spacing: -0.055em !important;
-    max-width: 11ch !important;
-    margin-bottom: 14px !important;
-  }
-
-  p {
-    line-height: 1.52 !important;
-  }
-
-  button,
-  a[role="button"],
-  a[class*="rounded"],
-  button[class*="rounded"] {
-    min-height: 52px !important;
-    border-radius: 9999px !important;
-  }
-
-  /* CTA principal + texto auxiliar empilhados */
-  .home-mobile-cta-row,
-  [class*="gap-4"][class*="items-center"],
-  [class*="flex"][class*="items-center"][class*="gap-4"] {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 10px !important;
-  }
-
-  /* botão principal full width */
-  .home-mobile-cta-row > *,
-  [class*="flex"][class*="items-center"][class*="gap-4"] > a:first-child,
-  [class*="flex"][class*="items-center"][class*="gap-4"] > button:first-child {
-    width: 100% !important;
-  }
-
-  /* texto auxiliar abaixo do botão */
-  .home-mobile-cta-row > *:not(:first-child),
-  [class*="flex"][class*="items-center"][class*="gap-4"] > *:not(:first-child) {
-    margin-left: 0 !important;
-    font-size: 0.95rem !important;
-    opacity: 0.78 !important;
-  }
-
-  /* botão demo mais discreto */
-  a[href*="demo"],
-  a[href*="resultado"],
-  a[href*="result"] {
-    min-height: 42px !important;
-    padding-left: 16px !important;
-    padding-right: 16px !important;
-    font-size: 0.95rem !important;
-    box-shadow: 0 4px 16px rgba(15,23,42,0.04) !important;
-  }
-
-  /* badge menor */
-  [class*="rounded-full"][class*="px-4"][class*="py-2"] {
-    min-height: 36px !important;
-    padding-left: 14px !important;
-    padding-right: 14px !important;
-    font-size: 0.88rem !important;
-  }
-
-  /* cards / blocos mais leves */
-  [class*="bg-white"],
-  [class*="bg-slate-50"] {
-    box-shadow: 0 8px 24px rgba(15,23,42,0.045) !important;
-  }
-
-  [class*="rounded-[24px]"],
-  [class*="rounded-[20px]"],
-  [class*="rounded-[18px]"] {
-    border-radius: 22px !important;
-  }
-
-  [class*="p-5"] {
-    padding: 18px !important;
-  }
-
-  [class*="p-4"] {
-    padding: 16px !important;
-  }
-
-  /* evita corte visual do CTA no final do hero */
-  section,
-  div {
-    scroll-margin-top: 16px;
-  }
-}
-/* === END CLARA APPLE HOME MOBILE FINAL === */
-
-/* === CLARA HOME MOBILE HERO OVERRIDE === */
-@media (max-width: 768px) {
-  body {
-    background: #f5f5f7 !important;
-  }
-
-  main {
-    padding-left: 22px !important;
-    padding-right: 22px !important;
-  }
-
-  /* hero mais curto e elegante */
-  h1 {
-    font-size: clamp(2.35rem, 7vw, 2.85rem) !important;
-    line-height: 1.02 !important;
-    letter-spacing: -0.06em !important;
-    max-width: 11.5ch !important;
-    margin-top: 8px !important;
-    margin-bottom: 14px !important;
-    text-wrap: balance !important;
-  }
-
-  p {
-    line-height: 1.52 !important;
-    max-width: 30ch !important;
-  }
-
-  /* botão secundário mais silencioso */
-  a[href*="demo"],
-  a[href*="resultado"],
-  a[href*="result"] {
-    min-height: 40px !important;
-    padding-left: 14px !important;
-    padding-right: 14px !important;
-    font-size: 0.92rem !important;
-    background: rgba(255,255,255,0.78) !important;
-    border: 1px solid rgba(15,23,42,0.06) !important;
-    box-shadow: none !important;
-    opacity: 0.92 !important;
-  }
-
-  /* badge menor */
-  [class*="rounded-full"][class*="px-4"][class*="py-2"] {
-    min-height: 34px !important;
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-    font-size: 0.84rem !important;
-    margin-bottom: 14px !important;
-  }
-
-  /* CTA principal aparece melhor */
-  button,
-  a[role="button"],
-  button[class*="rounded"],
-  a[class*="rounded"] {
-    min-height: 54px !important;
-    border-radius: 9999px !important;
-  }
-
-  /* empilha CTA principal + texto auxiliar */
-  [class*="flex"][class*="gap-4"] {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 10px !important;
-  }
-
-  [class*="flex"][class*="gap-4"] > a:first-child,
-  [class*="flex"][class*="gap-4"] > button:first-child {
-    width: 100% !important;
-    justify-content: center !important;
-  }
-
-  [class*="flex"][class*="gap-4"] > *:not(:first-child) {
-    margin-left: 0 !important;
-    font-size: 0.92rem !important;
-    opacity: 0.72 !important;
-  }
-
-  /* menos peso visual geral */
-  [class*="bg-white"],
-  [class*="bg-slate-50"] {
-    box-shadow: 0 8px 24px rgba(15,23,42,0.04) !important;
-  }
-
-  [class*="rounded-[24px]"],
-  [class*="rounded-[20px]"],
-  [class*="rounded-[18px]"] {
-    border-radius: 22px !important;
-  }
-
-  [class*="p-5"] {
-    padding: 18px !important;
-  }
-
-  [class*="p-4"] {
-    padding: 16px !important;
-  }
-
-  /* mais espaço entre blocos do hero */
-  [class*="mb-8"] {
-    margin-bottom: 22px !important;
-  }
-
-  [class*="mt-8"] {
-    margin-top: 22px !important;
-  }
-}
-/* === END CLARA HOME MOBILE HERO OVERRIDE === */
-
-/* === CLARA MOBILE HOME PREMIUM === */
-@media (max-width: 768px) {
-  body {
-    background: #f5f5f7 !important;
-  }
-
-  main {
-    padding-left: 24px !important;
-    padding-right: 24px !important;
-  }
-
-  h1 {
-    font-size: clamp(2.35rem, 7vw, 2.8rem) !important;
-    line-height: 1.03 !important;
-    letter-spacing: -0.055em !important;
-    max-width: 12ch !important;
-    margin-top: 10px !important;
-    margin-bottom: 18px !important;
-    text-wrap: balance !important;
-  }
-
-  p {
-    max-width: 30ch !important;
-    line-height: 1.58 !important;
-  }
-
-  /* botão secundário some no mobile */
-  a[href*="demo"],
-  a[href*="resultado"],
-  a[href*="result"] {
-    display: none !important;
-  }
-
-  /* badge menor */
-  [class*="rounded-full"][class*="px-4"][class*="py-2"] {
-    min-height: 34px !important;
-    padding-left: 12px !important;
-    padding-right: 12px !important;
-    font-size: 0.84rem !important;
-    margin-bottom: 16px !important;
-  }
-
-  /* CTA principal */
-  button,
-  a[role="button"],
-  button[class*="rounded"],
-  a[class*="rounded"] {
-    min-height: 56px !important;
-    width: 100% !important;
-    border-radius: 9999px !important;
-    font-size: 1.02rem !important;
-    box-shadow: 0 8px 22px rgba(15,23,42,0.10) !important;
-  }
-
-  /* CTA + texto auxiliar empilhados */
-  [class*="flex"][class*="gap-4"] {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 10px !important;
-  }
-
-  [class*="flex"][class*="gap-4"] > *:not(:first-child) {
-    margin-left: 0 !important;
-    font-size: 0.92rem !important;
-    opacity: 0.72 !important;
-  }
-
-  /* cards e blocos mais leves */
-  [class*="bg-white"],
-  [class*="bg-slate-50"] {
-    box-shadow: 0 8px 24px rgba(15,23,42,0.04) !important;
-  }
-
-  [class*="rounded-[24px]"],
-  [class*="rounded-[20px]"],
-  [class*="rounded-[18px]"] {
-    border-radius: 22px !important;
-  }
-
-  [class*="p-5"] {
-    padding: 18px !important;
-  }
-
-  [class*="p-4"] {
-    padding: 16px !important;
-  }
-
-  /* mais respiro no hero */
-  [class*="mb-8"] {
-    margin-bottom: 22px !important;
-  }
-
-  [class*="mt-8"] {
-    margin-top: 22px !important;
-  }
-}
-/* === END CLARA MOBILE HOME PREMIUM === */
