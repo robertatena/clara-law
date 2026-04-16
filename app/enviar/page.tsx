@@ -478,12 +478,9 @@ export default function Page() {
               {CIAS_AEREAS.map((cia) => (
                 <button key={cia.id} type="button" onClick={() => setCiaAerea(cia.id)}
                   className={`w-full rounded-[18px] border-2 p-4 text-left transition-all ${ciaAerea === cia.id ? "border-[#D4AF37] bg-amber-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold text-[#0e2b50]">{cia.nome}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">{cia.canal}</div>
-                    </div>
-                    {cia.sac && <span className="text-xs text-slate-400 font-mono">{cia.sac}</span>}
+                  <div>
+                    <div className="font-semibold text-[#0e2b50]">{cia.nome}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{cia.canal}</div>
                   </div>
                 </button>
               ))}
@@ -645,9 +642,12 @@ export default function Page() {
                 <a href="/forum" className="inline-block rounded-full bg-[#0e2b50] text-white text-sm font-semibold px-5 py-3">
                   Encontrar meu fórum →
                 </a>
-                <a href="/enviar" className="inline-block rounded-full border border-[#D4AF37] text-[#854F0B] text-sm font-semibold px-5 py-3">
+                <button
+                  type="button"
+                  onClick={() => { setModo("contrato"); setStep(1); setResultado(null); window.scrollTo(0, 0); }}
+                  className="inline-block rounded-full border border-[#D4AF37] text-[#854F0B] text-sm font-semibold px-5 py-3 bg-white cursor-pointer">
                   Gerar minha petição JEC
-                </a>
+                </button>
               </div>
             </div>
           </div>
