@@ -260,6 +260,113 @@ export default function Home() {
         </div>
       </section>
 
+      {/* DEPOIMENTO */}
+      <section style={{ background: "#F8F7F4", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>resultados reais</p>
+          <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(24px, 3vw, 34px)", color: "#1a2340", lineHeight: 1.2, marginBottom: 40 }}>
+            Quem usou a Clara resolveu de casa.
+          </h2>
+          <div style={{ display: "grid", gap: 20 }} className="grid-testimonials">
+            {/* Depoimento principal */}
+            <div style={{ background: "#1a2340", borderRadius: 20, padding: "36px 40px", position: "relative" }}>
+              <div style={{ fontSize: 64, color: "#D4AF37", lineHeight: 1, marginBottom: 8, fontFamily: "Georgia, serif", opacity: 0.6 }}>&ldquo;</div>
+              <p style={{ fontSize: 17, color: "#fff", lineHeight: 1.8, marginBottom: 28, maxWidth: 680 }}>
+                Meu avião atrasou 24 horas. A companhia me deu um voucher de R$12. Com a Clara consegui protocolar a ação no Juizado Especial e <strong style={{ color: "#D4AF37" }}>ganhei a causa sem sair de casa, sem advogado e sem pagar nada</strong> pela análise.
+              </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#D4AF37", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#1a2340", fontSize: 16, flexShrink: 0 }}>M</div>
+                <div>
+                  <div style={{ color: "#D4AF37", fontWeight: 700, fontSize: 14 }}>Marcelo</div>
+                  <div style={{ color: "rgba(168,216,240,0.5)", fontSize: 12 }}>Voo atrasado 24h · São Paulo · JEC</div>
+                </div>
+                <div style={{ marginLeft: "auto", background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.3)", borderRadius: 10, padding: "6px 14px" }}>
+                  <div style={{ fontSize: 11, color: "#D4AF37", fontWeight: 600 }}>Resultado</div>
+                  <div style={{ fontSize: 13, color: "#fff", fontWeight: 700 }}>Causa ganha ✓</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Dois mini depoimentos */}
+            <div style={{ display: "grid", gap: 16 }} className="grid-mini-testimonials">
+              {[
+                { inicial: "A", nome: "Ana Paula", contexto: "Cobrança indevida · Serasa", texto: "Em 3 dias o meu nome foi retirado do Serasa. O e-mail que a Clara gerou foi suficiente.", cor: "#5BA8D4" },
+                { inicial: "R", nome: "Ricardo", contexto: "Produto com defeito · e-mail", texto: "A loja respondeu em 48h após o e-mail. Nem precisei ir ao fórum — só usei a análise gratuita.", cor: "#6EE7B7" },
+              ].map((t) => (
+                <div key={t.nome} style={{ background: "#fff", border: "1px solid #E0DDD6", borderRadius: 16, padding: "24px 26px" }}>
+                  <p style={{ fontSize: 14, color: "#4b5563", lineHeight: 1.75, marginBottom: 20 }}>&ldquo;{t.texto}&rdquo;</p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: t.cor, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#1a2340", fontSize: 14, flexShrink: 0 }}>{t.inicial}</div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2340" }}>{t.nome}</div>
+                      <div style={{ fontSize: 11, color: "#9ca3af" }}>{t.contexto}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FREEMIUM */}
+      <section style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
+        <div style={{ maxWidth: 800, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 48 }}>
+            <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>modelo freemium</p>
+            <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(24px, 3vw, 34px)", color: "#1a2340", lineHeight: 1.2, marginBottom: 12 }}>
+              Análise básica gratuita.<br />Relatório completo quando precisar.
+            </h2>
+            <p style={{ fontSize: 15, color: "#6b7280", lineHeight: 1.7 }}>Comece sem cartão. Desbloqueie o relatório completo se quiser ir mais fundo.</p>
+          </div>
+
+          <div style={{ display: "grid", gap: 20 }} className="grid-pricing">
+            {/* Grátis */}
+            <div style={{ border: "1.5px solid #E0DDD6", borderRadius: 20, padding: "36px 32px" }}>
+              <div style={{ display: "inline-block", background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#065f46", marginBottom: 20 }}>Grátis</div>
+              <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 800, fontSize: 36, color: "#1a2340", marginBottom: 4 }}>R$0</div>
+              <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 28 }}>Sempre gratuito</div>
+              <div style={{ borderTop: "1px solid #F0EDE8", paddingTop: 24, display: "flex", flexDirection: "column", gap: 14, marginBottom: 32 }}>
+                {["Resumo do contrato", "3 pontos de atenção"].map((item) => (
+                  <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#374151" }}>
+                    <span style={{ width: 20, height: 20, borderRadius: "50%", background: "#F0FDF9", border: "1px solid #6EE7B7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#10b981", flexShrink: 0 }}>✓</span>
+                    {item}
+                  </div>
+                ))}
+                {["Resumo detalhado", "Todos os riscos identificados", "E-mail pronto para negociação", "Histórico de análises"].map((item) => (
+                  <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#d1d5db" }}>
+                    <span style={{ width: 20, height: 20, borderRadius: "50%", background: "#F8F7F4", border: "1px solid #E0DDD6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#d1d5db", flexShrink: 0 }}>—</span>
+                    {item}
+                  </div>
+                ))}
+              </div>
+              <Link href="/enviar" style={{ display: "block", textAlign: "center", border: "1.5px solid #1a2340", color: "#1a2340", fontSize: 14, fontWeight: 700, padding: "14px 24px", borderRadius: 40, textDecoration: "none" }}>
+                Começar grátis
+              </Link>
+            </div>
+
+            {/* Completo */}
+            <div style={{ border: "2px solid #1a2340", borderRadius: 20, padding: "36px 32px", background: "#1a2340", position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: 0, right: 0, background: "#D4AF37", padding: "6px 20px", fontSize: 11, fontWeight: 700, color: "#1a2340", borderBottomLeftRadius: 12 }}>RECOMENDADO</div>
+              <div style={{ display: "inline-block", background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#D4AF37", marginBottom: 20 }}>Completo</div>
+              <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 800, fontSize: 36, color: "#fff", marginBottom: 4 }}>Pagamento único</div>
+              <div style={{ fontSize: 13, color: "rgba(168,216,240,0.5)", marginBottom: 28 }}>Acesso imediato ao relatório</div>
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24, display: "flex", flexDirection: "column", gap: 14, marginBottom: 32 }}>
+                {["Resumo do contrato", "3 pontos de atenção", "Resumo detalhado", "Todos os riscos identificados", "E-mail pronto para negociação", "Histórico de análises"].map((item) => (
+                  <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#fff" }}>
+                    <span style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(212,175,55,0.2)", border: "1px solid rgba(212,175,55,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#D4AF37", flexShrink: 0 }}>✓</span>
+                    {item}
+                  </div>
+                ))}
+              </div>
+              <Link href="/enviar" style={{ display: "block", textAlign: "center", background: "#D4AF37", color: "#1a2340", fontSize: 14, fontWeight: 800, padding: "15px 24px", borderRadius: 40, textDecoration: "none" }}>
+                Reivindicar meus direitos →
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA FINAL */}
       <section style={{ background: "#1a2340", padding: "80px 24px" }}>
         <div style={{ maxWidth: 600, margin: "0 auto", textAlign: "center" }}>
@@ -303,10 +410,19 @@ export default function Home() {
         @media (min-width: 900px) {
           .grid-2col { grid-template-columns: 1fr 1fr !important; }
           .grid-steps { grid-template-columns: repeat(4, 1fr) !important; }
+          .grid-testimonials { grid-template-columns: 1.6fr 1fr !important; }
+          .grid-mini-testimonials { grid-template-columns: 1fr !important; }
+          .grid-pricing { grid-template-columns: 1fr 1fr !important; }
         }
         @media (max-width: 899px) {
           .grid-steps { grid-template-columns: repeat(2, 1fr) !important; }
           .grid-2col { grid-template-columns: 1fr !important; }
+          .grid-testimonials { grid-template-columns: 1fr !important; }
+          .grid-mini-testimonials { grid-template-columns: 1fr 1fr !important; }
+          .grid-pricing { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 599px) {
+          .grid-mini-testimonials { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </main>
