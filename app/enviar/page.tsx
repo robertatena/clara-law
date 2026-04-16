@@ -102,7 +102,7 @@ export default function Page() {
   const contractTextRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [tipoCaso, setTipoCaso] = useState<TipoCaso | null>(null);
-  const [descricaoCaso, setDescricaoCaso] = useState("");
+  const descricaoCasoRef = useRef<HTMLTextAreaElement | null>(null);
   const [ciaAerea, setCiaAerea] = useState("");
 
   const [emailUsuario, setEmailUsuario] = useState("");
@@ -166,7 +166,7 @@ export default function Page() {
     }
     if (modo === "caso") {
       if (step === 1 && !tipoCaso) { setError("Escolha o que aconteceu com você."); return; }
-      if (step === 2 && descricaoCaso.trim().length < 30) { setError("Conta um pouco mais sobre o que aconteceu."); return; }
+      if (step === 2 && (descricaoCasoRef.current?.value || "").trim().length < 30) { setError("Conta um pouco mais sobre o que aconteceu."); return; }
       if (step === 3 && isVoo && !ciaAerea) { setError("Selecione a companhia aérea."); return; }
     }
     setStep((s) => s + 1);
@@ -209,6 +209,7 @@ export default function Page() {
   async function analisarCaso() {
     try {
       setLoading(true); setError(""); setResultado(null);
+      const descricaoCaso = descricaoCasoRef.current?.value || "";
       const situacao = SITUACOES_CASO.find((s) => s.id === tipoCaso);
       const cia = CIAS_AEREAS.find((c) => c.id === ciaAerea);
       const res = await fetch("/api/analyze-pdf", {
@@ -482,7 +483,7 @@ export default function Page() {
                 <li>• Já tentou resolver antes? Como responderam?</li>
               </ul>
             </div>
-            <textarea rows={10} value={descricaoCaso} onChange={(e) => setDescricaoCaso(e.target.value)}
+            <textarea ref={descricaoCasoRef} rows={10}
               placeholder="Ex: Meu voo estava marcado para às 14h e atrasou mais de 4 horas. A GOL só me deu um voucher de R$12 para lanche e não ofereceu hospedagem ou remarcação. Perdi uma reunião importante de trabalho..."
               className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none leading-relaxed" />
             <Nav nextLabel={isVoo ? "Continuar" : "Montar meu plano"} />
