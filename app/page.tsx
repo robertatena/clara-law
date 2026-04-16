@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ForumBuscador } from "@/components/ForumBuscador";
 
 const ClaraIcon = ({ size = 36 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
@@ -240,6 +241,25 @@ export default function Home() {
           <Link href="/enviar" style={{ background: "#1a2340", color: "#fff", fontSize: 15, fontWeight: 700, padding: "16px 36px", borderRadius: 40, textDecoration: "none", display: "inline-block" }}>
             Analisar meu contrato
           </Link>
+        </div>
+      </section>
+
+      {/* MÓDULO FÓRUM */}
+      <section id="forum" style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>módulo fórum</p>
+          <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(24px, 3vw, 34px)", color: "#1a2340", lineHeight: 1.2, marginBottom: 12 }}>
+            Se precisar ir ao fórum,<br />a Clara te leva pela mão.
+          </h2>
+          <p style={{ fontSize: 16, color: "#4b5563", lineHeight: 1.75, marginBottom: 36, maxWidth: 520 }}>
+            Digite o CEP da empresa — a Clara mostra o fórum competente, o e-mail do cartório e o que você precisa levar.
+          </p>
+          <ForumBuscador compact />
+          <p style={{ marginTop: 20, fontSize: 13 }}>
+            <Link href="/forum" style={{ color: "#A8D8F0", fontWeight: 500, textDecoration: "none" }}>
+              Ver guia completo do fórum: o que levar, como funciona a audiência →
+            </Link>
+          </p>
         </div>
       </section>
 
