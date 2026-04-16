@@ -646,6 +646,37 @@ export default function Page() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">Valor da causa (R$)</label>
+
+                {/* Guia de cálculo */}
+                <div className="rounded-[14px] bg-blue-50 border border-blue-100 p-4 mb-3">
+                  <div className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3">Como calcular o valor a pedir</div>
+                  <div className="space-y-3">
+                    <div className="flex gap-3 items-start">
+                      <span className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 font-bold text-[11px] flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                      <div>
+                        <div className="text-xs font-semibold text-blue-800">Dano material — o que você perdeu de dinheiro</div>
+                        <div className="text-xs text-blue-700 mt-0.5">Valor do produto/serviço não entregue, despesas extras, reembolsos devidos, multas cobradas indevidamente. Use o valor exato.</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 items-start">
+                      <span className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 font-bold text-[11px] flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                      <div>
+                        <div className="text-xs font-semibold text-blue-800">Dano moral — pelo transtorno causado</div>
+                        <div className="text-xs text-blue-700 mt-0.5">Nos juizados de SP costuma ser entre <strong>R$2.000 e R$5.000</strong> para casos comuns. Peça R$5.000 — o juiz pode reduzir, mas nunca vai aumentar.</div>
+                      </div>
+                    </div>
+                    <div className="rounded-[10px] bg-white border border-blue-200 px-3 py-2">
+                      <div className="text-xs font-bold text-blue-900">Exemplos práticos:</div>
+                      <div className="mt-1 space-y-0.5 text-xs text-blue-700">
+                        <div>• Voo atrasado sem assistência → R$5.000 a R$8.000</div>
+                        <div>• Produto com defeito (R$800) + moral → R$5.800</div>
+                        <div>• Cobrança indevida (R$300) + negativação indevida → R$5.300</div>
+                        <div>• Serviço não entregue (R$1.500) + moral → R$6.500</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <input
                   type="text"
                   value={valorCausa}
@@ -653,7 +684,7 @@ export default function Page() {
                   placeholder="Ex: 5.000,00"
                   className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none"
                 />
-                <p className="text-xs text-slate-500 mt-1">Danos materiais + estimativa de dano moral. Máximo R$28.000 no JEC.</p>
+                <p className="text-xs text-slate-500 mt-1">Dano material + dano moral. Máximo R$28.000 no JEC — acima disso precisa de advogado.</p>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">Descreva o que aconteceu</label>
