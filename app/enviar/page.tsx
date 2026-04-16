@@ -256,25 +256,6 @@ export default function Page() {
     finally { setCheckoutLoading(false); }
   }
 
-  function Shell({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
-    return (
-      <div className="rounded-[24px] border border-slate-200 bg-white p-6 md:p-8">
-        <h2 className="text-3xl font-bold text-[#0e2b50]">{title}</h2>
-        {subtitle && <p className="mt-2 text-base text-slate-600">{subtitle}</p>}
-        <div className="mt-6">{children}</div>
-      </div>
-    );
-  }
-
-  function Nav({ nextLabel = "Continuar", onNext = next, disabled = false }: { nextLabel?: string; onNext?: () => void; disabled?: boolean }) {
-    return (
-      <div className="mt-8 flex items-center justify-between mobile-action-row">
-        <button type="button" onClick={back} className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700">Voltar</button>
-        <button type="button" onClick={onNext} disabled={disabled} className="rounded-full bg-[#0e2b50] px-6 py-3 text-sm font-semibold text-white disabled:opacity-50">{nextLabel}</button>
-      </div>
-    );
-  }
-
   const isResultado = step === 99;
   const progressStep = isResultado ? totalSteps : step;
   const showProgress = step > 0;
@@ -367,7 +348,7 @@ export default function Page() {
               className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-lg outline-none">
               {CONTRACT_TYPES.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
-            <Nav nextLabel="Continuar" />
+            <Nav nextLabel="Continuar" onNext={next} onBack={back} />
           </Shell>
         )}
 
@@ -393,7 +374,7 @@ export default function Page() {
               <textarea ref={contractTextRef} rows={12} placeholder="Cole aqui o texto do contrato..."
                 className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none" />
             )}
-            <Nav />
+            <Nav onNext={next} onBack={back} />
           </Shell>
         )}
 
@@ -405,7 +386,7 @@ export default function Page() {
               <option value="">Selecione</option>
               {ROLE_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
-            <Nav />
+            <Nav onNext={next} onBack={back} />
           </Shell>
         )}
 
@@ -415,7 +396,7 @@ export default function Page() {
             <input type="email" value={emailUsuario} onChange={(e) => setEmailUsuario(e.target.value)}
               placeholder="voce@email.com (opcional)"
               className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-lg outline-none" />
-            <Nav nextLabel="Revisar e analisar" />
+            <Nav nextLabel="Revisar e analisar" onNext={next} onBack={back} />
           </Shell>
         )}
 
@@ -466,7 +447,7 @@ export default function Page() {
                 </button>
               ))}
             </div>
-            <Nav nextLabel="Continuar" />
+            <Nav nextLabel="Continuar" onNext={next} onBack={back} />
           </Shell>
         )}
 
@@ -486,7 +467,7 @@ export default function Page() {
             <textarea ref={descricaoCasoRef} rows={10}
               placeholder="Ex: Meu voo estava marcado para às 14h e atrasou mais de 4 horas. A GOL só me deu um voucher de R$12 para lanche e não ofereceu hospedagem ou remarcação. Perdi uma reunião importante de trabalho..."
               className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none leading-relaxed" />
-            <Nav nextLabel={isVoo ? "Continuar" : "Montar meu plano"} />
+            <Nav nextLabel={isVoo ? "Continuar" : "Montar meu plano"} onNext={next} onBack={back} />
           </Shell>
         )}
 
@@ -507,7 +488,7 @@ export default function Page() {
                 </button>
               ))}
             </div>
-            <Nav nextLabel="Montar meu plano" onNext={() => { if (!ciaAerea) { setError("Selecione a companhia aérea."); return; } setStep(s => s + 1); }} />
+            <Nav nextLabel="Montar meu plano" onNext={() => { if (!ciaAerea) { setError("Selecione a companhia aérea."); return; } setStep(s => s + 1); }} onBack={back} />
           </Shell>
         )}
 
@@ -691,6 +672,29 @@ export default function Page() {
         }
       `}</style>
     </main>
+  );
+}
+
+// ─── COMPONENTES AUXILIARES ───────────────────────────────────────────────────
+
+function Shell({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-[24px] border border-slate-200 bg-white p-6 md:p-8">
+      <h2 className="text-3xl font-bold text-[#0e2b50]">{title}</h2>
+      {subtitle && <p className="mt-2 text-base text-slate-600">{subtitle}</p>}
+      <div className="mt-6">{children}</div>
+    </div>
+  );
+}
+
+function Nav({ nextLabel = "Continuar", onNext, onBack, disabled = false }: {
+  nextLabel?: string; onNext: () => void; onBack: () => void; disabled?: boolean;
+}) {
+  return (
+    <div className="mt-8 flex items-center justify-between mobile-action-row">
+      <button type="button" onClick={onBack} className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700">Voltar</button>
+      <button type="button" onClick={onNext} disabled={disabled} className="rounded-full bg-[#0e2b50] px-6 py-3 text-sm font-semibold text-white disabled:opacity-50">{nextLabel}</button>
+    </div>
   );
 }
 
