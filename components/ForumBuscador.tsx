@@ -110,6 +110,15 @@ export function ForumBuscador({ compact = false }: { compact?: boolean }) {
           marginTop: 8,
           maxWidth: compact ? 400 : 520,
         }}>
+          {/* Alerta: tente o e-mail primeiro */}
+          <div style={{ background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 10, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span>
+            <p style={{ fontSize: 12, color: "#065f46", lineHeight: 1.6, margin: 0 }}>
+              <strong style={{ fontWeight: 700 }}>Antes de ir ao fórum, tente por e-mail.</strong>
+              {" "}A maioria das empresas resolve ao receber uma notificação formal — sem você precisar sair de casa.
+            </p>
+          </div>
+
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
             <span style={{ fontSize: 18 }}>🏛️</span>
             <span style={{ fontSize: 15, fontWeight: 700, color: "#1a2340", fontFamily: "'Raleway', sans-serif" }}>
@@ -138,15 +147,15 @@ export function ForumBuscador({ compact = false }: { compact?: boolean }) {
             </p>
           )}
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <Link
               href={`/enviar?origem=forum&foro=${encodeURIComponent(resultado.foro ?? "")}&email=${encodeURIComponent(resultado.email ?? "")}`}
-              style={{ background: "#1a2340", color: "#fff", fontSize: 12, fontWeight: 600, padding: "10px 18px", borderRadius: 24, textDecoration: "none" }}>
-              ✉️ Gerar e-mail de notificação
+              style={{ background: "#1a2340", color: "#fff", fontSize: 13, fontWeight: 700, padding: "12px 20px", borderRadius: 24, textDecoration: "none", textAlign: "center" }}>
+              ✉️ Gerar e-mail de notificação (recomendado)
             </Link>
             <Link href="/forum"
-              style={{ border: "1px solid #C8C3BA", color: "#1a2340", fontSize: 12, padding: "10px 16px", borderRadius: 24, textDecoration: "none" }}>
-              O que levar no dia →
+              style={{ border: "1px solid #C8C3BA", color: "#6b7280", fontSize: 12, padding: "10px 16px", borderRadius: 24, textDecoration: "none", textAlign: "center" }}>
+              Se não resolver: o que levar no fórum →
             </Link>
           </div>
         </div>
