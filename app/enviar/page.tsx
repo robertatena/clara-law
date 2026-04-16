@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 
-type Modo = "contrato" | "caso" | null;
+type Modo = "contrato" | "caso" | "jec" | null;
 
 type TipoCaso =
   | "voo_atrasado"
@@ -66,24 +66,27 @@ const CIAS_AEREAS = [
     id: "latam", nome: "LATAM Airlines",
     canal: "Formulário online na Central de Ajuda",
     link: "https://www.latamairlines.com/br/pt/central-ajuda",
+    email: "sac@latam.com",
     sac: "0800 0123 200",
   },
   {
     id: "gol", nome: "GOL Linhas Aéreas",
     canal: "Formulário online em Fale com a GOL",
     link: "https://www.voegol.com.br/atendimento",
+    email: "sac@voegol.com.br",
     sac: "0800 704 0465",
   },
   {
     id: "azul", nome: "Azul Linhas Aéreas",
     canal: "WhatsApp e formulário online",
     link: "https://www.voeazul.com.br/atendimento",
+    email: "atendimento@voeazul.com.br",
     sac: "0800 884 4040",
   },
   {
     id: "outra", nome: "Outra companhia",
     canal: "A Clara vai te ajudar a encontrar o canal certo",
-    link: "", sac: "",
+    link: "", email: "", sac: "",
   },
 ];
 
@@ -105,6 +108,15 @@ export default function Page() {
   const descricaoCasoRef = useRef<HTMLTextAreaElement | null>(null);
   const [ciaAerea, setCiaAerea] = useState("");
 
+  // JEC state
+  const [cepEmpresa, setCepEmpresa] = useState("");
+  const [foroJec, setForoJec] = useState<any>(null);
+  const [loadingForo, setLoadingForo] = useState(false);
+  const [nomeEmpresa, setNomeEmpresa] = useState("");
+  const [valorCausa, setValorCausa] = useState("");
+  const descricaoJecRef = useRef<HTMLTextAreaElement | null>(null);
+  const [peticaoJec, setPeticaoJec] = useState<{ assunto: string; corpo: string } | null>(null);
+
   const [emailUsuario, setEmailUsuario] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -115,7 +127,8 @@ export default function Page() {
   const isVoo = tipoCaso === "voo_atrasado" || tipoCaso === "voo_cancelado" || tipoCaso === "bagagem";
   const totalStepsContrato = 5;
   const totalStepsCaso = isVoo ? 4 : 3;
-  const totalSteps = modo === "contrato" ? totalStepsContrato : totalStepsCaso;
+  const totalStepsJec = 3;
+  const totalSteps = modo === "contrato" ? totalStepsContrato : modo === "jec" ? totalStepsJec : totalStepsCaso;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -169,6 +182,14 @@ export default function Page() {
       if (step === 2 && (descricaoCasoRef.current?.value || "").trim().length < 30) { setError("Conta um pouco mais sobre o que aconteceu."); return; }
       if (step === 3 && isVoo && !ciaAerea) { setError("Selecione a companhia aérea."); return; }
     }
+    if (modo === "jec") {
+      if (step === 1 && !foroJec) { setError("Busque o fórum pelo CEP antes de continuar."); return; }
+      if (step === 2) {
+        if (!nomeEmpresa.trim()) { setError("Informe o nome da empresa."); return; }
+        if (!valorCausa.trim()) { setError("Informe o valor aproximado da causa."); return; }
+        if ((descricaoJecRef.current?.value || "").trim().length < 30) { setError("Descreva o que aconteceu com um pouco mais de detalhe."); return; }
+      }
+    }
     setStep((s) => s + 1);
   }
 
@@ -176,6 +197,60 @@ export default function Page() {
     setError("");
     if (step === 1) { setModo(null); setStep(0); }
     else setStep((s) => Math.max(1, s - 1));
+  }
+
+  async function buscarForoJec() {
+    const cepLimpo = cepEmpresa.replace(/\D/g, "");
+    if (cepLimpo.length !== 8) { setError("Digite o CEP completo da empresa (8 dígitos)."); return; }
+    setError("");
+    setLoadingForo(true);
+    setForoJec(null);
+    try {
+      const res = await fetch(`/api/forum?cep=${cepLimpo}`);
+      const data = await res.json();
+      if (data.encontrado) {
+        setForoJec(data);
+      } else {
+        setError("CEP não encontrado no mapa. Verifique e tente novamente.");
+      }
+    } catch {
+      setError("Erro ao buscar o fórum. Tente novamente.");
+    } finally {
+      setLoadingForo(false);
+    }
+  }
+
+  function gerarPeticaoJec() {
+    const descricao = descricaoJecRef.current?.value || "";
+    const foroNome = foroJec?.foro || "Juizado Especial Cível";
+    const assunto = `Petição inicial — JEC — ${nomeEmpresa} — R$ ${valorCausa}`;
+    const corpo =
+      `Ao(À) Meritíssimo(a) Juiz(a) de Direito\n` +
+      `${foroNome}\n\n` +
+      `PETIÇÃO INICIAL\n\n` +
+      `Eu, [SEU NOME COMPLETO], [ESTADO CIVIL], [PROFISSÃO], portador(a) do CPF nº [SEU CPF], RG nº [SEU RG], residente à [SEU ENDEREÇO COMPLETO, CIDADE, ESTADO], venho, respeitosamente, à presença de Vossa Excelência propor a presente\n\n` +
+      `AÇÃO DE INDENIZAÇÃO POR DANOS MORAIS E MATERIAIS\n\n` +
+      `em face de ${nomeEmpresa}, pessoa jurídica de direito privado, pelos fatos e fundamentos a seguir expostos.\n\n` +
+      `I. DOS FATOS\n\n` +
+      `${descricao}\n\n` +
+      `II. DO DIREITO\n\n` +
+      `Os fatos narrados configuram violação ao Código de Defesa do Consumidor (Lei 8.078/1990), em especial ao art. 6º, que garante proteção contra práticas abusivas, e ao art. 14, que trata da responsabilidade por danos causados ao consumidor.\n\n` +
+      `O descumprimento e/ou conduta negligente da empresa ré causou ao autor danos materiais e morais, passíveis de reparação nos termos dos arts. 186 e 927 do Código Civil.\n\n` +
+      `III. DOS PEDIDOS\n\n` +
+      `Diante do exposto, requer:\n` +
+      `a) A condenação da empresa ré ao pagamento de indenização por danos materiais no valor de R$ ${valorCausa};\n` +
+      `b) A condenação ao pagamento de indenização por danos morais, a ser arbitrada por Vossa Excelência;\n` +
+      `c) A condenação ao pagamento das custas processuais, se houver.\n\n` +
+      `Dá-se à causa o valor de R$ ${valorCausa}.\n\n` +
+      `Termos em que pede e espera deferimento.\n\n` +
+      `[Cidade], [DATA]\n\n` +
+      `_______________________________\n` +
+      `[SEU NOME COMPLETO]\n` +
+      `CPF: [SEU CPF]`;
+
+    setPeticaoJec({ assunto, corpo });
+    registrarLead({ email: emailUsuario, modo: "jec", nomeEmpresa, valorCausa, foro: foroJec?.foro, evento: "peticao_gerada" });
+    setStep(99);
   }
 
   async function analisar() {
@@ -271,9 +346,11 @@ export default function Page() {
               {step === 0 ? "A Clara está aqui para te ajudar." : "Vamos por etapas."}
             </p>
             <h1 className="text-5xl font-black text-[#0e2b50]">
-              {isResultado && modo === "caso" ? "Seu plano de ação"
+              {isResultado && modo === "jec" ? "Sua petição JEC"
+                : isResultado && modo === "caso" ? "Seu plano de ação"
                 : isResultado ? "Resultado da análise"
                 : modo === "caso" ? "Resolva seu caso"
+                : modo === "jec" ? "Petição JEC"
                 : modo === "contrato" ? "Entenda seu contrato"
                 : "O que você precisa hoje?"}
             </h1>
@@ -504,6 +581,216 @@ export default function Page() {
           </Shell>
         )}
 
+        {/* JEC step 1 — encontrar fórum */}
+        {modo === "jec" && step === 1 && (
+          <Shell title="Qual é o CEP da empresa?" subtitle="O CEP determina qual fórum é competente para o seu caso.">
+            <div className="flex gap-3 mb-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="CEP da empresa (ex: 01310-100)"
+                value={cepEmpresa}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, "").slice(0, 8);
+                  setCepEmpresa(v.length > 5 ? v.slice(0, 5) + "-" + v.slice(5) : v);
+                  setForoJec(null);
+                }}
+                onKeyDown={(e) => e.key === "Enter" && buscarForoJec()}
+                className="flex-1 rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none"
+              />
+              <button
+                type="button"
+                onClick={buscarForoJec}
+                disabled={loadingForo}
+                className="rounded-full bg-[#0e2b50] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50 whitespace-nowrap"
+              >
+                {loadingForo ? "Buscando..." : "Buscar fórum"}
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 mb-5">Digite o CEP do endereço da empresa — não o seu.</p>
+
+            {foroJec && (
+              <div className="rounded-[18px] border border-green-200 bg-green-50 p-5 mb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xl">🏛️</span>
+                  <span className="text-base font-bold text-[#0e2b50]">{foroJec.foro}</span>
+                </div>
+                <div className="space-y-1 text-sm text-slate-600 mb-3">
+                  <div>📍 {foroJec.endereco}</div>
+                  <div>✉️ <a href={`mailto:${foroJec.email}`} className="text-blue-600 font-medium">{foroJec.email}</a></div>
+                  <div>🕐 {foroJec.horario}</div>
+                </div>
+                <div className="rounded-[10px] bg-white border border-green-200 px-3 py-2 text-xs text-green-700 font-medium">
+                  ✅ Fórum encontrado — clique em Continuar para preencher os detalhes
+                </div>
+              </div>
+            )}
+
+            <Nav nextLabel="Continuar" onNext={next} onBack={back} />
+          </Shell>
+        )}
+
+        {/* JEC step 2 — detalhes do caso */}
+        {modo === "jec" && step === 2 && (
+          <Shell title="Detalhes do seu caso" subtitle="Essas informações serão inseridas na petição formal.">
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Nome da empresa</label>
+                <input
+                  type="text"
+                  value={nomeEmpresa}
+                  onChange={(e) => setNomeEmpresa(e.target.value)}
+                  placeholder="Ex: GOL Linhas Aéreas S.A."
+                  className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Valor da causa (R$)</label>
+                <input
+                  type="text"
+                  value={valorCausa}
+                  onChange={(e) => setValorCausa(e.target.value)}
+                  placeholder="Ex: 5.000,00"
+                  className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none"
+                />
+                <p className="text-xs text-slate-500 mt-1">Danos materiais + estimativa de dano moral. Máximo R$28.000 no JEC.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Descreva o que aconteceu</label>
+                <textarea
+                  ref={descricaoJecRef}
+                  rows={8}
+                  placeholder="Ex: Em 05/01/2026, contratei o serviço X da empresa Y pelo valor de R$ Z. A empresa não cumpriu o combinado porque..."
+                  className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none leading-relaxed"
+                />
+                <p className="text-xs text-slate-500 mt-1">Seja específico: datas, valores, o que foi prometido vs. o que aconteceu.</p>
+              </div>
+            </div>
+            <Nav nextLabel="Revisar e gerar" onNext={next} onBack={back} />
+          </Shell>
+        )}
+
+        {/* JEC step 3 — revisão e geração */}
+        {modo === "jec" && step === 3 && (
+          <Shell title="Tudo pronto para gerar" subtitle="Confirme os dados antes de gerar sua petição.">
+            <div className="grid gap-4 md:grid-cols-2 mb-6">
+              <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
+                <div className="text-sm text-slate-500">Fórum competente</div>
+                <div className="mt-1 text-base font-semibold text-[#123047]">{foroJec?.foro}</div>
+                <div className="text-xs text-slate-500 mt-0.5">✉️ {foroJec?.email}</div>
+              </div>
+              <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
+                <div className="text-sm text-slate-500">Empresa ré</div>
+                <div className="mt-1 text-base font-semibold text-[#123047]">{nomeEmpresa}</div>
+              </div>
+              <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
+                <div className="text-sm text-slate-500">Valor da causa</div>
+                <div className="mt-1 text-base font-semibold text-[#123047]">R$ {valorCausa}</div>
+              </div>
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Seu e-mail (opcional)</label>
+              <input
+                type="email"
+                value={emailUsuario}
+                onChange={(e) => setEmailUsuario(e.target.value)}
+                placeholder="voce@email.com"
+                className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none"
+              />
+            </div>
+            <div className="rounded-[14px] bg-amber-50 border border-amber-200 p-4 mb-6">
+              <p className="text-sm text-amber-800 leading-relaxed">
+                💡 <strong>Como funciona:</strong> A Clara gera a petição agora. Você protocola no fórum (por e-mail ou presencialmente). Se ganhar, paga <strong>10% do valor recebido</strong>. Se não ganhar, não paga nada.
+              </p>
+            </div>
+            <div className="flex items-center justify-between mobile-action-row">
+              <button type="button" onClick={back} className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700">Voltar</button>
+              <button type="button" onClick={gerarPeticaoJec} className="rounded-full bg-[#0e2b50] px-6 py-3 text-sm font-semibold text-white">
+                Gerar minha petição
+              </button>
+            </div>
+          </Shell>
+        )}
+
+        {/* RESULTADO JEC */}
+        {step === 99 && modo === "jec" && peticaoJec && (
+          <div className="space-y-5">
+            <div className="rounded-[24px] border-2 border-green-300 bg-green-50 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-3xl">🏛️</span>
+                <div>
+                  <div className="text-xs font-semibold text-green-600 uppercase tracking-wider">Petição gerada com sucesso</div>
+                  <div className="text-xl font-bold text-[#0e2b50]">Sua petição JEC está pronta</div>
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 text-sm">
+                <div className="rounded-[14px] bg-white border border-green-200 p-4">
+                  <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Fórum competente</div>
+                  <div className="font-semibold text-[#0e2b50]">{foroJec?.foro}</div>
+                  <div className="text-xs text-slate-500 mt-1">✉️ {foroJec?.email}</div>
+                  <div className="text-xs text-slate-500">📍 {foroJec?.endereco}</div>
+                </div>
+                <div className="rounded-[14px] bg-white border border-green-200 p-4">
+                  <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Empresa ré</div>
+                  <div className="font-semibold text-[#0e2b50]">{nomeEmpresa}</div>
+                  <div className="text-sm text-slate-600 mt-1">Valor da causa: <strong>R$ {valorCausa}</strong></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-slate-200 bg-white p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-[#0e2b50]">Petição gerada pela Clara</h3>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(`${peticaoJec.assunto}\n\n${peticaoJec.corpo}`)}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-[#0e2b50]"
+                >
+                  Copiar tudo
+                </button>
+              </div>
+              <div className="rounded-[14px] bg-slate-50 border border-slate-200 p-4 mb-4">
+                <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Assunto (para protocolo por e-mail)</div>
+                <div className="text-sm font-semibold text-[#0e2b50]">{peticaoJec.assunto}</div>
+              </div>
+              <div className="rounded-[14px] bg-white border border-slate-200 p-4 text-sm text-slate-700 whitespace-pre-line leading-relaxed max-h-96 overflow-y-auto">
+                {peticaoJec.corpo}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="inline-block text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium">Gerado pela Clara · orientativo</span>
+                <span className="inline-block text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-full font-medium">Preencha os campos entre colchetes [ ] antes de protocolar</span>
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-amber-200 bg-amber-50 p-6">
+              <h3 className="text-lg font-bold text-[#0e2b50] mb-4">Próximos passos</h3>
+              <div className="space-y-3">
+                {[
+                  { n: "1", t: "Preencha seus dados pessoais", s: "Substitua [SEU NOME], [CPF], [ENDEREÇO] na petição antes de enviar." },
+                  { n: "2", t: "Protocole por e-mail no fórum", s: `Envie a petição para ${foroJec?.email} com documentos que comprovem o caso (notas, prints, recibos).` },
+                  { n: "3", t: "Acompanhe pelo e-mail", s: "O fórum confirmará o recebimento e agendará a audiência de conciliação." },
+                ].map((p) => (
+                  <div key={p.n} className="flex gap-3 items-start">
+                    <div className="w-7 h-7 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 font-bold text-xs flex-shrink-0 mt-0.5">{p.n}</div>
+                    <div>
+                      <div className="text-sm font-semibold text-[#0e2b50]">{p.t}</div>
+                      <div className="text-xs text-slate-600 mt-0.5">{p.s}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border-2 border-[#0e2b50] bg-white p-6 text-center">
+              <div className="text-2xl mb-2">⚖️</div>
+              <h3 className="text-lg font-bold text-[#0e2b50] mb-2">10% apenas se você ganhar</h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Se você ganhar a causa, a Clara recebe 10% do valor recebido. Se não ganhar, não paga nada.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* RESULTADO CASO */}
         {step === 99 && modo === "caso" && resultado && (
           <div className="space-y-5">
@@ -544,15 +831,45 @@ export default function Page() {
               {isVoo && ciaAerea && (() => {
                 const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
                 return cia ? (
-                  <div className="rounded-[14px] bg-slate-50 border border-slate-200 p-4 mb-4">
-                    <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Canal oficial da {cia.nome}</div>
-                    <div className="text-sm text-slate-700 mb-2">{cia.canal}</div>
-                    {cia.link && (
-                      <a href={cia.link} target="_blank" rel="noreferrer" className="inline-block rounded-full bg-[#0e2b50] text-white text-xs font-semibold px-4 py-2 mr-2">
-                        Abrir canal oficial →
-                      </a>
+                  <div className="rounded-[14px] bg-blue-50 border border-blue-200 p-4 mb-4">
+                    <div className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-3">Como enviar sua reclamação para a {cia.nome}</div>
+                    {/* E-mail direto */}
+                    {cia.email && (
+                      <div className="mb-4 flex items-center gap-3 rounded-[12px] bg-white border border-blue-200 px-4 py-3">
+                        <span className="text-lg">✉️</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold text-slate-500 mb-0.5">E-mail SAC</div>
+                          <a href={`mailto:${cia.email}?subject=${encodeURIComponent(`Notificação formal — solicitação de indenização`)}`}
+                            className="text-sm font-bold text-blue-700 break-all">
+                            {cia.email}
+                          </a>
+                        </div>
+                        <a href={`mailto:${cia.email}?subject=${encodeURIComponent(`Notificação formal — solicitação de indenização`)}`}
+                          className="rounded-full bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 whitespace-nowrap flex-shrink-0">
+                          Abrir e-mail →
+                        </a>
+                      </div>
                     )}
-                    {cia.sac && <span className="text-xs text-slate-500">ou ligue {cia.sac}</span>}
+                    <div className="space-y-2 mb-4">
+                      {[
+                        cia.email ? `Clique em "Abrir e-mail" acima — o assunto já estará preenchido` : "Copie o texto do e-mail gerado abaixo",
+                        "Cole o corpo do e-mail gerado abaixo no campo de mensagem",
+                        "Envie e guarde o número de protocolo que você vai receber",
+                      ].map((s, i) => (
+                        <div key={i} className="flex gap-2 items-start text-sm text-blue-800">
+                          <span className="w-5 h-5 rounded-full bg-blue-200 text-blue-700 font-bold text-xs flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                          <span>{s}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {cia.link ? (
+                      <a href={cia.link} target="_blank" rel="noreferrer"
+                        className="inline-flex items-center gap-2 rounded-full border border-blue-300 text-blue-700 bg-white text-sm font-medium px-4 py-2">
+                        {cia.id === "azul" ? "Abrir formulário / WhatsApp Azul →" : `Ou use o formulário oficial da ${cia.nome} →`}
+                      </a>
+                    ) : (
+                      <span className="text-sm text-blue-700 font-medium">Pesquise a empresa para encontrar o canal oficial.</span>
+                    )}
                   </div>
                 ) : null;
               })()}
@@ -563,7 +880,7 @@ export default function Page() {
                     <button onClick={() => {
                       const texto = `Assunto: ${resultado.plano_acao?.email_empresa?.assunto}\n\n${resultado.plano_acao?.email_empresa?.corpo}`;
                       navigator.clipboard.writeText(texto);
-                    }} className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-[#0e2b50]">Copiar</button>
+                    }} className="rounded-full bg-[#0e2b50] text-white px-3 py-1.5 text-xs font-semibold">📋 Copiar</button>
                   </div>
                   <div className="text-xs text-slate-400 mb-1">Assunto</div>
                   <div className="text-sm font-semibold text-[#0e2b50] mb-3">{resultado.plano_acao.email_empresa.assunto}</div>
@@ -583,28 +900,67 @@ export default function Page() {
                 <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-sm flex-shrink-0">2</div>
                 <div>
                   <div className="text-xs font-semibold text-amber-600 uppercase tracking-wider">Se a empresa não responder em 10 dias</div>
-                  <div className="text-lg font-bold text-[#0e2b50]">Registre no consumidor.gov.br e na ANAC</div>
+                  <div className="text-lg font-bold text-[#0e2b50]">{isVoo ? "Registre no consumidor.gov.br e na ANAC" : "Registre no consumidor.gov.br"}</div>
                 </div>
               </div>
-              <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-                O consumidor.gov.br é monitorado pelo governo. A empresa tem 10 dias para responder. Taxa de resolução: 8 em cada 10 casos.
+              <p className="text-sm text-slate-600 mb-5 leading-relaxed">
+                Taxa de resolução de 8 em cada 10 casos. A empresa tem 10 dias para responder ou o caso fica marcado como "não resolvido" no histórico dela.
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <a href="https://www.consumidor.gov.br" target="_blank" rel="noreferrer"
-                  className="rounded-[14px] border border-amber-200 bg-amber-50 p-4 block hover:bg-amber-100 transition-colors">
-                  <div className="font-semibold text-amber-800 mb-1">consumidor.gov.br</div>
-                  <div className="text-xs text-amber-700">Plataforma oficial do governo. Gratuito e monitorado pela ANAC e Senacon.</div>
-                  <div className="mt-2 text-xs font-semibold text-amber-800">Acessar →</div>
-                </a>
-                {isVoo && (
-                  <a href="https://falecomaanac.anac.gov.br" target="_blank" rel="noreferrer"
-                    className="rounded-[14px] border border-slate-200 bg-slate-50 p-4 block hover:bg-slate-100 transition-colors">
-                    <div className="font-semibold text-slate-700 mb-1">ANAC — Fale Conosco</div>
-                    <div className="text-xs text-slate-600">Canal direto da Agência Nacional de Aviação Civil. Tel: 163.</div>
-                    <div className="mt-2 text-xs font-semibold text-slate-700">Acessar →</div>
+
+              {/* consumidor.gov.br */}
+              <div className="rounded-[14px] border border-amber-200 bg-amber-50 p-4 mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="font-semibold text-amber-800">consumidor.gov.br</div>
+                  <a href="https://www.consumidor.gov.br" target="_blank" rel="noreferrer"
+                    className="rounded-full bg-amber-700 text-white text-xs font-semibold px-4 py-1.5">
+                    Abrir →
                   </a>
-                )}
+                </div>
+                <div className="space-y-1.5">
+                  {[
+                    'Acesse consumidor.gov.br e clique em "Registrar reclamação"',
+                    "Busque o nome da empresa no campo de pesquisa",
+                    "Descreva o problema — pode colar o e-mail que você já tem",
+                    "Envie e aguarde: a empresa tem 10 dias para responder",
+                    "Avalie a resposta: isso impacta o índice público da empresa",
+                  ].map((s, i) => (
+                    <div key={i} className="flex gap-2 items-start text-xs text-amber-800">
+                      <span className="w-4 h-4 rounded-full bg-amber-200 text-amber-700 font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                      <span>{s}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
+
+              {/* ANAC — só para voos */}
+              {isVoo && (
+                <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <div className="font-semibold text-slate-700">ANAC — Agência Nacional de Aviação Civil</div>
+                      <div className="text-xs text-slate-500 mt-0.5">Órgão regulador das companhias aéreas. Tel: 163 (gratuito)</div>
+                    </div>
+                    <a href="https://www.gov.br/anac/pt-br/assuntos/passageiros" target="_blank" rel="noreferrer"
+                      className="rounded-full border border-slate-300 bg-white text-slate-700 text-xs font-semibold px-4 py-1.5 whitespace-nowrap">
+                      Abrir →
+                    </a>
+                  </div>
+                  <div className="space-y-1.5">
+                    {[
+                      "Acesse o site ou ligue 163 (gratuito, seg–sex 8h–20h)",
+                      'Selecione "Reclamação" e depois "Passageiro"',
+                      "Informe o número do voo, data e companhia",
+                      "Descreva o problema e anexe documentos (boarding pass, recibos)",
+                      "Guarde o número de protocolo — a ANAC cobra resposta da empresa",
+                    ].map((s, i) => (
+                      <div key={i} className="flex gap-2 items-start text-xs text-slate-600">
+                        <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-600 font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                        <span>{s}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Passo 3 */}
@@ -635,7 +991,7 @@ export default function Page() {
               <div className="rounded-[14px] bg-slate-50 border border-slate-200 p-4 mb-4">
                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Modelo de negócio — fee por sucesso</div>
                 <p className="text-sm text-slate-700 leading-relaxed">
-                  A Clara gera sua petição agora. Você paga <strong>20% do valor ganho</strong> — e apenas se ganhar. Se não ganhar, não paga nada.
+                  A Clara gera sua petição agora. Você paga <strong>10% do valor ganho</strong> — e apenas se ganhar. Se não ganhar, não paga nada.
                 </p>
               </div>
               <div className="flex gap-3 flex-wrap">
@@ -644,7 +1000,7 @@ export default function Page() {
                 </a>
                 <button
                   type="button"
-                  onClick={() => { setModo("contrato"); setStep(1); setResultado(null); window.scrollTo(0, 0); }}
+                  onClick={() => { setResultado(null); setForoJec(null); setPeticaoJec(null); window.scrollTo(0, 0); escolherModo("jec"); }}
                   className="inline-block rounded-full border border-[#D4AF37] text-[#854F0B] text-sm font-semibold px-5 py-3 bg-white cursor-pointer">
                   Gerar minha petição JEC
                 </button>
