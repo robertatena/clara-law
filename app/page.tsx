@@ -42,55 +42,54 @@ export default function Home() {
       </nav>
 
       {/* HERO */}
-      <section style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "72px 24px 64px" }}>
-        <div style={{ maxWidth: 740, margin: "0 auto", textAlign: "center" }}>
+      <section style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "80px 24px 72px" }}>
+        <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
 
-          {/* Social proof badge */}
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 40, padding: "6px 18px", marginBottom: 28 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 40, padding: "6px 18px", marginBottom: 32 }}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
-            <span style={{ fontSize: 12, color: "#065f46", fontWeight: 600 }}>Mais de 1.000 brasileiros já usaram · gratuito</span>
+            <span style={{ fontSize: 12, color: "#065f46", fontWeight: 500 }}>Inteligência para um mundo mais claro e justo</span>
           </div>
 
           <h1 style={{
             fontFamily: "'Raleway', sans-serif",
             fontWeight: 800,
-            fontSize: "clamp(36px, 6vw, 62px)",
+            fontSize: "clamp(40px, 6vw, 64px)",
             lineHeight: 1.1,
             color: "#1a2340",
-            marginBottom: 20,
+            marginBottom: 24,
             letterSpacing: "-0.025em",
           }}>
-            Empresa te ignorando?<br />
-            <span style={{ color: "#D4AF37" }}>A Clara escreve</span><br />
-            <span style={{ color: "#5BA8D4" }}>o e-mail certo pra você.</span>
+            Você tem direitos.<br />
+            <span style={{ color: "#D4AF37" }}>A Clara</span> te ajuda<br />
+            <span style={{ color: "#5BA8D4" }}>a fazer valer.</span>
           </h1>
 
-          <p style={{ fontSize: "clamp(16px, 2vw, 19px)", lineHeight: 1.8, color: "#4b5563", marginBottom: 14, maxWidth: 560, margin: "0 auto 14px" }}>
-            Descubra seus direitos, gere um e-mail com base na lei e, se precisar,
-            saiba exatamente qual fórum acionar — <strong style={{ color: "#1a2340" }}>em minutos, sem advogado.</strong>
+          <p style={{ fontSize: "clamp(16px, 2vw, 19px)", lineHeight: 1.75, color: "#4b5563", marginBottom: 16, maxWidth: 540, margin: "0 auto 16px" }}>
+            Analise seu contrato, descubra brechas e saiba exatamente o que fazer —
+            tudo em minutos, <strong style={{ color: "#1a2340" }}>sem juridiquês.</strong>
           </p>
 
-          <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 36, lineHeight: 1.7 }}>
-            Defeito no produto · Cobrança indevida · Serviço não prestado · Voo cancelado · Aluguel abusivo
+          <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 40, lineHeight: 1.6 }}>
+            📧 Muitos casos se resolvem com um simples e-mail — a Clara escreve pra você, com a lei certa.
           </p>
 
-          <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
             <Link href="/enviar" style={{ background: "#1a2340", color: "#fff", fontSize: 16, fontWeight: 700, padding: "18px 40px", borderRadius: 40, textDecoration: "none" }}>
-              Resolver o meu problema →
+              Analisar meu contrato
             </Link>
-            <a href="#forum" style={{ fontSize: 15, color: "#1a2340", fontWeight: 500, padding: "17px 26px", borderRadius: 40, border: "1.5px solid #D1CCC4", textDecoration: "none" }}>
-              Achar o fórum pelo CEP
+            <a href="#aprenda" style={{ fontSize: 15, color: "#1a2340", fontWeight: 500, padding: "17px 30px", borderRadius: 40, border: "1.5px solid #D1CCC4", textDecoration: "none" }}>
+              Ver meus direitos
             </a>
           </div>
 
-          <p style={{ fontSize: 12, color: "#bbb", marginBottom: 40 }}>Sem cartão · Sem cadastro · Resultado em minutos</p>
+          <p style={{ fontSize: 12, color: "#bbb" }}>Sem cartão · Sem cadastro · Resultado em minutos</p>
 
           {/* 3 stats */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, maxWidth: 520, margin: "0 auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, maxWidth: 520, margin: "40px auto 0" }}>
             {[
-              { num: "Grátis", lbl: "Juizado Especial até R$28 mil" },
-              { num: "Sem advogado", lbl: "Para a maioria dos casos" },
-              { num: "2–6 meses", lbl: "Prazo médio para acordo" },
+              { num: "É de graça", lbl: "Abrir ação no Juizado Especial" },
+              { num: "Sem advogado", lbl: "Para causas até R$28 mil" },
+              { num: "2–6 meses", lbl: "Prazo médio com acordo" },
             ].map((s, i) => (
               <div key={i} style={{ background: "#1a2340", borderRadius: 14, padding: "16px 12px" }}>
                 <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 13, color: "#D4AF37", marginBottom: 4, lineHeight: 1.2 }}>{s.num}</div>
