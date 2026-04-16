@@ -1025,17 +1025,12 @@ export default function Page() {
                   A Clara gera sua petição agora. Você paga <strong>10% do valor ganho</strong> — e apenas se ganhar. Se não ganhar, não paga nada.
                 </p>
               </div>
-              <div className="flex gap-3 flex-wrap">
-                <a href="/forum" className="inline-block rounded-full bg-[#0e2b50] text-white text-sm font-semibold px-5 py-3">
-                  Encontrar meu fórum →
-                </a>
-                <button
-                  type="button"
-                  onClick={() => { setResultado(null); setForoJec(null); setPeticaoJec(null); window.scrollTo(0, 0); escolherModo("jec"); }}
-                  className="inline-block rounded-full border border-[#D4AF37] text-[#854F0B] text-sm font-semibold px-5 py-3 bg-white cursor-pointer">
-                  Gerar minha petição JEC
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => { setResultado(null); setForoJec(null); setPeticaoJec(null); window.scrollTo(0, 0); escolherModo("jec"); }}
+                className="rounded-full bg-[#0e2b50] text-white text-sm font-semibold px-6 py-3 cursor-pointer">
+                Gerar minha petição JEC
+              </button>
             </div>
           </div>
         )}
