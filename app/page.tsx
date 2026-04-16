@@ -35,7 +35,7 @@ export default function Home() {
             <a href="#forum" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Encontrar fórum</a>
             <a href="#aprenda" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Aprenda</a>
             <Link href="/enviar" style={{ background: "#1a2340", color: "#fff", fontSize: 13, fontWeight: 600, padding: "10px 22px", borderRadius: 40, textDecoration: "none" }}>
-              Analisar meu contrato
+              Reivindicar meus direitos
             </Link>
           </div>
         </div>
@@ -75,10 +75,10 @@ export default function Home() {
 
           <div style={{ display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
             <Link href="/enviar" style={{ background: "#1a2340", color: "#fff", fontSize: 16, fontWeight: 700, padding: "18px 40px", borderRadius: 40, textDecoration: "none" }}>
-              Analisar meu contrato
+              Reivindicar meus direitos
             </Link>
             <a href="#aprenda" style={{ fontSize: 15, color: "#1a2340", fontWeight: 500, padding: "17px 30px", borderRadius: 40, border: "1.5px solid #D1CCC4", textDecoration: "none" }}>
-              Ver meus direitos
+              Ver meus casos →
             </a>
           </div>
 
@@ -255,7 +255,7 @@ export default function Home() {
             ))}
           </div>
           <Link href="/enviar" style={{ background: "#1a2340", color: "#fff", fontSize: 15, fontWeight: 700, padding: "16px 36px", borderRadius: 40, textDecoration: "none", display: "inline-block" }}>
-            Analisar meu contrato
+            Reivindicar meus direitos
           </Link>
         </div>
       </section>
