@@ -108,17 +108,19 @@ export default function Page() {
   const descricaoCasoRef = useRef<HTMLTextAreaElement | null>(null);
   const [ciaAerea, setCiaAerea] = useState("");
 
-  // Campos estruturados voo_atrasado
-  const [tempoAtraso, setTempoAtraso] = useState("");
-  const [assistenciaComida, setAssistenciaComida] = useState("");
-  const [assistenciaHotel, setAssistenciaHotel] = useState("");
-  const [prejuizoExtra, setPrejuizoExtra] = useState("");
-  // Campos estruturados voo_cancelado
-  const [avisoPrevia, setAvisoPrevia] = useState("");
-  const [alternativaVoo, setAlternativaVoo] = useState("");
-  // Campos estruturados bagagem
-  const [tipoBagagem, setTipoBagagem] = useState("");
-  const [resolucaoBagagem, setResolucaoBagagem] = useState("");
+  // Dados pessoais para casos de voo
+  const [nomeCompleto, setNomeCompleto] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [numVoo, setNumVoo] = useState("");
+  const [dataVoo, setDataVoo] = useState("");
+
+  // Campos estruturados (mantidos para calcularProbabilidade)
+  const [tempoAtraso] = useState("");
+  const [assistenciaComida] = useState("");
+  const [assistenciaHotel] = useState("");
+  const [prejuizoExtra] = useState("");
+  const [avisoPrevia] = useState("");
+  const [tipoBagagem] = useState("");
 
   // JEC state
   const [cepEmpresa, setCepEmpresa] = useState("");
@@ -139,7 +141,7 @@ export default function Page() {
 
   const isVoo = tipoCaso === "voo_atrasado" || tipoCaso === "voo_cancelado" || tipoCaso === "bagagem";
   const totalStepsContrato = 5;
-  const totalStepsCaso = isVoo ? 4 : 3;
+  const totalStepsCaso = 3;
   const totalStepsJec = 3;
   const totalSteps = modo === "contrato" ? totalStepsContrato : modo === "jec" ? totalStepsJec : totalStepsCaso;
 
@@ -193,12 +195,15 @@ export default function Page() {
     if (modo === "caso") {
       if (step === 1 && !tipoCaso) { setError("Escolha o que aconteceu com você."); return; }
       if (step === 2) {
-        if (tipoCaso === "voo_atrasado" && !tempoAtraso) { setError("Selecione o tempo de atraso do voo."); return; }
-        else if (tipoCaso === "voo_cancelado" && !avisoPrevia) { setError("Selecione quando avisaram o cancelamento."); return; }
-        else if (tipoCaso === "bagagem" && !tipoBagagem) { setError("Selecione o que aconteceu com sua bagagem."); return; }
-        else if (!isVoo && (descricaoCasoRef.current?.value || "").trim().length < 30) { setError("Conta um pouco mais sobre o que aconteceu."); return; }
+        if (isVoo) {
+          if (!nomeCompleto.trim()) { setError("Informe seu nome completo."); return; }
+          if (!numVoo.trim()) { setError("Informe o número do voo."); return; }
+          if (!dataVoo) { setError("Informe a data do voo."); return; }
+          if (!ciaAerea) { setError("Selecione a companhia aérea."); return; }
+        } else {
+          if ((descricaoCasoRef.current?.value || "").trim().length < 30) { setError("Conta um pouco mais sobre o que aconteceu."); return; }
+        }
       }
-      if (step === 3 && isVoo && !ciaAerea) { setError("Selecione a companhia aérea."); return; }
     }
     if (modo === "jec") {
       if (step === 1 && !foroJec) { setError("Busque o fórum pelo CEP antes de continuar."); return; }
@@ -303,21 +308,13 @@ export default function Page() {
     try {
       setLoading(true); setError(""); setResultado(null);
       let descricaoCaso = descricaoCasoRef.current?.value || "";
-      if (tipoCaso === "voo_atrasado") {
-        const tempoLabel: Record<string,string> = { "1_2h": "1 a 2 horas", "2_4h": "2 a 4 horas", "4_8h": "4 a 8 horas", "8_12h": "8 a 12 horas", "12_24h": "12 a 24 horas", "mais_24h": "mais de 24 horas" };
-        const comidaLabel: Record<string,string> = { "nao": "não ofereceu nenhuma assistência alimentar", "voucher_pequeno": "ofereceu apenas um voucher insuficiente (menos de R$30)", "adequado": "ofereceu refeição adequada" };
-        descricaoCaso = `Voo atrasou ${tempoLabel[tempoAtraso] || tempoAtraso}. A empresa ${comidaLabel[assistenciaComida] || ""}. Hospedagem: ${assistenciaHotel === "nao" ? "não foi oferecida" : "foi oferecida"}. Prejuízo material extra: ${prejuizoExtra === "sim" ? "sim (reunião perdida, hotel pago ou conexão perdida)" : "não"}.`;
-      } else if (tipoCaso === "voo_cancelado") {
-        const avisoLabel: Record<string,string> = { "sem_aviso": "sem nenhum aviso — descobriu no aeroporto", "menos_24h": "com menos de 24h de antecedência", "24_72h": "com 24 a 72h de antecedência", "mais_72h": "com mais de 72h de antecedência" };
-        const altLabel: Record<string,string> = { "nada": "não ofereceu nenhuma solução", "reacomodacao": "ofereceu apenas reacomodação em outro voo", "reembolso": "ofereceu reembolso", "nada_satisfatorio": "ofereceu algo mas insatisfatório" };
-        descricaoCaso = `Voo cancelado ${avisoLabel[avisoPrevia] || ""}. A empresa ${altLabel[alternativaVoo] || ""}.`;
-      } else if (tipoCaso === "bagagem") {
-        const bagLabel: Record<string,string> = { "extraviada": "extraviada (não chegou ao destino)", "danificada": "danificada", "atrasada": "atrasada (chegou depois)", "violada": "violada (sinais de abertura ou furto)" };
-        const resLabel: Record<string,string> = { "nao": "a empresa se recusa a resolver", "parcial": "proposta de resolução insuficiente", "atrasado": "resolveram mas com atraso excessivo" };
-        descricaoCaso = `Bagagem ${bagLabel[tipoBagagem] || ""}. Situação: ${resLabel[resolucaoBagagem] || ""}.`;
+      const cia = CIAS_AEREAS.find((c) => c.id === ciaAerea);
+      if (isVoo) {
+        const tipoLabel: Record<string,string> = { "voo_atrasado": "atraso do voo", "voo_cancelado": "cancelamento do voo", "bagagem": "problema com bagagem" };
+        const dataFormatada = dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : "data não informada";
+        descricaoCaso = `Passageiro ${nomeCompleto}${cpf ? `, CPF ${cpf}` : ""}. Voo ${numVoo} em ${dataFormatada} pela ${cia?.nome || "companhia aérea"}. Problema: ${tipoLabel[tipoCaso!] || tipoCaso}.`;
       }
       const situacao = SITUACOES_CASO.find((s) => s.id === tipoCaso);
-      const cia = CIAS_AEREAS.find((c) => c.id === ciaAerea);
       const res = await fetch("/api/analyze-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -559,114 +556,73 @@ export default function Page() {
           </Shell>
         )}
 
-        {/* CASO step 2 — VOO ATRASADO */}
-        {modo === "caso" && step === 2 && tipoCaso === "voo_atrasado" && (
-          <Shell title="O que aconteceu com o seu voo?" subtitle="Selecione as opções — não precisa escrever nada.">
-            <div className="space-y-7">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">Quanto tempo o voo atrasou?</label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {[
-                    { id: "1_2h",    icon: "⏱️", label: "1 a 2 horas" },
-                    { id: "2_4h",    icon: "⏱️", label: "2 a 4 horas" },
-                    { id: "4_8h",    icon: "⏰", label: "4 a 8 horas" },
-                    { id: "8_12h",   icon: "🌙", label: "8 a 12 horas" },
-                    { id: "12_24h",  icon: "🌙", label: "12 a 24 horas" },
-                    { id: "mais_24h",icon: "😤", label: "Mais de 24 horas" },
-                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} selecionada={tempoAtraso === op.id} onClick={() => setTempoAtraso(op.id)} />)}
+        {/* CASO step 2 — VOO (dados pessoais + cia) */}
+        {modo === "caso" && step === 2 && isVoo && (
+          <Shell title="Seus dados para o caso" subtitle="A Clara vai preparar tudo com seu nome e número de voo.">
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Nome completo</label>
+                  <input type="text" value={nomeCompleto} onChange={(e) => setNomeCompleto(e.target.value)}
+                    placeholder="Como consta no documento de identidade"
+                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">CPF <span className="text-slate-400 font-normal">(opcional)</span></label>
+                  <input type="text" value={cpf} onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 11);
+                    setCpf(v.length > 9 ? v.slice(0,3)+"."+v.slice(3,6)+"."+v.slice(6,9)+"-"+v.slice(9) : v.length > 6 ? v.slice(0,3)+"."+v.slice(3,6)+"."+v.slice(6) : v.length > 3 ? v.slice(0,3)+"."+v.slice(3) : v);
+                  }}
+                    placeholder="000.000.000-00"
+                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Número do voo</label>
+                  <input type="text" value={numVoo} onChange={(e) => setNumVoo(e.target.value.toUpperCase())}
+                    placeholder="Ex: LA1234 ou G31234"
+                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Data do voo</label>
+                  <input type="date" value={dataVoo} onChange={(e) => setDataVoo(e.target.value)}
+                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">A empresa ofereceu alimentação?</label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  {[
-                    { id: "nao",            icon: "❌", label: "Não ofereceu nada" },
-                    { id: "voucher_pequeno", icon: "🧾", label: "Voucher pequeno", desc: "Ex: R$12 para lanche" },
-                    { id: "adequado",        icon: "✅", label: "Sim, refeição adequada" },
-                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} desc={op.desc} selecionada={assistenciaComida === op.id} onClick={() => setAssistenciaComida(op.id)} />)}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">Ofereceram hospedagem?</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">Companhia aérea</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: "nao", icon: "❌", label: "Não — fiquei no aeroporto ou paguei hotel" },
-                    { id: "sim", icon: "🏨", label: "Sim, hotel foi oferecido" },
-                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} selecionada={assistenciaHotel === op.id} onClick={() => setAssistenciaHotel(op.id)} />)}
+                  {CIAS_AEREAS.map((cia) => (
+                    <button key={cia.id} type="button" onClick={() => setCiaAerea(cia.id)}
+                      className={`rounded-[16px] border-2 p-3 text-left transition-all ${ciaAerea === cia.id ? "border-[#D4AF37] bg-amber-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                      <div className="text-sm font-semibold text-[#0e2b50]">{cia.nome}</div>
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">Teve prejuízo material por causa do atraso?</label>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-[14px] bg-blue-50 border border-blue-100 p-4">
+                <div className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3">Documentos para reunir</div>
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-blue-700 mb-1">Etapa 1 — E-mail para a companhia</div>
                   {[
-                    { id: "nao", icon: "🤷", label: "Só o transtorno do atraso" },
-                    { id: "sim", icon: "💸", label: "Sim — reunião, hotel pago, conexão perdida...", desc: "Aumenta o valor a pedir" },
-                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} desc={op.desc} selecionada={prejuizoExtra === op.id} onClick={() => setPrejuizoExtra(op.id)} />)}
+                    { doc: "Comprovante de reserva/bilhete", req: true },
+                    { doc: "Comprovante do atraso/cancelamento", desc: "print do app, e-mail da cia ou boarding pass", req: true },
+                    { doc: "Notas de despesas extras", desc: "hotel, refeição — se tiver", req: false },
+                  ].map((d) => (
+                    <div key={d.doc} className="flex items-start gap-2">
+                      <span className="text-sm mt-0.5">{d.req ? "✅" : "⚪"}</span>
+                      <div>
+                        <span className="text-xs text-blue-800">{d.doc}</span>
+                        {d.desc && <span className="text-xs text-blue-600"> — {d.desc}</span>}
+                        {!d.req && <span className="ml-1 text-xs text-slate-400">(opcional)</span>}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
-            <Nav nextLabel="Continuar" onNext={next} onBack={back} />
-          </Shell>
-        )}
-
-        {/* CASO step 2 — VOO CANCELADO */}
-        {modo === "caso" && step === 2 && tipoCaso === "voo_cancelado" && (
-          <Shell title="O que aconteceu com o seu voo?" subtitle="Selecione as opções.">
-            <div className="space-y-7">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">Quando avisaram o cancelamento?</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: "sem_aviso",  icon: "🚫", label: "Sem aviso", desc: "Descobriu no aeroporto" },
-                    { id: "menos_24h",  icon: "⚠️", label: "Menos de 24h antes" },
-                    { id: "24_72h",     icon: "📱", label: "24 a 72h antes" },
-                    { id: "mais_72h",   icon: "📅", label: "Mais de 72h antes" },
-                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} desc={op.desc} selecionada={avisoPrevia === op.id} onClick={() => setAvisoPrevia(op.id)} />)}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">O que a empresa ofereceu?</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: "nada",             icon: "❌", label: "Nada — nenhuma solução" },
-                    { id: "reacomodacao",      icon: "✈️", label: "Só reacomodação em outro voo" },
-                    { id: "reembolso",         icon: "💰", label: "Reembolso do bilhete" },
-                    { id: "nada_satisfatorio", icon: "😤", label: "Algo, mas insatisfatório" },
-                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} selecionada={alternativaVoo === op.id} onClick={() => setAlternativaVoo(op.id)} />)}
-                </div>
-              </div>
-            </div>
-            <Nav nextLabel="Continuar" onNext={next} onBack={back} />
-          </Shell>
-        )}
-
-        {/* CASO step 2 — BAGAGEM */}
-        {modo === "caso" && step === 2 && tipoCaso === "bagagem" && (
-          <Shell title="O que aconteceu com sua bagagem?" subtitle="Selecione as opções.">
-            <div className="space-y-7">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">O que aconteceu?</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: "extraviada", icon: "🧳", label: "Extraviada",  desc: "Não chegou ao destino" },
-                    { id: "danificada", icon: "💔", label: "Danificada",  desc: "Mala ou itens quebrados" },
-                    { id: "atrasada",   icon: "⏰", label: "Atrasada",    desc: "Chegou depois de você" },
-                    { id: "violada",    icon: "🔓", label: "Violada",     desc: "Sinais de abertura ou furto" },
-                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} desc={op.desc} selecionada={tipoBagagem === op.id} onClick={() => setTipoBagagem(op.id)} />)}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">A empresa resolveu?</label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  {[
-                    { id: "nao",     icon: "❌", label: "Não, se recusa a resolver" },
-                    { id: "parcial", icon: "⚠️", label: "Proposta insuficiente" },
-                    { id: "atrasado",icon: "⏳", label: "Resolveu mas demorou muito" },
-                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} selecionada={resolucaoBagagem === op.id} onClick={() => setResolucaoBagagem(op.id)} />)}
-                </div>
-              </div>
-            </div>
-            <Nav nextLabel="Continuar" onNext={next} onBack={back} />
+            <Nav nextLabel="Montar meu plano" onNext={next} onBack={back} />
           </Shell>
         )}
 
@@ -690,26 +646,8 @@ export default function Page() {
           </Shell>
         )}
 
-        {/* CASO step 3 — cia aérea (só para voos) */}
-        {modo === "caso" && step === 3 && isVoo && (
-          <Shell title="Qual foi a companhia aérea?" subtitle="A Clara vai te mostrar o canal oficial certo para reclamar.">
-            <div className="space-y-3">
-              {CIAS_AEREAS.map((cia) => (
-                <button key={cia.id} type="button" onClick={() => setCiaAerea(cia.id)}
-                  className={`w-full rounded-[18px] border-2 p-4 text-left transition-all ${ciaAerea === cia.id ? "border-[#D4AF37] bg-amber-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
-                  <div>
-                    <div className="font-semibold text-[#0e2b50]">{cia.nome}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{cia.canal}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-            <Nav nextLabel="Montar meu plano" onNext={() => { if (!ciaAerea) { setError("Selecione a companhia aérea."); return; } setStep(s => s + 1); }} onBack={back} />
-          </Shell>
-        )}
-
-        {/* CASO step e-mail */}
-        {modo === "caso" && step === (isVoo ? 4 : 3) && (
+        {/* CASO step 3 — e-mail */}
+        {modo === "caso" && step === 3 && (
           <Shell title="Qual é o seu e-mail?" subtitle="Para enviar o plano de ação e acompanhar o caso — opcional.">
             <input type="email" value={emailUsuario} onChange={(e) => setEmailUsuario(e.target.value)}
               placeholder="voce@email.com (opcional)"
@@ -1028,30 +966,52 @@ export default function Page() {
               </p>
               {isVoo && ciaAerea && (() => {
                 const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
+                const dataFormatada = dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : "";
                 return cia ? (
-                  <div className="rounded-[14px] bg-blue-50 border border-blue-200 p-4 mb-4">
-                    <div className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-3">Como enviar sua reclamação para a {cia.nome}</div>
+                  <div className="rounded-[14px] bg-blue-50 border border-blue-200 p-4 mb-4 space-y-4">
+                    <div className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Como enviar sua reclamação para a {cia.nome}</div>
+                    {/* Dados do caso */}
+                    {nomeCompleto && (
+                      <div className="rounded-[12px] bg-white border border-blue-200 px-4 py-3 space-y-1">
+                        <div className="text-xs font-semibold text-slate-500 mb-1.5">Seus dados para o e-mail</div>
+                        <div className="text-xs text-slate-700"><span className="font-medium">Passageiro:</span> {nomeCompleto}{cpf ? ` — CPF ${cpf}` : ""}</div>
+                        <div className="text-xs text-slate-700"><span className="font-medium">Voo:</span> {numVoo}{dataFormatada ? ` em ${dataFormatada}` : ""}</div>
+                      </div>
+                    )}
                     {/* E-mail direto */}
                     {cia.email && (
-                      <div className="mb-4 flex items-center gap-3 rounded-[12px] bg-white border border-blue-200 px-4 py-3">
+                      <div className="flex items-center gap-3 rounded-[12px] bg-white border border-blue-200 px-4 py-3">
                         <span className="text-lg">✉️</span>
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-semibold text-slate-500 mb-0.5">E-mail SAC</div>
-                          <a href={`mailto:${cia.email}?subject=${encodeURIComponent(`Notificação formal — solicitação de indenização`)}`}
-                            className="text-sm font-bold text-blue-700 break-all">
-                            {cia.email}
-                          </a>
+                          <span className="text-sm font-bold text-blue-700 break-all">{cia.email}</span>
                         </div>
-                        <a href={`mailto:${cia.email}?subject=${encodeURIComponent(`Notificação formal — solicitação de indenização`)}`}
+                        <a href={`mailto:${cia.email}?subject=${encodeURIComponent(`Notificação formal — Voo ${numVoo || ""}`)}&body=${encodeURIComponent(`Prezados,\n\nMeu nome é ${nomeCompleto || "[SEU NOME]"}${cpf ? ", CPF " + cpf : ""}.\n\n[DESCREVA O PROBLEMA AQUI]\n\nNúmero do voo: ${numVoo || "[NÚMERO]"}\nData: ${dataFormatada || "[DATA]"}\n\nAguardo retorno.\n\n${nomeCompleto || "[SEU NOME]"}`)}`}
                           className="rounded-full bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 whitespace-nowrap flex-shrink-0">
                           Abrir e-mail →
                         </a>
                       </div>
                     )}
-                    <div className="space-y-2 mb-4">
+                    {/* Docs etapa 1 */}
+                    <div>
+                      <div className="text-xs font-semibold text-blue-800 mb-2">Documentos para anexar neste e-mail</div>
+                      <div className="space-y-1.5">
+                        {[
+                          { doc: "Comprovante de reserva/bilhete", req: true },
+                          { doc: "Comprovante do atraso/cancelamento", desc: "print do app, e-mail da cia ou boarding pass", req: true },
+                          { doc: "Notas de despesas extras", desc: "hotel, refeição — se tiver", req: false },
+                        ].map((d) => (
+                          <div key={d.doc} className="flex items-start gap-2 text-xs text-blue-800">
+                            <span className="mt-0.5">{d.req ? "✅" : "⚪"}</span>
+                            <span>{d.doc}{d.desc ? <span className="text-blue-600"> — {d.desc}</span> : null}{!d.req ? <span className="text-slate-400"> (opcional)</span> : null}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
                       {[
-                        cia.email ? `Clique em "Abrir e-mail" acima — o assunto já estará preenchido` : "Copie o texto do e-mail gerado abaixo",
-                        "Cole o corpo do e-mail gerado abaixo no campo de mensagem",
+                        cia.email ? `Clique em "Abrir e-mail" — o assunto e seus dados já estarão preenchidos` : "Copie o texto do e-mail gerado abaixo",
+                        "Anexe os documentos listados acima",
                         "Envie e guarde o número de protocolo que você vai receber",
                       ].map((s, i) => (
                         <div key={i} className="flex gap-2 items-start text-sm text-blue-800">
@@ -1098,41 +1058,34 @@ export default function Page() {
                 <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-sm flex-shrink-0">2</div>
                 <div>
                   <div className="text-xs font-semibold text-amber-600 uppercase tracking-wider">Se a empresa não responder em 10 dias</div>
-                  <div className="text-lg font-bold text-[#0e2b50]">{isVoo ? "Registre no consumidor.gov.br e na ANAC" : "Registre no consumidor.gov.br"}</div>
+                  <div className="text-lg font-bold text-[#0e2b50]">{isVoo ? "Registre na ANAC e no consumidor.gov.br" : "Registre no consumidor.gov.br"}</div>
                 </div>
               </div>
               <p className="text-sm text-slate-600 mb-5 leading-relaxed">
                 Taxa de resolução de 8 em cada 10 casos. A empresa tem 10 dias para responder ou o caso fica marcado como "não resolvido" no histórico dela.
               </p>
 
-              {/* consumidor.gov.br */}
-              <div className="rounded-[14px] border border-amber-200 bg-amber-50 p-4 mb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="font-semibold text-amber-800">consumidor.gov.br</div>
-                  <a href="https://www.consumidor.gov.br" target="_blank" rel="noreferrer"
-                    className="rounded-full bg-amber-700 text-white text-xs font-semibold px-4 py-1.5">
-                    Abrir →
-                  </a>
+              {/* Documentos novos para esta etapa */}
+              {isVoo && (
+                <div className="rounded-[14px] bg-amber-50 border border-amber-200 p-4 mb-4">
+                  <div className="text-xs font-semibold text-amber-800 uppercase tracking-wider mb-2">Documentos adicionais nesta etapa</div>
+                  <div className="space-y-1.5">
+                    {[
+                      { doc: "Protocolo de atendimento da companhia", desc: "número que você recebeu na Etapa 1", req: true },
+                      { doc: "Prazo decorrido", desc: "prova de que a empresa não respondeu (print ou print do e-mail sem retorno)", req: true },
+                    ].map((d) => (
+                      <div key={d.doc} className="flex items-start gap-2 text-xs text-amber-800">
+                        <span className="mt-0.5">✅</span>
+                        <span>{d.doc}{d.desc ? <span className="text-amber-600"> — {d.desc}</span> : null}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  {[
-                    'Acesse consumidor.gov.br e clique em "Registrar reclamação"',
-                    "Busque o nome da empresa no campo de pesquisa",
-                    "Descreva o problema — pode colar o e-mail que você já tem",
-                    "Envie e aguarde: a empresa tem 10 dias para responder",
-                    "Avalie a resposta: isso impacta o índice público da empresa",
-                  ].map((s, i) => (
-                    <div key={i} className="flex gap-2 items-start text-xs text-amber-800">
-                      <span className="w-4 h-4 rounded-full bg-amber-200 text-amber-700 font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
-                      <span>{s}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              )}
 
               {/* ANAC — só para voos */}
               {isVoo && (
-                <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4">
+                <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4 mb-4">
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <div className="font-semibold text-slate-700">ANAC — Agência Nacional de Aviação Civil</div>
@@ -1146,10 +1099,9 @@ export default function Page() {
                   <div className="space-y-1.5">
                     {[
                       "Acesse o site ou ligue 163 (gratuito, seg–sex 8h–20h)",
-                      'Selecione "Reclamação" e depois "Passageiro"',
-                      "Informe o número do voo, data e companhia",
-                      "Descreva o problema e anexe documentos (boarding pass, recibos)",
-                      "Guarde o número de protocolo — a ANAC cobra resposta da empresa",
+                      `Informe: voo ${numVoo || "[número]"}, data e companhia`,
+                      "Anexe: boarding pass + protocolo da Etapa 1",
+                      "Guarde o protocolo ANAC — apresente no JEC se precisar",
                     ].map((s, i) => (
                       <div key={i} className="flex gap-2 items-start text-xs text-slate-600">
                         <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-600 font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
@@ -1159,6 +1111,30 @@ export default function Page() {
                   </div>
                 </div>
               )}
+
+              {/* consumidor.gov.br */}
+              <div className="rounded-[14px] border border-amber-200 bg-amber-50 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="font-semibold text-amber-800">consumidor.gov.br</div>
+                  <a href="https://www.consumidor.gov.br" target="_blank" rel="noreferrer"
+                    className="rounded-full bg-amber-700 text-white text-xs font-semibold px-4 py-1.5">
+                    Abrir →
+                  </a>
+                </div>
+                <div className="space-y-1.5">
+                  {[
+                    'Clique em "Registrar reclamação" e busque a empresa',
+                    "Descreva o problema — pode colar o e-mail que você já enviou",
+                    "Envie e aguarde: a empresa tem 10 dias para responder",
+                    "Avalie a resposta: isso impacta o índice público da empresa",
+                  ].map((s, i) => (
+                    <div key={i} className="flex gap-2 items-start text-xs text-amber-800">
+                      <span className="w-4 h-4 rounded-full bg-amber-200 text-amber-700 font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                      <span>{s}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Passo 3 */}
@@ -1167,12 +1143,39 @@ export default function Page() {
                 <div className="w-8 h-8 rounded-full bg-amber-50 border border-[#D4AF37] flex items-center justify-center text-[#D4AF37] font-bold text-sm flex-shrink-0">3</div>
                 <div>
                   <div className="text-xs font-semibold text-[#854F0B] uppercase tracking-wider">Se não resolver — sem advogado</div>
-                  <div className="text-lg font-bold text-[#0e2b50]">Juizado Especial Cível</div>
+                  <div className="text-lg font-bold text-[#0e2b50]">Juizado Especial Cível (JEC)</div>
                 </div>
               </div>
               <p className="text-sm text-slate-600 mb-4 leading-relaxed">
                 É de graça. Você mesmo protocola. A Clara gera a petição no formato certo e encontra o fórum competente pelo CEP da empresa.
               </p>
+
+              {/* Documentos novos para JEC */}
+              <div className="rounded-[14px] bg-amber-50 border border-amber-200 p-4 mb-4">
+                <div className="text-xs font-semibold text-amber-800 uppercase tracking-wider mb-2">Documentos adicionais para o JEC</div>
+                <div className="space-y-1.5">
+                  {[
+                    { doc: "CEP e endereço completo", desc: "seu endereço residencial", req: true },
+                    { doc: "Comprovante de residência", desc: "conta de luz, água ou extrato recente", req: true },
+                    { doc: "Protocolo ANAC ou consumidor.gov.br", desc: "da Etapa 2", req: true },
+                    { doc: "Assinatura digital ou presença no fórum", req: true },
+                  ].map((d) => (
+                    <div key={d.doc} className="flex items-start gap-2 text-xs text-amber-800">
+                      <span className="mt-0.5">✅</span>
+                      <span>{d.doc}{d.desc ? <span className="text-amber-600"> — {d.desc}</span> : null}</span>
+                    </div>
+                  ))}
+                </div>
+                {isVoo && ciaAerea && (() => {
+                  const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
+                  return cia && cia.id !== "outra" ? (
+                    <div className="mt-3 rounded-[10px] bg-white border border-amber-200 px-3 py-2 text-xs text-amber-700">
+                      A Clara preenche automaticamente o endereço da {cia.nome} como ré.
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                 {[
                   { icon: "💸", t: "É gratuito",   s: "Sem custas até o julgamento" },
@@ -1197,7 +1200,10 @@ export default function Page() {
                 onClick={() => {
                   const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
                   if (cia && cia.id !== "outra") setNomeEmpresa(cia.nome);
-                  setDefaultDescricaoJec(descricaoCasoRef.current?.value || "");
+                  const jecDesc = isVoo && nomeCompleto
+                    ? `Passageiro ${nomeCompleto}${cpf ? ", CPF " + cpf : ""}. Voo ${numVoo}${dataVoo ? " em " + new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : ""}. ${SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo || ""}.`
+                    : descricaoCasoRef.current?.value || "";
+                  setDefaultDescricaoJec(jecDesc);
                   setResultado(null); setForoJec(null); setPeticaoJec(null);
                   window.scrollTo(0, 0); escolherModo("jec");
                 }}
