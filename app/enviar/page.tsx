@@ -552,18 +552,31 @@ export default function Page() {
         {modo === "caso" && step === 1 && (
           <Shell title="O que aconteceu com você?" subtitle="Escolha a situação que melhor descreve o seu caso.">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {SITUACOES_CASO.map((s) => (
-                <button key={s.id} type="button" onClick={() => setTipoCaso(s.id)}
-                  className={`rounded-[18px] border-2 p-4 text-left transition-all ${tipoCaso === s.id ? "border-[#D4AF37] bg-amber-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl flex-shrink-0 mt-0.5">{s.icon}</span>
-                    <div>
-                      <div className="text-sm font-semibold text-[#0e2b50] mb-1">{s.titulo}</div>
-                      <div className="text-xs text-slate-500 leading-relaxed">{s.desc}</div>
+              {SITUACOES_CASO.map((s) => {
+                const ativo = s.id === "voo_atrasado";
+                return (
+                  <button key={s.id} type="button"
+                    onClick={() => ativo && setTipoCaso(s.id)}
+                    className={`rounded-[18px] border-2 p-4 text-left transition-all relative ${
+                      !ativo ? "border-slate-100 bg-slate-50 cursor-not-allowed opacity-60" :
+                      tipoCaso === s.id ? "border-[#D4AF37] bg-amber-50" : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}>
+                    {!ativo && (
+                      <span className="absolute top-2 right-2 text-[10px] font-bold bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">Em breve</span>
+                    )}
+                    {ativo && (
+                      <span className="absolute top-2 right-2 text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Disponível</span>
+                    )}
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl flex-shrink-0 mt-0.5">{s.icon}</span>
+                      <div>
+                        <div className="text-sm font-semibold text-[#0e2b50] mb-1">{s.titulo}</div>
+                        <div className="text-xs text-slate-500 leading-relaxed">{s.desc}</div>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
             <Nav nextLabel="Continuar" onNext={next} onBack={back} />
           </Shell>
