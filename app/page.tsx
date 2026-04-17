@@ -104,23 +104,53 @@ export default function Home() {
       <section id="como-funciona" style={{ background: "#F8F7F4", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>como funciona</p>
-          <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(26px, 3vw, 36px)", color: "#1a2340", marginBottom: 40, lineHeight: 1.2 }}>
-            Simples assim.
+          <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(26px, 3vw, 36px)", color: "#1a2340", marginBottom: 48, lineHeight: 1.2 }}>
+            Dois produtos. Um objetivo.
           </h2>
-          <div style={{ display: "grid", gap: 2, background: "#E0DDD6", borderRadius: 18, overflow: "hidden" }}
-            className="grid-steps">
-            {[
-              { n: "1", t: "Conta o que aconteceu", d: "Ou envie o contrato em PDF. Sem formulário complicado." },
-              { n: "2", t: "Clara analisa", d: "Explica os riscos, cita a lei e mostra o que você pode fazer." },
-              { n: "3", t: "E-mail pronto para enviar", d: "Notificação gerada. Muitos casos se encerram aqui mesmo." },
-              { n: "4", t: "Se precisar: o fórum certo", d: "Digite o CEP. Clara mostra onde ir, e-mail e o que levar." },
-            ].map((s, i) => (
-              <div key={i} style={{ background: "#fff", padding: "32px 26px" }}>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid #D4AF37", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#D4AF37", marginBottom: 18 }}>{s.n}</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2340", marginBottom: 10, lineHeight: 1.3 }}>{s.t}</div>
-                <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.7 }}>{s.d}</div>
-              </div>
-            ))}
+
+          {/* Produto 1 — Análise de contrato */}
+          <div style={{ marginBottom: 40 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+              <div style={{ background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#065f46" }}>Análise de contrato</div>
+              <div style={{ height: 1, flex: 1, background: "#E0DDD6" }} />
+            </div>
+            <div style={{ display: "grid", gap: 2, background: "#E0DDD6", borderRadius: 18, overflow: "hidden" }} className="grid-steps">
+              {[
+                { n: "1", t: "Envie seu contrato", d: "Upload do PDF ou cole o texto. Sem formulário complicado." },
+                { n: "2", t: "Clara lê e analisa", d: "Identifica cláusulas abusivas, riscos e pontos de atenção." },
+                { n: "3", t: "Resumo em segundos", d: "Pontos de risco destacados, em linguagem clara — sem juridiquês." },
+                { n: "4", t: "Perguntas para negociar", d: "Clara sugere o que pedir para mudar antes de assinar." },
+              ].map((s, i) => (
+                <div key={i} style={{ background: "#fff", padding: "32px 26px" }}>
+                  <div style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid #D4AF37", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#D4AF37", marginBottom: 18 }}>{s.n}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#1a2340", marginBottom: 10, lineHeight: 1.3 }}>{s.t}</div>
+                  <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.7 }}>{s.d}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Produto 2 — Clara resolve */}
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+              <div style={{ background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#92700a" }}>Clara resolve</div>
+              <div style={{ height: 1, flex: 1, background: "#E0DDD6" }} />
+              <div style={{ fontSize: 12, color: "#9ca3af" }}>10% só se ganhar · sem risco</div>
+            </div>
+            <div style={{ display: "grid", gap: 2, background: "#E0DDD6", borderRadius: 18, overflow: "hidden" }} className="grid-steps">
+              {[
+                { n: "1", t: "Conta o que aconteceu", d: "Voo atrasado, produto com defeito, cobrança indevida — escolha a situação e responda algumas perguntas." },
+                { n: "2", t: "Clara analisa e monta o caso", d: "Calcula o valor da indenização, identifica a lei aplicável e monta a notificação formal." },
+                { n: "3", t: "Notificação enviada em seu nome", d: "Clara envia o e-mail para a empresa. Você recebe cópia e acompanha." },
+                { n: "4", t: "Clara vai até o fim se necessário", d: "Sem resposta? Clara registra no órgão competente e vai ao Juizado Especial por você." },
+              ].map((s, i) => (
+                <div key={i} style={{ background: "#1a2340", padding: "32px 26px" }}>
+                  <div style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid #D4AF37", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#D4AF37", marginBottom: 18 }}>{s.n}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 10, lineHeight: 1.3 }}>{s.t}</div>
+                  <div style={{ fontSize: 14, color: "rgba(168,216,240,0.7)", lineHeight: 1.7 }}>{s.d}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -311,48 +341,66 @@ export default function Home() {
 
       {/* FREEMIUM */}
       <section style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
-        <div style={{ maxWidth: 800, margin: "0 auto" }}>
+        <div style={{ maxWidth: 860, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 48 }}>
-            <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>modelo freemium</p>
+            <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>como funciona</p>
             <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(24px, 3vw, 34px)", color: "#1a2340", lineHeight: 1.2, marginBottom: 12 }}>
-              Análise básica gratuita.<br />Relatório completo quando precisar.
+              Dois caminhos. Você escolhe.
             </h2>
-            <p style={{ fontSize: 15, color: "#6b7280", lineHeight: 1.7 }}>Comece sem cartão. Desbloqueie o relatório completo se quiser ir mais fundo.</p>
+            <p style={{ fontSize: 15, color: "#6b7280", lineHeight: 1.7 }}>Analise seu caso gratuitamente e decida se quer resolver sozinho ou deixar a Clara cuidar de tudo.</p>
           </div>
 
           <div style={{ display: "grid", gap: 20 }} className="grid-pricing">
-            {/* Grátis */}
+            {/* Produto 1 — Análise de contrato */}
             <div style={{ border: "1.5px solid #E0DDD6", borderRadius: 20, padding: "36px 32px" }}>
-              <div style={{ display: "inline-block", background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#065f46", marginBottom: 20 }}>Grátis</div>
-              <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 800, fontSize: 36, color: "#1a2340", marginBottom: 4 }}>R$0</div>
-              <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 28 }}>Sempre gratuito</div>
+              <div style={{ display: "inline-block", background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#065f46", marginBottom: 20 }}>Sempre gratuito</div>
+              <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 800, fontSize: 28, color: "#1a2340", marginBottom: 8 }}>Analise seu contrato</div>
+              <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 24, lineHeight: 1.6 }}>A Clara lê seu contrato, identifica cláusulas abusivas e riscos — antes de você assinar.</div>
               <div style={{ borderTop: "1px solid #F0EDE8", paddingTop: 24, display: "flex", flexDirection: "column", gap: 14, marginBottom: 32 }}>
-                {["Resumo do contrato", "3 pontos de atenção"].map((item) => (
+                {[
+                  "Resumo do contrato",
+                  "3 pontos de atenção",
+                  "Cláusulas de risco identificadas",
+                  "Perguntas para negociar",
+                ].map((item) => (
                   <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#374151" }}>
                     <span style={{ width: 20, height: 20, borderRadius: "50%", background: "#F0FDF9", border: "1px solid #6EE7B7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#10b981", flexShrink: 0 }}>✓</span>
                     {item}
                   </div>
                 ))}
-                {["Resumo detalhado", "Todos os riscos identificados", "E-mail pronto para negociação", "Histórico de análises"].map((item) => (
+                {[
+                  "Relatório completo",
+                  "E-mail pronto para negociação",
+                ].map((item) => (
                   <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#d1d5db" }}>
-                    <span style={{ width: 20, height: 20, borderRadius: "50%", background: "#F8F7F4", border: "1px solid #E0DDD6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#d1d5db", flexShrink: 0 }}>—</span>
+                    <span style={{ width: 20, height: 20, borderRadius: "50%", background: "#F8F7F4", border: "1px solid #E0DDD6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#d1d5db", flexShrink: 0 }}>🔒</span>
                     {item}
                   </div>
                 ))}
               </div>
               <Link href="/enviar" style={{ display: "block", textAlign: "center", border: "1.5px solid #1a2340", color: "#1a2340", fontSize: 14, fontWeight: 700, padding: "14px 24px", borderRadius: 40, textDecoration: "none" }}>
-                Começar grátis
+                Analisar meu contrato
               </Link>
             </div>
 
-            {/* Completo */}
+            {/* Produto 2 — Clara resolve */}
             <div style={{ border: "2px solid #1a2340", borderRadius: 20, padding: "36px 32px", background: "#1a2340", position: "relative", overflow: "hidden" }}>
-              <div style={{ position: "absolute", top: 0, right: 0, background: "#D4AF37", padding: "6px 20px", fontSize: 11, fontWeight: 700, color: "#1a2340", borderBottomLeftRadius: 12 }}>RECOMENDADO</div>
-              <div style={{ display: "inline-block", background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#D4AF37", marginBottom: 20 }}>Completo</div>
-              <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 800, fontSize: 36, color: "#fff", marginBottom: 4 }}>Pagamento único</div>
-              <div style={{ fontSize: 13, color: "rgba(168,216,240,0.5)", marginBottom: 28 }}>Acesso imediato ao relatório</div>
+              <div style={{ position: "absolute", top: 0, right: 0, background: "#D4AF37", padding: "6px 20px", fontSize: 11, fontWeight: 700, color: "#1a2340", borderBottomLeftRadius: 12 }}>SEM RISCO</div>
+              <div style={{ display: "inline-block", background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#D4AF37", marginBottom: 20 }}>Sem risco</div>
+              <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 800, fontSize: 28, color: "#fff", marginBottom: 8 }}>A Clara resolve por você</div>
+              <div style={{ fontSize: 14, color: "rgba(168,216,240,0.75)", marginBottom: 24, lineHeight: 1.6 }}>
+                Voo atrasado, produto com defeito, cobrança indevida — a Clara envia a notificação, registra na ANAC e vai ao Juizado se necessário.
+              </div>
+              <div style={{ background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.3)", borderRadius: 12, padding: "14px 18px", marginBottom: 24 }}>
+                <div style={{ fontSize: 13, color: "#D4AF37", fontWeight: 700 }}>10% do valor ganho — e só se ganhar</div>
+                <div style={{ fontSize: 12, color: "rgba(168,216,240,0.6)", marginTop: 4 }}>Se não ganhar, não paga nada.</div>
+              </div>
               <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24, display: "flex", flexDirection: "column", gap: 14, marginBottom: 32 }}>
-                {["Resumo do contrato", "3 pontos de atenção", "Resumo detalhado", "Todos os riscos identificados", "E-mail pronto para negociação", "Histórico de análises"].map((item) => (
+                {[
+                  "Notificação formal enviada em seu nome",
+                  "Registro nos órgãos competentes se necessário",
+                  "Petição no Juizado Especial se necessário",
+                ].map((item) => (
                   <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#fff" }}>
                     <span style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(212,175,55,0.2)", border: "1px solid rgba(212,175,55,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#D4AF37", flexShrink: 0 }}>✓</span>
                     {item}
@@ -360,7 +408,7 @@ export default function Home() {
                 ))}
               </div>
               <Link href="/enviar" style={{ display: "block", textAlign: "center", background: "#D4AF37", color: "#1a2340", fontSize: 14, fontWeight: 800, padding: "15px 24px", borderRadius: 40, textDecoration: "none" }}>
-                Reivindicar meus direitos →
+                Quero que a Clara resolva →
               </Link>
             </div>
           </div>

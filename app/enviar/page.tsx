@@ -1,6 +1,8 @@
 "use client";
 
 import LegalInsightsCard from "@/components/LegalInsightsCard";
+import ContratoModal from "@/components/ContratoModal";
+import { salvarCaso, uploadDocumento, uploadContrato, marcarEmailEnviado } from "@/lib/supabase";
 import { useEffect, useRef, useState } from "react";
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
@@ -114,13 +116,24 @@ export default function Page() {
   const [numVoo, setNumVoo] = useState("");
   const [dataVoo, setDataVoo] = useState("");
 
-  // Campos estruturados (mantidos para calcularProbabilidade)
-  const [tempoAtraso] = useState("");
-  const [assistenciaComida] = useState("");
-  const [assistenciaHotel] = useState("");
-  const [prejuizoExtra] = useState("");
+  // Campos estruturados para calcularProbabilidade e e-mail
+  const [tempoAtraso, setTempoAtraso] = useState("");
+  const [assistenciaComida, setAssistenciaComida] = useState("");
+  const [assistenciaHotel, setAssistenciaHotel] = useState("");
+  const [prejuizoExtra, setPrejuizoExtra] = useState("");
   const [avisoPrevia] = useState("");
   const [tipoBagagem] = useState("");
+
+  // Novos estados
+  const [telefone, setTelefone] = useState("");
+  const [mostrarContrato, setMostrarContrato] = useState(false);
+  const [contratoAceito, setContratoAceito] = useState(false);
+  const [casoId, setCasoId] = useState<string | null>(null);
+  const [docBilhete, setDocBilhete] = useState<File | null>(null);
+  const [docAtraso, setDocAtraso] = useState<File | null>(null);
+  const [docDespesas, setDocDespesas] = useState<File | null>(null);
+  const [enviandoEmail, setEnviandoEmail] = useState(false);
+  const [emailEnviado, setEmailEnviado] = useState(false);
 
   // JEC state
   const [cepEmpresa, setCepEmpresa] = useState("");
@@ -601,28 +614,160 @@ export default function Page() {
                   ))}
                 </div>
               </div>
-              <div className="rounded-[14px] bg-blue-50 border border-blue-100 p-4">
-                <div className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3">Documentos para reunir</div>
-                <div className="space-y-2">
-                  <div className="text-xs font-semibold text-blue-700 mb-1">Etapa 1 — E-mail para a companhia</div>
-                  {[
-                    { doc: "Comprovante de reserva/bilhete", req: true },
-                    { doc: "Comprovante do atraso/cancelamento", desc: "print do app, e-mail da cia ou boarding pass", req: true },
-                    { doc: "Notas de despesas extras", desc: "hotel, refeição — se tiver", req: false },
-                  ].map((d) => (
-                    <div key={d.doc} className="flex items-start gap-2">
-                      <span className="text-sm mt-0.5">{d.req ? "✅" : "⚪"}</span>
-                      <div>
-                        <span className="text-xs text-blue-800">{d.doc}</span>
-                        {d.desc && <span className="text-xs text-blue-600"> — {d.desc}</span>}
-                        {!d.req && <span className="ml-1 text-xs text-slate-400">(opcional)</span>}
-                      </div>
-                    </div>
-                  ))}
+              {/* Perguntas para calcular probabilidade */}
+              <div className="rounded-[14px] bg-slate-50 border border-slate-200 p-4 space-y-4">
+                <div className="text-xs font-bold text-slate-600 uppercase tracking-wider">Detalhes do problema</div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Quanto tempo de atraso?</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { v: "1_2h", l: "1 a 2 horas" },
+                      { v: "2_4h", l: "2 a 4 horas" },
+                      { v: "4_8h", l: "4 a 8 horas" },
+                      { v: "8_12h", l: "8 a 12 horas" },
+                      { v: "12_24h", l: "12 a 24 horas" },
+                      { v: "mais_24h", l: "Mais de 24 horas" },
+                    ].map((op) => (
+                      <button key={op.v} type="button" onClick={() => setTempoAtraso(op.v)}
+                        className={`rounded-[12px] border-2 p-2 text-xs font-semibold transition-all ${tempoAtraso === op.v ? "border-[#D4AF37] bg-amber-50 text-[#0e2b50]" : "border-slate-200 bg-white text-slate-600"}`}>
+                        {op.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Recebeu voucher de alimentação?</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { v: "sim", l: "Sim, adequado" },
+                      { v: "voucher_pequeno", l: "Sim, mas insuficiente" },
+                      { v: "nao", l: "Não recebi nada" },
+                    ].map((op) => (
+                      <button key={op.v} type="button" onClick={() => setAssistenciaComida(op.v)}
+                        className={`rounded-[12px] border-2 p-2 text-xs font-semibold transition-all ${assistenciaComida === op.v ? "border-[#D4AF37] bg-amber-50 text-[#0e2b50]" : "border-slate-200 bg-white text-slate-600"}`}>
+                        {op.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Recebeu voucher de hotel?</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { v: "sim", l: "Sim" },
+                      { v: "nao", l: "Não recebi" },
+                    ].map((op) => (
+                      <button key={op.v} type="button" onClick={() => setAssistenciaHotel(op.v)}
+                        className={`rounded-[12px] border-2 p-2 text-xs font-semibold transition-all ${assistenciaHotel === op.v ? "border-[#D4AF37] bg-amber-50 text-[#0e2b50]" : "border-slate-200 bg-white text-slate-600"}`}>
+                        {op.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Teve despesas extras comprovadas?</label>
+                  <p className="text-xs text-slate-500 mb-2">Hotel, transporte, refeição paga do próprio bolso</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { v: "sim", l: "Sim, tenho notas" },
+                      { v: "nao", l: "Não tive" },
+                    ].map((op) => (
+                      <button key={op.v} type="button" onClick={() => setPrejuizoExtra(op.v)}
+                        className={`rounded-[12px] border-2 p-2 text-xs font-semibold transition-all ${prejuizoExtra === op.v ? "border-[#D4AF37] bg-amber-50 text-[#0e2b50]" : "border-slate-200 bg-white text-slate-600"}`}>
+                        {op.l}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
+
+              {/* Upload de documentos */}
+              <div className="rounded-[14px] bg-blue-50 border border-blue-100 p-4 space-y-3">
+                <div className="text-xs font-bold text-blue-800 uppercase tracking-wider">Documentos (opcional agora, obrigatório para envio)</div>
+                {[
+                  { label: "Comprovante de reserva/bilhete", set: setDocBilhete, val: docBilhete },
+                  { label: "Comprovante do atraso (print, boarding pass)", set: setDocAtraso, val: docAtraso },
+                  { label: "Notas de despesas extras (se tiver)", set: setDocDespesas, val: docDespesas },
+                ].map((d) => (
+                  <div key={d.label}>
+                    <label className="block text-xs font-semibold text-blue-800 mb-1">{d.label}</label>
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => d.set(e.target.files?.[0] || null)}
+                      className="block w-full text-xs text-blue-700 file:mr-2 file:rounded-full file:border-0 file:bg-blue-100 file:px-3 file:py-1 file:text-xs file:font-semibold" />
+                    {d.val && <p className="text-xs text-blue-600 mt-1">✓ {d.val.name}</p>}
+                  </div>
+                ))}
+              </div>
+
+              {/* Telefone */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Telefone <span className="text-slate-400 font-normal">(opcional)</span></label>
+                <input type="tel" value={telefone} onChange={(e) => setTelefone(e.target.value)}
+                  placeholder="(11) 99999-9999"
+                  className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+              </div>
             </div>
-            <Nav nextLabel="Montar meu plano" onNext={next} onBack={back} />
+            <div className="mt-8 flex items-center justify-between mobile-action-row">
+              <button type="button" onClick={back} className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700">Voltar</button>
+              <button type="button"
+                onClick={() => {
+                  if (!nomeCompleto.trim()) { setError("Informe seu nome completo."); return; }
+                  if (!numVoo.trim()) { setError("Informe o número do voo."); return; }
+                  if (!dataVoo) { setError("Informe a data do voo."); return; }
+                  if (!ciaAerea) { setError("Selecione a companhia aérea."); return; }
+                  setError("");
+                  setMostrarContrato(true);
+                }}
+                className="rounded-full bg-[#D4AF37] px-6 py-3 text-sm font-semibold text-[#0e2b50]">
+                Montar meu plano →
+              </button>
+            </div>
+
+            {/* Modal de contrato */}
+            {mostrarContrato && (
+              <ContratoModal
+                nomePassageiro={nomeCompleto}
+                onFechar={() => setMostrarContrato(false)}
+                onAceitar={async (pdfBlob: Blob) => {
+                  setMostrarContrato(false);
+                  setContratoAceito(true);
+                  // Salva no Supabase
+                  try {
+                    const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
+                    const caso = await salvarCaso({
+                      tipo_caso: tipoCaso!,
+                      cia_aerea: cia?.nome || ciaAerea,
+                      nome_completo: nomeCompleto,
+                      cpf,
+                      email_usuario: emailUsuario,
+                      telefone,
+                      num_voo: numVoo,
+                      data_voo: dataVoo,
+                      tempo_atraso: tempoAtraso,
+                      recebeu_comida: assistenciaComida,
+                      recebeu_hotel: assistenciaHotel,
+                      despesas_extras: prejuizoExtra,
+                      contrato_aceito: true,
+                    });
+                    setCasoId(caso.id);
+                    // Upload contrato assinado
+                    await uploadContrato(caso.id, pdfBlob);
+                    // Upload docs se houver
+                    if (docBilhete) await uploadDocumento(caso.id, docBilhete, "bilhete");
+                    if (docAtraso) await uploadDocumento(caso.id, docAtraso, "comprovante_atraso");
+                    if (docDespesas) await uploadDocumento(caso.id, docDespesas, "despesas_extras");
+                  } catch (err) {
+                    console.error("Erro ao salvar caso:", err);
+                  }
+                  // Avança para análise
+                  next();
+                }}
+              />
+            )}
           </Shell>
         )}
 
@@ -977,22 +1122,57 @@ export default function Page() {
                       </div>
                     );
                   })()}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
-                      if (cia && cia.id !== "outra") setNomeEmpresa(cia.nome);
-                      const jecDesc = nomeCompleto
-                        ? `Passageiro ${nomeCompleto}${cpf ? ", CPF " + cpf : ""}. Voo ${numVoo}${dataVoo ? " em " + new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : ""}. ${SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo || ""}.`
-                        : "";
-                      setDefaultDescricaoJec(jecDesc);
-                      setResultado(null); setForoJec(null); setPeticaoJec(null);
-                      window.scrollTo(0, 0); escolherModo("jec");
-                    }}
-                    className="w-full rounded-full bg-[#D4AF37] text-[#0e2b50] font-black text-base py-4 mb-2">
-                    Quero que a Clara cuide do meu caso
-                  </button>
-                  <p className="text-xs text-[#93b4d4]">Sem custo agora · 10% só se ganhar · sem advogado necessário</p>
+                  {/* Botão de envio de e-mail pela Clara */}
+                  {!emailEnviado ? (
+                    <button
+                      type="button"
+                      disabled={enviandoEmail}
+                      onClick={async () => {
+                        const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
+                        if (!cia || cia.id === "outra" || !cia.email) {
+                          alert("Companhia sem e-mail direto cadastrado. Use o formulário oficial.");
+                          return;
+                        }
+                        setEnviandoEmail(true);
+                        try {
+                          const emailData = gerarEmailEmpresa(tipoCaso!, `Passageiro ${nomeCompleto}${cpf ? ", CPF " + cpf : ""}. Voo ${numVoo}${dataVoo ? " em " + new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : ""}. ${SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo || ""}.`, cia);
+                          const res = await fetch("/api/enviar-email", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              nomePassageiro: nomeCompleto,
+                              emailPassageiro: emailUsuario,
+                              ciaAerea: cia.nome,
+                              emailCia: cia.email,
+                              numVoo,
+                              dataVoo,
+                              cpf,
+                              tempoAtraso,
+                              assunto: emailData.assunto,
+                              corpo: emailData.corpo,
+                            }),
+                          });
+                          if (res.ok) {
+                            setEmailEnviado(true);
+                            if (casoId) await marcarEmailEnviado(casoId);
+                          } else {
+                            alert("Erro ao enviar. Tente novamente.");
+                          }
+                        } catch {
+                          alert("Erro ao enviar. Tente novamente.");
+                        } finally {
+                          setEnviandoEmail(false);
+                        }
+                      }}
+                      className="w-full rounded-full bg-[#D4AF37] text-[#0e2b50] font-black text-base py-4 mb-2">
+                      {enviandoEmail ? "Enviando..." : "✉️ Clara envia o e-mail para a companhia agora"}
+                    </button>
+                  ) : (
+                    <div className="w-full rounded-full bg-green-100 border border-green-300 text-green-800 font-bold text-sm py-4 mb-2 text-center">
+                      ✅ E-mail enviado para {CIAS_AEREAS.find(c => c.id === ciaAerea)?.nome} — você receberá a confirmação
+                    </div>
+                  )}
+                  <p className="text-xs text-[#93b4d4] mt-2">Sem custo agora · notificação formal enviada em seu nome</p>
                 </div>
 
                 {/* Roadmap */}
@@ -1642,13 +1822,272 @@ function gerarResumoDireitos(tipo: TipoCaso, cia: typeof CIAS_AEREAS[0] | undefi
 }
 
 function gerarEmailEmpresa(tipo: TipoCaso, descricao: string, cia: typeof CIAS_AEREAS[0] | undefined): { assunto: string; corpo: string } {
+  const tipoLabel = tipo === "voo_atrasado" ? "ATRASO DE VOO" : tipo === "voo_cancelado" ? "CANCELAMENTO DE VOO" : tipo === "bagagem" ? "EXTRAVIO / DANO DE BAGAGEM" : "PROBLEMA DE CONSUMO";
   const assunto = tipo.startsWith("voo") || tipo === "bagagem"
-    ? `Notificação formal — ${tipo === "voo_atrasado" ? "atraso de voo" : tipo === "voo_cancelado" ? "cancelamento de voo" : "bagagem extraviada/danificada"} — solicitação de indenização`
-    : `Notificação extrajudicial — solicitação de resolução — CDC`;
+    ? `NOTIFICAÇÃO EXTRAJUDICIAL — ${tipoLabel} — SOLICITAÇÃO DE INDENIZAÇÃO`
+    : `NOTIFICAÇÃO EXTRAJUDICIAL — SOLICITAÇÃO DE REPARAÇÃO — CDC`;
 
-  const corpo = tipo === "voo_atrasado"
-    ? `Prezados,\n\nVenho por meio desta notificar formalmente sobre o atraso ocorrido no meu voo, conforme descrito abaixo:\n\n${descricao}\n\nNos termos da Resolução ANAC nº 400/2016, a companhia aérea tem obrigação de prestar assistência material ao passageiro (alimentação, comunicação e, quando aplicável, hospedagem e transporte) a partir de determinados tempos de atraso, obrigação que não foi cumprida adequadamente.\n\nSolicito, no prazo de 10 (dez) dias úteis:\n1. Reembolso das despesas comprovadas decorrentes do atraso;\n2. Indenização pelos danos sofridos;\n3. Posicionamento formal sobre o ocorrido.\n\nNa ausência de resposta satisfatória, procederei com registro no consumidor.gov.br, reclamação na ANAC e, se necessário, ação no Juizado Especial Cível, com pedido de dano moral.\n\nAtenciosamente.`
-    : `Prezados,\n\nVenho por meio desta notificar formalmente sobre o problema descrito abaixo, solicitando resolução:\n\n${descricao}\n\nNos termos do Código de Defesa do Consumidor (Lei 8.078/90), solicito no prazo de 10 (dez) dias úteis a devida reparação pelos danos causados.\n\nNa ausência de resposta satisfatória, procederei com registro nos órgãos competentes e, se necessário, ação no Juizado Especial Cível.\n\nAtenciosamente.`;
+  // Extrai campos estruturados do texto de descrição gerado pelo analisarCaso
+  const matchNome = descricao.match(/Passageiro ([^,]+)/);
+  const matchCpf  = descricao.match(/CPF ([^\s.]+)/);
+  const matchVoo  = descricao.match(/Voo ([^\s]+)/);
+  const matchData = descricao.match(/em ([0-9]{2}\/[0-9]{2}\/[0-9]{4})/);
+  const nome  = matchNome?.[1]?.trim() || "[NOME DO PASSAGEIRO]";
+  const cpf   = matchCpf?.[1]?.trim()  || "[CPF]";
+  const voo   = matchVoo?.[1]?.trim()  || "[NÚMERO DO VOO]";
+  const data  = matchData?.[1]?.trim() || "[DATA DO VOO]";
+  const ciaNome = cia?.nome || "companhia aérea";
+
+  const sep = "────────────────────────────────────";
+
+  const blocoPassageiro = `${sep}
+IDENTIFICAÇÃO DO PASSAGEIRO
+${sep}
+Passageiro:    ${nome}
+CPF:           ${cpf}
+Voo:           ${voo}
+Data do voo:   ${data}
+Companhia:     ${ciaNome}
+${sep}`;
+
+  const advertencia = `${sep}
+ADVERTÊNCIA FINAL
+${sep}
+
+Na ausência de resposta satisfatória no prazo indicado, o(a) passageiro(a) adotará, imediata e cumulativamente, as seguintes medidas:
+
+  1. Reclamação formal na ANAC — Agência Nacional de Aviação Civil;
+  2. Registro no Portal consumidor.gov.br;
+  3. Ação no Juizado Especial Cível competente, com pedido de condenação
+     por danos materiais e morais.
+
+O não atendimento dos pedidos no prazo estabelecido será interpretado como
+recusa expressa e será utilizado como prova nos procedimentos acima.`;
+
+  const rodape = (n: string, c: string) =>
+    `Atenciosamente,\n\n${n}\nCPF: ${c}\n\n` +
+    `(Notificação gerada e enviada por Clara Law — claralaw.com.br)`;
+
+  const corpo = tipo === "voo_atrasado" ? `\
+Ao Departamento de Atendimento ao Consumidor
+${ciaNome}
+
+NOTIFICAÇÃO EXTRAJUDICIAL — ATRASO DE VOO
+Solicitação de Indenização por Danos Materiais e Morais
+
+Prezados Senhores,
+
+Eu, abaixo qualificado(a), venho, por meio desta NOTIFICAÇÃO EXTRAJUDICIAL,
+comunicar e formalizar reclamação em face de ${ciaNome}, pelos fatos e
+fundamentos de direito a seguir expostos.
+
+${blocoPassageiro}
+
+${sep}
+I. DOS FATOS
+${sep}
+
+O voo identificado acima sofreu atraso significativo. Durante o período de
+espera, a companhia aérea não cumpriu as obrigações legais de assistência
+material ao passageiro, causando transtornos expressivos, despesas adicionais
+não reembolsadas e danos de ordem moral.
+
+${sep}
+II. DO DIREITO
+${sep}
+
+A Resolução ANAC nº 400/2016 impõe obrigações expressas à companhia aérea,
+que não foram observadas no presente caso:
+
+  • Art. 27, caput — Assistência material obrigatória (alimentação, comunicação)
+    a partir de 1 (uma) hora de atraso;
+
+  • Art. 27, § 1º — A partir de 2 (duas) horas, a assistência deve incluir
+    acomodação e transporte ao passageiro;
+
+  • Art. 27, § 2º — A partir de 4 (quatro) horas de atraso, a empresa deve
+    oferecer reacomodação em outro voo, endosso ou reembolso integral;
+
+  • Art. 21 — A empresa responde pelos danos diretos causados ao passageiro
+    em decorrência do atraso operacional.
+
+Aplicam-se, ainda:
+
+  • Art. 14 do CDC (Lei 8.078/1990) — Responsabilidade objetiva do fornecedor
+    pelo defeito na prestação do serviço;
+
+  • Art. 6º, VI do CDC — Direito à efetiva prevenção e reparação de danos
+    patrimoniais e morais.
+
+O descumprimento dessas obrigações configura falha na prestação do serviço,
+sujeitando ${ciaNome} à reparação integral dos danos causados.
+
+${sep}
+III. DOS PEDIDOS
+${sep}
+
+Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 10 (dez) dias úteis
+contados do recebimento desta notificação:
+
+  1. Reembolso integral das despesas materiais comprovadas decorrentes do
+     atraso (alimentação, transporte, hospedagem e similares);
+
+  2. Indenização pelos danos morais sofridos, em valor a ser acordado entre
+     as partes ou arbitrado judicialmente;
+
+  3. Resposta formal e escrita ao presente comunicado, com informações sobre
+     o tratamento dado à reclamação.
+
+${advertencia}
+
+${rodape(nome, cpf)}`
+
+  : tipo === "voo_cancelado" ? `\
+Ao Departamento de Atendimento ao Consumidor
+${ciaNome}
+
+NOTIFICAÇÃO EXTRAJUDICIAL — CANCELAMENTO DE VOO
+Solicitação de Indenização por Danos Materiais e Morais
+
+Prezados Senhores,
+
+Eu, abaixo qualificado(a), venho, por meio desta NOTIFICAÇÃO EXTRAJUDICIAL,
+comunicar e formalizar reclamação em face de ${ciaNome}, pelos fatos e
+fundamentos de direito a seguir expostos.
+
+${blocoPassageiro}
+
+${sep}
+I. DOS FATOS
+${sep}
+
+O voo identificado acima foi cancelado pela companhia aérea. Não foi oferecida
+reacomodação adequada em voo alternativo em tempo razoável, tampouco foi
+realizado o reembolso integral do bilhete, causando prejuízos materiais e danos
+morais ao passageiro.
+
+${sep}
+II. DO DIREITO
+${sep}
+
+A Resolução ANAC nº 400/2016 estabelece obrigações expressas para os casos de
+cancelamento de voo:
+
+  • Art. 21 — A empresa responde pelos danos causados ao passageiro em
+    decorrência do cancelamento ou interrupção do serviço;
+
+  • Art. 25 — Em caso de cancelamento, a empresa deve oferecer ao passageiro,
+    à sua escolha: (i) reacomodação em voo próprio ou de outra empresa;
+    (ii) reembolso integral; ou (iii) execução do serviço por outra modalidade
+    de transporte;
+
+  • Art. 27, § 2º — O passageiro tem direito a assistência material completa
+    enquanto aguarda solução.
+
+Aplicam-se, ainda:
+
+  • Art. 14 do CDC (Lei 8.078/1990) — Responsabilidade objetiva pelo defeito
+    na prestação do serviço;
+
+  • Art. 6º, VI do CDC — Direito à reparação de danos patrimoniais e morais.
+
+${sep}
+III. DOS PEDIDOS
+${sep}
+
+Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 10 (dez) dias úteis:
+
+  1. Reacomodação imediata em voo equivalente ou reembolso integral do valor
+     pago pelo bilhete, à escolha do passageiro;
+
+  2. Reembolso das despesas materiais comprovadas (transporte, hospedagem,
+     alimentação) decorrentes do cancelamento;
+
+  3. Indenização pelos danos morais sofridos, em valor a ser acordado ou
+     arbitrado judicialmente;
+
+  4. Resposta formal e escrita ao presente comunicado.
+
+${advertencia}
+
+${rodape(nome, cpf)}`
+
+  : tipo === "bagagem" ? `\
+Ao Departamento de Atendimento ao Consumidor
+${ciaNome}
+
+NOTIFICAÇÃO EXTRAJUDICIAL — EXTRAVIO / DANO DE BAGAGEM
+Solicitação de Indenização por Danos Materiais e Morais
+
+Prezados Senhores,
+
+Eu, abaixo qualificado(a), venho, por meio desta NOTIFICAÇÃO EXTRAJUDICIAL,
+comunicar e formalizar reclamação em face de ${ciaNome} pelo extravio ou dano
+à bagagem despachada, conforme identificado abaixo.
+
+${blocoPassageiro}
+
+${sep}
+I. DOS FATOS
+${sep}
+
+A bagagem despachada no voo acima identificado foi extraviada ou danificada
+sob a guarda exclusiva de ${ciaNome}. O passageiro cumpriu todas as obrigações
+de check-in e despacho de bagagem dentro dos parâmetros exigidos pela empresa,
+não havendo qualquer culpa do passageiro pelo ocorrido.
+
+${sep}
+II. DO DIREITO
+${sep}
+
+A responsabilidade da companhia aérea pela bagagem despachada é objetiva,
+conforme previsto:
+
+  • Art. 34 da Resolução ANAC nº 400/2016 — A empresa é responsável pelos
+    danos causados à bagagem despachada desde o check-in até a entrega;
+
+  • Art. 35 da Resolução ANAC nº 400/2016 — Em caso de extravio, a empresa
+    deve localizar e entregar a bagagem ou indenizar o passageiro;
+
+  • Art. 37 da Resolução ANAC nº 400/2016 — O prazo para localização é de
+    7 dias para voos domésticos e 21 dias para voos internacionais; após esse
+    prazo, a bagagem é considerada definitivamente extraviada;
+
+  • Convenção de Montreal (Decreto nº 5.910/2006, art. 17) — Responsabilidade
+    objetiva da transportadora por destruição, perda ou avaria da bagagem
+    registrada ocorrida durante o transporte aéreo.
+
+Aplicam-se, ainda:
+
+  • Art. 14 do CDC (Lei 8.078/1990) — Responsabilidade objetiva pelo defeito
+    na prestação do serviço;
+
+  • Art. 6º, VI do CDC — Direito à reparação integral dos danos sofridos.
+
+${sep}
+III. DOS PEDIDOS
+${sep}
+
+Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 10 (dez) dias úteis:
+
+  1. Localização e entrega imediata da bagagem, caso ainda não tenha sido
+     devolvida; ou, alternativamente,
+
+  2. Indenização pelo valor dos itens extraviados ou danificados, mediante
+     apresentação de relação de bens;
+
+  3. Reembolso das despesas de primeira necessidade comprovadas em decorrência
+     do extravio (roupas, higiene pessoal e similares);
+
+  4. Indenização pelos danos morais sofridos;
+
+  5. Resposta formal e escrita ao presente comunicado.
+
+${advertencia}
+
+${rodape(nome, cpf)}`
+
+  : `Prezados,\n\nVenho, por meio desta, notificar formalmente sobre o problema descrito abaixo, solicitando resolução:\n\n${descricao}\n\nNos termos do Código de Defesa do Consumidor (Lei 8.078/90, art. 14 e art. 6º, VI), solicito, no prazo de 10 (dez) dias úteis, a devida reparação pelos danos causados.\n\nNa ausência de resposta satisfatória, procederei com registro nos órgãos competentes e, se necessário, ação no Juizado Especial Cível.\n\nAtenciosamente.\n\n${nome}\nCPF: ${cpf}`;
 
   return { assunto, corpo };
 }
