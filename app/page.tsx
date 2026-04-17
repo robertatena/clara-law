@@ -345,17 +345,20 @@ export default function Home() {
           <div style={{ textAlign: "center", marginBottom: 48 }}>
             <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>como funciona</p>
             <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(24px, 3vw, 34px)", color: "#1a2340", lineHeight: 1.2, marginBottom: 12 }}>
-              Dois caminhos. Você escolhe.
+              Dois produtos. Um objetivo.
             </h2>
-            <p style={{ fontSize: 15, color: "#6b7280", lineHeight: 1.7 }}>Analise seu caso gratuitamente e decida se quer resolver sozinho ou deixar a Clara cuidar de tudo.</p>
+            <p style={{ fontSize: 15, color: "#6b7280", lineHeight: 1.7 }}>Entenda seu contrato antes de assinar — ou deixe a Clara resolver seu problema por você.</p>
           </div>
 
           <div style={{ display: "grid", gap: 20 }} className="grid-pricing">
             {/* Produto 1 — Análise de contrato */}
             <div style={{ border: "1.5px solid #E0DDD6", borderRadius: 20, padding: "36px 32px" }}>
-              <div style={{ display: "inline-block", background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#065f46", marginBottom: 20 }}>Sempre gratuito</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+                <div style={{ display: "inline-block", background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#065f46" }}>Análise básica grátis</div>
+                <div style={{ display: "inline-block", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#92400e" }}>Relatório completo pago</div>
+              </div>
               <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 800, fontSize: 28, color: "#1a2340", marginBottom: 8 }}>Analise seu contrato</div>
-              <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 24, lineHeight: 1.6 }}>A Clara lê seu contrato, identifica cláusulas abusivas e riscos — antes de você assinar.</div>
+              <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 24, lineHeight: 1.6 }}>A Clara lê seu contrato, identifica cláusulas abusivas e riscos — antes de você assinar. Resumo gratuito, relatório completo sob demanda.</div>
               <div style={{ borderTop: "1px solid #F0EDE8", paddingTop: 24, display: "flex", flexDirection: "column", gap: 14, marginBottom: 32 }}>
                 {[
                   "Resumo do contrato",
