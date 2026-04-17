@@ -2,7 +2,7 @@
 
 import LegalInsightsCard from "@/components/LegalInsightsCard";
 import ContratoModal from "@/components/ContratoModal";
-import { salvarCaso, uploadDocumento, uploadContrato, marcarEmailEnviado } from "@/lib/supabase";
+import { salvarCaso, uploadDocumento, uploadContrato, marcarEmailEnviado, salvarLead } from "@/lib/supabase";
 import { useEffect, useRef, useState } from "react";
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
@@ -257,6 +257,7 @@ export default function Page() {
   }
 
   function gerarPeticaoJec() {
+    salvarLead({ email: emailUsuario, origem: "jec" });
     const descricao = descricaoJecRef.current?.value || "";
     const foroNome = foroJec?.foro || "Juizado Especial Cível";
     const assunto = `Petição inicial — JEC — ${nomeEmpresa} — R$ ${valorCausa}`;
@@ -290,6 +291,7 @@ export default function Page() {
   }
 
   async function analisar() {
+    salvarLead({ email: emailUsuario, origem: "contrato" });
     try {
       setLoading(true); setError(""); setResultado(null);
       const formData = new FormData();
@@ -318,6 +320,7 @@ export default function Page() {
   }
 
   async function analisarCaso() {
+    salvarLead({ email: emailUsuario, origem: "caso", tipo_caso: tipoCaso ?? undefined });
     try {
       setLoading(true); setError(""); setResultado(null);
       let descricaoCaso = descricaoCasoRef.current?.value || "";

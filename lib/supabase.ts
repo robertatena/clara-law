@@ -63,6 +63,18 @@ export async function uploadContrato(casoId: string, blob: Blob, nomePassageiro 
   return path;
 }
 
+export async function salvarLead(dados: {
+  email: string;
+  origem: "caso" | "contrato" | "jec";
+  tipo_caso?: string;
+}) {
+  if (!dados.email) return;
+  const { error } = await supabase
+    .from("leads")
+    .insert([{ ...dados, converteu: false, criado_em: new Date().toISOString() }]);
+  if (error) console.log("Erro ao salvar lead:", error.message);
+}
+
 export async function marcarEmailEnviado(casoId: string) {
   const { error } = await supabase
     .from("casos")
