@@ -952,6 +952,151 @@ export default function Page() {
               );
             })()}
 
+            {isVoo ? (
+              /* ── VOO: CLARA FAZ TUDO ── */
+              <>
+                {/* Hero */}
+                <div className="rounded-[24px] bg-[#0e2b50] p-6 text-white text-center">
+                  <div className="text-5xl mb-3">⚖️</div>
+                  <h3 className="text-2xl font-black mb-2">A Clara faz tudo por você</h3>
+                  <p className="text-[#93b4d4] text-sm leading-relaxed mb-4">
+                    Sem custo inicial. Você só paga <strong className="text-white">10% do valor ganho</strong> — e apenas se ganhar. Se não ganhar, não paga nada.
+                  </p>
+                  {nomeCompleto && (() => {
+                    const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
+                    const dataFmt = dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : "";
+                    return (
+                      <div className="rounded-[16px] bg-white/10 border border-white/20 p-4 mb-4 text-left">
+                        <div className="text-xs font-semibold text-[#93b4d4] uppercase tracking-wider mb-2">Seu caso registrado</div>
+                        <div className="space-y-1 text-sm text-white">
+                          <div><span className="text-[#93b4d4]">Passageiro:</span> {nomeCompleto}{cpf ? ` · CPF ${cpf}` : ""}</div>
+                          <div><span className="text-[#93b4d4]">Voo:</span> {numVoo}{dataFmt ? ` em ${dataFmt}` : ""}</div>
+                          {cia && <div><span className="text-[#93b4d4]">Companhia:</span> {cia.nome}</div>}
+                          <div><span className="text-[#93b4d4]">Problema:</span> {SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo}</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
+                      if (cia && cia.id !== "outra") setNomeEmpresa(cia.nome);
+                      const jecDesc = nomeCompleto
+                        ? `Passageiro ${nomeCompleto}${cpf ? ", CPF " + cpf : ""}. Voo ${numVoo}${dataVoo ? " em " + new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : ""}. ${SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo || ""}.`
+                        : "";
+                      setDefaultDescricaoJec(jecDesc);
+                      setResultado(null); setForoJec(null); setPeticaoJec(null);
+                      window.scrollTo(0, 0); escolherModo("jec");
+                    }}
+                    className="w-full rounded-full bg-[#D4AF37] text-[#0e2b50] font-black text-base py-4 mb-2">
+                    Quero que a Clara cuide do meu caso
+                  </button>
+                  <p className="text-xs text-[#93b4d4]">Sem custo agora · 10% só se ganhar · sem advogado necessário</p>
+                </div>
+
+                {/* Roadmap */}
+                <div className="rounded-[24px] border border-slate-200 bg-white p-6">
+                  <h3 className="text-xl font-bold text-[#0e2b50] mb-1">O que a Clara faz pelo seu caso</h3>
+                  <p className="text-sm text-slate-500 mb-6">Três etapas em ordem — a Clara conduz cada uma delas por você.</p>
+                  <div className="space-y-0">
+
+                    {/* Etapa 1 */}
+                    <div className="flex gap-4">
+                      <div className="flex flex-col items-center flex-shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-green-100 border-2 border-green-300 flex items-center justify-center text-green-700 font-bold">1</div>
+                        <div className="w-0.5 bg-slate-200 flex-1 my-2 min-h-[32px]" />
+                      </div>
+                      <div className="pb-6 flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-green-600 uppercase tracking-wider mb-0.5">Etapa 1 · Prazo: até 10 dias</div>
+                        <div className="text-base font-bold text-[#0e2b50] mb-1">Notificação formal para a cia aérea</div>
+                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">A Clara envia um e-mail jurídico com seu nome, número do voo e base legal (Resolução ANAC 400/2016) exigindo indenização. A maioria das empresas responde nesta etapa.</p>
+                        <div className="rounded-[12px] bg-green-50 border border-green-100 p-3">
+                          <div className="text-xs font-semibold text-green-700 mb-2">Documentos que você envia para a Clara</div>
+                          {[
+                            "Comprovante de reserva ou bilhete",
+                            "Comprovante do problema — print do app, e-mail da cia ou boarding pass",
+                            "Notas de despesas extras, se tiver — hotel, refeição",
+                          ].map((d, i) => (
+                            <div key={i} className="flex gap-2 text-xs text-green-800 mt-1"><span className="flex-shrink-0">✅</span><span>{d}</span></div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Etapa 2 */}
+                    <div className="flex gap-4">
+                      <div className="flex flex-col items-center flex-shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-amber-100 border-2 border-amber-300 flex items-center justify-center text-amber-700 font-bold">2</div>
+                        <div className="w-0.5 bg-slate-200 flex-1 my-2 min-h-[32px]" />
+                      </div>
+                      <div className="pb-6 flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-0.5">Etapa 2 · Se a empresa não resolver</div>
+                        <div className="text-base font-bold text-[#0e2b50] mb-1">Registro na ANAC e consumidor.gov.br</div>
+                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">A Clara registra a reclamação nos dois órgãos reguladores. Isso pressiona a empresa publicamente e cria um histórico oficial do caso — essencial se precisar ir ao JEC.</p>
+                        <div className="rounded-[12px] bg-amber-50 border border-amber-100 p-3">
+                          <div className="text-xs font-semibold text-amber-700 mb-2">Documentos adicionais nesta etapa</div>
+                          {[
+                            "Protocolo de atendimento da cia — número recebido na Etapa 1",
+                            "Print ou e-mail mostrando que a empresa não respondeu",
+                          ].map((d, i) => (
+                            <div key={i} className="flex gap-2 text-xs text-amber-800 mt-1"><span className="flex-shrink-0">✅</span><span>{d}</span></div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Etapa 3 */}
+                    <div className="flex gap-4">
+                      <div className="flex flex-col items-center flex-shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-[#D4AF37]/20 border-2 border-[#D4AF37] flex items-center justify-center text-[#854F0B] font-bold">3</div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-semibold text-[#854F0B] uppercase tracking-wider mb-0.5">Etapa 3 · Caso extremo — sem advogado</div>
+                        <div className="text-base font-bold text-[#0e2b50] mb-1">Ação no Juizado Especial Cível (JEC)</div>
+                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">Se as etapas anteriores não resolverem, a Clara prepara e protocola a petição no JEC competente. É gratuito, sem advogado necessário, e o processo corre por e-mail na maioria dos foros. A empresa ré tem endereço preenchido automaticamente.</p>
+                        <div className="rounded-[12px] bg-slate-50 border border-slate-200 p-3">
+                          <div className="text-xs font-semibold text-slate-600 mb-2">Documentos adicionais para o JEC</div>
+                          {[
+                            "CEP e endereço completo residencial",
+                            "Comprovante de residência — conta de luz, água ou extrato",
+                            "Protocolo da ANAC ou consumidor.gov.br — da Etapa 2",
+                          ].map((d, i) => (
+                            <div key={i} className="flex gap-2 text-xs text-slate-700 mt-1"><span className="flex-shrink-0">✅</span><span>{d}</span></div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* Segundo CTA */}
+                <div className="rounded-[24px] border-2 border-[#D4AF37] bg-amber-50 p-6 text-center">
+                  <div className="text-lg font-bold text-[#0e2b50] mb-1">Pronto para começar?</div>
+                  <p className="text-sm text-slate-600 mb-4">A Clara cuida de tudo. Você só acompanha.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
+                      if (cia && cia.id !== "outra") setNomeEmpresa(cia.nome);
+                      const jecDesc = nomeCompleto
+                        ? `Passageiro ${nomeCompleto}${cpf ? ", CPF " + cpf : ""}. Voo ${numVoo}${dataVoo ? " em " + new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : ""}. ${SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo || ""}.`
+                        : "";
+                      setDefaultDescricaoJec(jecDesc);
+                      setResultado(null); setForoJec(null); setPeticaoJec(null);
+                      window.scrollTo(0, 0); escolherModo("jec");
+                    }}
+                    className="rounded-full bg-[#0e2b50] text-white font-bold text-sm px-8 py-3">
+                    Quero que a Clara cuide do meu caso →
+                  </button>
+                  <p className="text-xs text-slate-500 mt-2">Sem custo agora · 10% só se ganhar</p>
+                </div>
+              </>
+            ) : (
+              /* ── OUTROS CASOS: passos para o usuário ── */
+              <>
+
             {/* Passo 1 */}
             <div className="rounded-[24px] border-2 border-green-200 bg-white p-6">
               <div className="flex items-center gap-3 mb-4">
@@ -1211,6 +1356,8 @@ export default function Page() {
                 Gerar minha petição JEC
               </button>
             </div>
+              </>
+            )}
           </div>
         )}
 
