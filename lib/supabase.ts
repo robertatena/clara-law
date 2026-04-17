@@ -30,9 +30,20 @@ export async function salvarCaso(dados: {
   return data;
 }
 
-export async function uploadDocumento(casoId: string, arquivo: File, nome: string) {
+function pastaPassageiro(nomeCompleto: string, casoId: string) {
+  const slug = nomeCompleto
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
+  return `${slug}_${casoId.slice(0, 8)}`;
+}
+
+export async function uploadDocumento(casoId: string, arquivo: File, nome: string, nomePassageiro = "") {
   const ext = arquivo.name.split(".").pop();
-  const path = `${casoId}/${nome}.${ext}`;
+  const pasta = pastaPassageiro(nomePassageiro, casoId);
+  const path = `${pasta}/${nome}.${ext}`;
 
   const { error } = await supabase.storage
     .from("Documentos Clara")
@@ -42,8 +53,9 @@ export async function uploadDocumento(casoId: string, arquivo: File, nome: strin
   return path;
 }
 
-export async function uploadContrato(casoId: string, blob: Blob) {
-  const path = `contratos/${casoId}/contrato.pdf`;
+export async function uploadContrato(casoId: string, blob: Blob, nomePassageiro = "") {
+  const pasta = pastaPassageiro(nomePassageiro, casoId);
+  const path = `contratos/${pasta}/contrato.pdf`;
   const { error } = await supabase.storage
     .from("Documentos Clara")
     .upload(path, blob, { upsert: true, contentType: "application/pdf" });

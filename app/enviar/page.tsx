@@ -759,11 +759,11 @@ export default function Page() {
                     });
                     setCasoId(caso.id);
                     // Upload contrato assinado
-                    await uploadContrato(caso.id, pdfBlob);
+                    await uploadContrato(caso.id, pdfBlob, nomeCompleto);
                     // Upload docs se houver
-                    if (docBilhete) await uploadDocumento(caso.id, docBilhete, "bilhete");
-                    if (docAtraso) await uploadDocumento(caso.id, docAtraso, "comprovante_atraso");
-                    if (docDespesas) await uploadDocumento(caso.id, docDespesas, "despesas_extras");
+                    if (docBilhete) await uploadDocumento(caso.id, docBilhete, "bilhete", nomeCompleto);
+                    if (docAtraso) await uploadDocumento(caso.id, docAtraso, "comprovante_atraso", nomeCompleto);
+                    if (docDespesas) await uploadDocumento(caso.id, docDespesas, "despesas_extras", nomeCompleto);
                   } catch (err) {
                     console.error("Erro ao salvar caso:", err);
                   }
