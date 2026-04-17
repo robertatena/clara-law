@@ -758,6 +758,16 @@ export default function Page() {
                       contrato_aceito: true,
                     });
                     setCasoId(caso.id);
+                    // Alerta interno
+                    fetch("/api/alerta-caso", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        nomeCompleto, cpf, emailUsuario, telefone,
+                        tipoCaso, ciaAerea: cia?.nome || ciaAerea,
+                        numVoo, dataVoo, casoId: caso.id,
+                      }),
+                    }).catch(() => {});
                     // Upload contrato assinado
                     await uploadContrato(caso.id, pdfBlob, nomeCompleto);
                     // Upload docs se houver
