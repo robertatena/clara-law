@@ -68,7 +68,7 @@ const CIAS_AEREAS = [
     id: "latam", nome: "LATAM Airlines",
     canal: "Formulário online na Central de Ajuda",
     link: "https://www.latamairlines.com/br/pt/central-ajuda",
-    email: "sac@latam.com",
+    email: "atendimento@latam.com",
     sac: "0800 0123 200",
   },
   {
