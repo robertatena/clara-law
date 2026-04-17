@@ -43,7 +43,7 @@ export async function uploadDocumento(casoId: string, arquivo: File, nome: strin
 }
 
 export async function uploadContrato(casoId: string, blob: Blob) {
-  const path = `contratos/${casoId}/contrato-assinado.pdf`;
+  const path = `contratos/${casoId}/contrato.pdf`;
   const { error } = await supabase.storage
     .from("Documentos Clara")
     .upload(path, blob, { upsert: true, contentType: "application/pdf" });

@@ -731,6 +731,10 @@ export default function Page() {
             {mostrarContrato && (
               <ContratoModal
                 nomePassageiro={nomeCompleto}
+                tipoLabel={SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo}
+                ciaNome={CIAS_AEREAS.find(c => c.id === ciaAerea)?.nome}
+                numVoo={numVoo}
+                dataVoo={dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : undefined}
                 onFechar={() => setMostrarContrato(false)}
                 onAceitar={async (pdfBlob: Blob) => {
                   setMostrarContrato(false);
