@@ -108,6 +108,18 @@ export default function Page() {
   const descricaoCasoRef = useRef<HTMLTextAreaElement | null>(null);
   const [ciaAerea, setCiaAerea] = useState("");
 
+  // Campos estruturados voo_atrasado
+  const [tempoAtraso, setTempoAtraso] = useState("");
+  const [assistenciaComida, setAssistenciaComida] = useState("");
+  const [assistenciaHotel, setAssistenciaHotel] = useState("");
+  const [prejuizoExtra, setPrejuizoExtra] = useState("");
+  // Campos estruturados voo_cancelado
+  const [avisoPrevia, setAvisoPrevia] = useState("");
+  const [alternativaVoo, setAlternativaVoo] = useState("");
+  // Campos estruturados bagagem
+  const [tipoBagagem, setTipoBagagem] = useState("");
+  const [resolucaoBagagem, setResolucaoBagagem] = useState("");
+
   // JEC state
   const [cepEmpresa, setCepEmpresa] = useState("");
   const [foroJec, setForoJec] = useState<any>(null);
@@ -180,7 +192,12 @@ export default function Page() {
     }
     if (modo === "caso") {
       if (step === 1 && !tipoCaso) { setError("Escolha o que aconteceu com você."); return; }
-      if (step === 2 && (descricaoCasoRef.current?.value || "").trim().length < 30) { setError("Conta um pouco mais sobre o que aconteceu."); return; }
+      if (step === 2) {
+        if (tipoCaso === "voo_atrasado" && !tempoAtraso) { setError("Selecione o tempo de atraso do voo."); return; }
+        else if (tipoCaso === "voo_cancelado" && !avisoPrevia) { setError("Selecione quando avisaram o cancelamento."); return; }
+        else if (tipoCaso === "bagagem" && !tipoBagagem) { setError("Selecione o que aconteceu com sua bagagem."); return; }
+        else if (!isVoo && (descricaoCasoRef.current?.value || "").trim().length < 30) { setError("Conta um pouco mais sobre o que aconteceu."); return; }
+      }
       if (step === 3 && isVoo && !ciaAerea) { setError("Selecione a companhia aérea."); return; }
     }
     if (modo === "jec") {
@@ -285,7 +302,20 @@ export default function Page() {
   async function analisarCaso() {
     try {
       setLoading(true); setError(""); setResultado(null);
-      const descricaoCaso = descricaoCasoRef.current?.value || "";
+      let descricaoCaso = descricaoCasoRef.current?.value || "";
+      if (tipoCaso === "voo_atrasado") {
+        const tempoLabel: Record<string,string> = { "1_2h": "1 a 2 horas", "2_4h": "2 a 4 horas", "4_8h": "4 a 8 horas", "8_12h": "8 a 12 horas", "12_24h": "12 a 24 horas", "mais_24h": "mais de 24 horas" };
+        const comidaLabel: Record<string,string> = { "nao": "não ofereceu nenhuma assistência alimentar", "voucher_pequeno": "ofereceu apenas um voucher insuficiente (menos de R$30)", "adequado": "ofereceu refeição adequada" };
+        descricaoCaso = `Voo atrasou ${tempoLabel[tempoAtraso] || tempoAtraso}. A empresa ${comidaLabel[assistenciaComida] || ""}. Hospedagem: ${assistenciaHotel === "nao" ? "não foi oferecida" : "foi oferecida"}. Prejuízo material extra: ${prejuizoExtra === "sim" ? "sim (reunião perdida, hotel pago ou conexão perdida)" : "não"}.`;
+      } else if (tipoCaso === "voo_cancelado") {
+        const avisoLabel: Record<string,string> = { "sem_aviso": "sem nenhum aviso — descobriu no aeroporto", "menos_24h": "com menos de 24h de antecedência", "24_72h": "com 24 a 72h de antecedência", "mais_72h": "com mais de 72h de antecedência" };
+        const altLabel: Record<string,string> = { "nada": "não ofereceu nenhuma solução", "reacomodacao": "ofereceu apenas reacomodação em outro voo", "reembolso": "ofereceu reembolso", "nada_satisfatorio": "ofereceu algo mas insatisfatório" };
+        descricaoCaso = `Voo cancelado ${avisoLabel[avisoPrevia] || ""}. A empresa ${altLabel[alternativaVoo] || ""}.`;
+      } else if (tipoCaso === "bagagem") {
+        const bagLabel: Record<string,string> = { "extraviada": "extraviada (não chegou ao destino)", "danificada": "danificada", "atrasada": "atrasada (chegou depois)", "violada": "violada (sinais de abertura ou furto)" };
+        const resLabel: Record<string,string> = { "nao": "a empresa se recusa a resolver", "parcial": "proposta de resolução insuficiente", "atrasado": "resolveram mas com atraso excessivo" };
+        descricaoCaso = `Bagagem ${bagLabel[tipoBagagem] || ""}. Situação: ${resLabel[resolucaoBagagem] || ""}.`;
+      }
       const situacao = SITUACOES_CASO.find((s) => s.id === tipoCaso);
       const cia = CIAS_AEREAS.find((c) => c.id === ciaAerea);
       const res = await fetch("/api/analyze-pdf", {
@@ -529,23 +559,134 @@ export default function Page() {
           </Shell>
         )}
 
-        {/* CASO step 2 */}
-        {modo === "caso" && step === 2 && (
+        {/* CASO step 2 — VOO ATRASADO */}
+        {modo === "caso" && step === 2 && tipoCaso === "voo_atrasado" && (
+          <Shell title="O que aconteceu com o seu voo?" subtitle="Selecione as opções — não precisa escrever nada.">
+            <div className="space-y-7">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">Quanto tempo o voo atrasou?</label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {[
+                    { id: "1_2h",    icon: "⏱️", label: "1 a 2 horas" },
+                    { id: "2_4h",    icon: "⏱️", label: "2 a 4 horas" },
+                    { id: "4_8h",    icon: "⏰", label: "4 a 8 horas" },
+                    { id: "8_12h",   icon: "🌙", label: "8 a 12 horas" },
+                    { id: "12_24h",  icon: "🌙", label: "12 a 24 horas" },
+                    { id: "mais_24h",icon: "😤", label: "Mais de 24 horas" },
+                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} selecionada={tempoAtraso === op.id} onClick={() => setTempoAtraso(op.id)} />)}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">A empresa ofereceu alimentação?</label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {[
+                    { id: "nao",            icon: "❌", label: "Não ofereceu nada" },
+                    { id: "voucher_pequeno", icon: "🧾", label: "Voucher pequeno", desc: "Ex: R$12 para lanche" },
+                    { id: "adequado",        icon: "✅", label: "Sim, refeição adequada" },
+                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} desc={op.desc} selecionada={assistenciaComida === op.id} onClick={() => setAssistenciaComida(op.id)} />)}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">Ofereceram hospedagem?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: "nao", icon: "❌", label: "Não — fiquei no aeroporto ou paguei hotel" },
+                    { id: "sim", icon: "🏨", label: "Sim, hotel foi oferecido" },
+                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} selecionada={assistenciaHotel === op.id} onClick={() => setAssistenciaHotel(op.id)} />)}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">Teve prejuízo material por causa do atraso?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: "nao", icon: "🤷", label: "Só o transtorno do atraso" },
+                    { id: "sim", icon: "💸", label: "Sim — reunião, hotel pago, conexão perdida...", desc: "Aumenta o valor a pedir" },
+                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} desc={op.desc} selecionada={prejuizoExtra === op.id} onClick={() => setPrejuizoExtra(op.id)} />)}
+                </div>
+              </div>
+            </div>
+            <Nav nextLabel="Continuar" onNext={next} onBack={back} />
+          </Shell>
+        )}
+
+        {/* CASO step 2 — VOO CANCELADO */}
+        {modo === "caso" && step === 2 && tipoCaso === "voo_cancelado" && (
+          <Shell title="O que aconteceu com o seu voo?" subtitle="Selecione as opções.">
+            <div className="space-y-7">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">Quando avisaram o cancelamento?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: "sem_aviso",  icon: "🚫", label: "Sem aviso", desc: "Descobriu no aeroporto" },
+                    { id: "menos_24h",  icon: "⚠️", label: "Menos de 24h antes" },
+                    { id: "24_72h",     icon: "📱", label: "24 a 72h antes" },
+                    { id: "mais_72h",   icon: "📅", label: "Mais de 72h antes" },
+                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} desc={op.desc} selecionada={avisoPrevia === op.id} onClick={() => setAvisoPrevia(op.id)} />)}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">O que a empresa ofereceu?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: "nada",             icon: "❌", label: "Nada — nenhuma solução" },
+                    { id: "reacomodacao",      icon: "✈️", label: "Só reacomodação em outro voo" },
+                    { id: "reembolso",         icon: "💰", label: "Reembolso do bilhete" },
+                    { id: "nada_satisfatorio", icon: "😤", label: "Algo, mas insatisfatório" },
+                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} selecionada={alternativaVoo === op.id} onClick={() => setAlternativaVoo(op.id)} />)}
+                </div>
+              </div>
+            </div>
+            <Nav nextLabel="Continuar" onNext={next} onBack={back} />
+          </Shell>
+        )}
+
+        {/* CASO step 2 — BAGAGEM */}
+        {modo === "caso" && step === 2 && tipoCaso === "bagagem" && (
+          <Shell title="O que aconteceu com sua bagagem?" subtitle="Selecione as opções.">
+            <div className="space-y-7">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">O que aconteceu?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: "extraviada", icon: "🧳", label: "Extraviada",  desc: "Não chegou ao destino" },
+                    { id: "danificada", icon: "💔", label: "Danificada",  desc: "Mala ou itens quebrados" },
+                    { id: "atrasada",   icon: "⏰", label: "Atrasada",    desc: "Chegou depois de você" },
+                    { id: "violada",    icon: "🔓", label: "Violada",     desc: "Sinais de abertura ou furto" },
+                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} desc={op.desc} selecionada={tipoBagagem === op.id} onClick={() => setTipoBagagem(op.id)} />)}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">A empresa resolveu?</label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {[
+                    { id: "nao",     icon: "❌", label: "Não, se recusa a resolver" },
+                    { id: "parcial", icon: "⚠️", label: "Proposta insuficiente" },
+                    { id: "atrasado",icon: "⏳", label: "Resolveu mas demorou muito" },
+                  ].map(op => <OpcaoCard key={op.id} id={op.id} icon={op.icon} label={op.label} selecionada={resolucaoBagagem === op.id} onClick={() => setResolucaoBagagem(op.id)} />)}
+                </div>
+              </div>
+            </div>
+            <Nav nextLabel="Continuar" onNext={next} onBack={back} />
+          </Shell>
+        )}
+
+        {/* CASO step 2 — OUTROS */}
+        {modo === "caso" && step === 2 && !isVoo && (
           <Shell title="Conta com suas palavras o que aconteceu" subtitle="Quanto mais detalhe, mais preciso será o plano de ação da Clara.">
             <div className="mb-4 rounded-[14px] bg-blue-50 border border-blue-100 p-4 text-sm text-blue-800">
               <strong className="font-medium">Dicas para um relato completo:</strong>
               <ul className="mt-2 space-y-1 text-xs text-blue-700">
-                <li>• Quando aconteceu? (data e horário aproximados)</li>
-                <li>• Qual empresa ou companhia?</li>
+                <li>• Quando aconteceu? (data aproximada)</li>
+                <li>• Qual empresa?</li>
                 <li>• O que foi prometido e o que você recebeu?</li>
                 <li>• Quanto pagou ou quanto perdeu?</li>
                 <li>• Já tentou resolver antes? Como responderam?</li>
               </ul>
             </div>
             <textarea ref={descricaoCasoRef} rows={10}
-              placeholder="Ex: Meu voo estava marcado para às 14h e atrasou mais de 4 horas. A GOL só me deu um voucher de R$12 para lanche e não ofereceu hospedagem ou remarcação. Perdi uma reunião importante de trabalho..."
+              placeholder="Ex: Em março comprei um produto que apresentou defeito em 2 semanas. A loja se recusou a trocar..."
               className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none leading-relaxed" />
-            <Nav nextLabel={isVoo ? "Continuar" : "Montar meu plano"} onNext={next} onBack={back} />
+            <Nav nextLabel="Montar meu plano" onNext={next} onBack={back} />
           </Shell>
         )}
 
@@ -849,6 +990,30 @@ export default function Page() {
               )}
             </div>
 
+            {/* Probabilidade de ganhar */}
+            {(() => {
+              const prob = calcularProbabilidade(tipoCaso!, tempoAtraso, assistenciaComida, assistenciaHotel, prejuizoExtra, avisoPrevia, tipoBagagem);
+              const bgClass = prob.score >= 75 ? "bg-green-50 border-green-200" : prob.score >= 50 ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200";
+              return (
+                <div className={`rounded-[24px] border-2 ${bgClass} p-6`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: prob.cor }}>Probabilidade de ganhar</div>
+                      <div className="text-2xl font-black" style={{ color: prob.cor }}>{prob.score}% — {prob.label}</div>
+                    </div>
+                    <div className="w-16 h-16 rounded-full border-4 flex items-center justify-center flex-shrink-0" style={{ borderColor: prob.cor }}>
+                      <span className="text-lg font-black" style={{ color: prob.cor }}>{prob.score}</span>
+                    </div>
+                  </div>
+                  <div className="h-2 rounded-full bg-white/60 mb-3">
+                    <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${prob.score}%`, backgroundColor: prob.cor }} />
+                  </div>
+                  <p className="text-sm leading-relaxed" style={{ color: prob.cor.replace("f", "0") }}>{prob.texto}</p>
+                  <p className="text-xs mt-2 opacity-60">Baseado em jurisprudência do TJSP · orientativo</p>
+                </div>
+              );
+            })()}
+
             {/* Passo 1 */}
             <div className="rounded-[24px] border-2 border-green-200 bg-white p-6">
               <div className="flex items-center gap-3 mb-4">
@@ -1066,6 +1231,60 @@ export default function Page() {
 }
 
 // ─── COMPONENTES AUXILIARES ───────────────────────────────────────────────────
+
+function OpcaoCard({ id, icon, label, desc, selecionada, onClick, cor = "blue" }: {
+  id: string; icon: string; label: string; desc?: string;
+  selecionada: boolean; onClick: () => void; cor?: "blue" | "amber";
+}) {
+  const sel = selecionada;
+  const ring = cor === "amber"
+    ? (sel ? "border-[#D4AF37] bg-amber-50" : "border-slate-200 bg-white hover:border-amber-200")
+    : (sel ? "border-[#0e2b50] bg-blue-50" : "border-slate-200 bg-white hover:border-blue-200");
+  return (
+    <button type="button" onClick={onClick}
+      className={`rounded-[16px] border-2 p-3 text-left transition-all ${ring}`}>
+      <div className="flex items-start gap-2">
+        <span className="text-xl flex-shrink-0 mt-0.5">{icon}</span>
+        <div>
+          <div className={`text-sm font-semibold leading-snug ${sel ? "text-[#0e2b50]" : "text-slate-700"}`}>{label}</div>
+          {desc && <div className="text-xs text-slate-500 mt-0.5 leading-snug">{desc}</div>}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function calcularProbabilidade(
+  tipo: TipoCaso,
+  tempoAtraso: string, assistenciaComida: string, assistenciaHotel: string, prejuizoExtra: string,
+  avisoPrevia: string, tipoBagagem: string
+): { score: number; label: string; cor: string; texto: string } {
+  let score = 60;
+  if (tipo === "voo_atrasado") {
+    const base: Record<string, number> = { "1_2h": 25, "2_4h": 48, "4_8h": 72, "8_12h": 82, "12_24h": 88, "mais_24h": 93 };
+    score = base[tempoAtraso] ?? 60;
+    if (assistenciaComida === "nao") score = Math.min(95, score + 7);
+    else if (assistenciaComida === "voucher_pequeno") score = Math.min(95, score + 3);
+    if (assistenciaHotel === "nao") score = Math.min(95, score + 5);
+    if (prejuizoExtra === "sim") score = Math.min(95, score + 5);
+  } else if (tipo === "voo_cancelado") {
+    const base: Record<string, number> = { "sem_aviso": 90, "menos_24h": 83, "24_72h": 72, "mais_72h": 52 };
+    score = base[avisoPrevia] ?? 72;
+  } else if (tipo === "bagagem") {
+    const base: Record<string, number> = { "extraviada": 84, "danificada": 76, "violada": 82, "atrasada": 68 };
+    score = base[tipoBagagem] ?? 72;
+  } else if (tipo === "cobranca_indevida") { score = 84; }
+  else if (tipo === "produto_defeito") { score = 71; }
+  else if (tipo === "servico_nao_entregue") { score = 73; }
+  const label = score >= 75 ? "Alta" : score >= 50 ? "Média" : "Baixa";
+  const cor = score >= 75 ? "#22c55e" : score >= 50 ? "#f59e0b" : "#ef4444";
+  const texto = score >= 75
+    ? "A jurisprudência do TJSP favorece fortemente esse tipo de caso. Prossiga com o plano de ação."
+    : score >= 50
+    ? "Há boas chances, mas o resultado depende das provas que você conseguir reunir."
+    : "Atraso curto tem menos precedentes de dano moral — o e-mail costuma resolver.";
+  return { score, label, cor, texto };
+}
 
 function Shell({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
