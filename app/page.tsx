@@ -11,12 +11,12 @@ const ClaraIcon = ({ size = 36 }: { size?: number }) => (
 );
 
 const situations = [
-  { icon: "📦", bg: "#FBF5E6", title: "Comprei algo com defeito e a loja não quer resolver", desc: "Direito à troca, conserto ou devolução. A loja é obrigada por lei.", badges: ["resolve por e-mail", "sem advogado"] },
-  { icon: "💳", bg: "#EBF6FD", title: "Cobraram algo que eu não devo ou meu nome foi ao Serasa", desc: "Cobrança errada dá direito a indenização — sem precisar ir ao fórum.", badges: ["resolve por e-mail", "sem advogado"] },
-  { icon: "✈️", bg: "#FBF5E6", title: "Meu voo atrasou ou foi cancelado", desc: "A companhia é obrigada a dar assistência e reembolso.", badges: ["resolve por e-mail", "JEC disponível"] },
-  { icon: "🔧", bg: "#EBF6FD", title: "Paguei por um serviço que não foi entregue", desc: "Direito ao dinheiro de volta e, dependendo do caso, a uma indenização.", badges: ["resolve por e-mail", "sem advogado"] },
-  { icon: "🏠", bg: "#FBF5E6", title: "Meu aluguel tem cláusula abusiva", desc: "Algumas cláusulas são ilegais — mesmo que você já tenha assinado.", badges: ["pode resolver por e-mail", "JEC disponível"] },
-  { icon: "📱", bg: "#EBF6FD", title: "Meu plano de internet não funciona como prometido", desc: "Velocidade menor que a contratada é descumprimento. Pode cancelar sem multa.", badges: ["resolve por e-mail", "sem advogado"] },
+  { icon: "📦", bg: "#FBF5E6", title: "Comprei algo com defeito e a loja não quer resolver", desc: "Direito à troca, conserto ou devolução. A loja é obrigada por lei.", badges: ["Clara resolve", "sem advogado"] },
+  { icon: "💳", bg: "#EBF6FD", title: "Cobraram algo que eu não devo ou meu nome foi ao Serasa", desc: "Cobrança errada dá direito a indenização — sem precisar ir ao fórum.", badges: ["Clara resolve", "sem advogado"] },
+  { icon: "✈️", bg: "#FBF5E6", title: "Meu voo atrasou ou foi cancelado", desc: "A companhia é obrigada a dar assistência e reembolso.", badges: ["Clara resolve", "JEC disponível"] },
+  { icon: "🔧", bg: "#EBF6FD", title: "Paguei por um serviço que não foi entregue", desc: "Direito ao dinheiro de volta e, dependendo do caso, a uma indenização.", badges: ["Clara resolve", "sem advogado"] },
+  { icon: "🏠", bg: "#FBF5E6", title: "Meu aluguel tem cláusula abusiva", desc: "Algumas cláusulas são ilegais — mesmo que você já tenha assinado.", badges: ["Clara resolve", "JEC disponível"] },
+  { icon: "📱", bg: "#EBF6FD", title: "Meu plano de internet não funciona como prometido", desc: "Velocidade menor que a contratada é descumprimento. Pode cancelar sem multa.", badges: ["Clara resolve", "sem advogado"] },
 ];
 
 export default function Home() {
