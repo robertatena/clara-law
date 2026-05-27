@@ -36,8 +36,9 @@ export default function ProblemaPage() {
             <span style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: "0.14em", color: "#A8D8F0" }}>CLARA LAW</span>
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-            <Link href="/problema" className="hidden md:inline" style={{ fontSize: 13, color: "#1a2340", textDecoration: "none", fontWeight: 600 }}>Por que a Clara</Link>
+            <Link href="/problema" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Por que a Clara</Link>
             <Link href="/#como-funciona" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Como funciona</Link>
+            <Link href="/#forum" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Encontrar fórum</Link>
             <Link href="/#aprenda" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Aprenda</Link>
             <Link href="/enviar" style={{ background: "#1a2340", color: "#fff", fontSize: 13, fontWeight: 600, padding: "10px 22px", borderRadius: 40, textDecoration: "none" }}>
               Reivindicar meus direitos
