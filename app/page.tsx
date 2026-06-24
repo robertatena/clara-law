@@ -242,30 +242,43 @@ export default function Home() {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
-            {situations.map((sit, i) => (
-              <Link href="/enviar" key={i} style={{ background: "#fff", border: "1px solid #E8E4DA", borderRadius: 16, padding: 22, textDecoration: "none", display: "block" }}
-                className="hover:border-[#A8D8F0]">
-                <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 16 }}>
-                  <div style={{ width: 46, height: 46, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0, background: sit.bg }}>
-                    {sit.icon}
+            {situations.map((sit, i) => {
+              const primary = sit.badges[0];
+              const second = sit.badges[1] ?? sit.badges[0];
+              const tail =
+                second === "sem advogado" ? "você não precisa de advogado" :
+                second === "JEC disponível" ? "via Juizado Especial, sem advogado" :
+                null;
+              const isEmail = primary.includes("e-mail");
+              const isSemAdv = primary === "sem advogado";
+              return (
+                <Link href="/enviar" key={i} style={{ background: "#fff", border: "1px solid #E8E4DA", borderRadius: 16, padding: 22, textDecoration: "none", display: "block" }}
+                  className="hover:border-[#A8D8F0]">
+                  <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 16 }}>
+                    <div style={{ width: 46, height: 46, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0, background: sit.bg }}>
+                      {sit.icon}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2340", lineHeight: 1.4, marginBottom: 6 }}>{sit.title}</div>
+                      <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>{sit.desc}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#1a2340", lineHeight: 1.4, marginBottom: 6 }}>{sit.title}</div>
-                    <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>{sit.desc}</div>
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 6, borderTop: "1px solid #F0EDE8", paddingTop: 14, flexWrap: "wrap" }}>
-                  {sit.badges.map((b) => (
-                    <span key={b} style={{
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", borderTop: "1px solid #F0EDE8", paddingTop: 14, flexWrap: "wrap" }}>
+                    <span style={{
                       fontSize: 12, fontWeight: 500, padding: "4px 12px", borderRadius: 20,
-                      background: b.includes("e-mail") ? "#F0FDF4" : b === "sem advogado" ? "#EBF6FD" : "#FBF8EF",
-                      color: b.includes("e-mail") ? "#166534" : b === "sem advogado" ? "#185FA5" : "#92700A",
-                      border: `1px solid ${b.includes("e-mail") ? "#bbf7d0" : b === "sem advogado" ? "#bae6fd" : "#EAD98A"}`
-                    }}>{b}</span>
-                  ))}
-                </div>
-              </Link>
-            ))}
+                      background: isEmail ? "#F0FDF4" : isSemAdv ? "#EBF6FD" : "#FBF8EF",
+                      color: isEmail ? "#166534" : isSemAdv ? "#185FA5" : "#92700A",
+                      border: `1px solid ${isEmail ? "#bbf7d0" : isSemAdv ? "#bae6fd" : "#EAD98A"}`
+                    }}>{primary}</span>
+                    {tail && (
+                      <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 400 }}>
+                        &middot; {tail}
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
