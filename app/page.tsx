@@ -66,7 +66,7 @@ export default function Home() {
           </h1>
 
           <p style={{ fontSize: "clamp(16px, 2vw, 19px)", lineHeight: 1.75, color: "#4b5563", marginBottom: 16, maxWidth: 540, margin: "0 auto 16px" }}>
-            Analise seu contrato, descubra brechas e saiba exatamente o que fazer —
+            Descubra seus direitos, entenda o que fazer e resolva —
             tudo em minutos, <strong style={{ color: "#1a2340" }}>sem juridiquês.</strong>
           </p>
 
@@ -88,9 +88,9 @@ export default function Home() {
           {/* 3 stats */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, maxWidth: 520, margin: "40px auto 0" }}>
             {[
-              { num: "É de graça", lbl: "Abrir ação no Juizado Especial" },
-              { num: "Sem advogado", lbl: "Para causas até R$28 mil" },
-              { num: "2–6 meses", lbl: "Prazo médio com acordo" },
+              { num: "Gratuito no JEC", lbl: "Abrir ação no Juizado Especial" },
+              { num: "Você se representa", lbl: "Até R$28 mil de indenização" },
+              { num: "Maioria resolve por e-mail em dias", lbl: "Sem precisar ir ao fórum" },
             ].map((s, i) => (
               <div key={i} style={{ background: "#1a2340", borderRadius: 14, padding: "16px 12px" }}>
                 <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 13, color: "#D4AF37", marginBottom: 4, lineHeight: 1.2 }}>{s.num}</div>
@@ -166,7 +166,7 @@ export default function Home() {
                 Precisa ir ao fórum?<br />Digite o CEP e<br />a Clara te mostra onde ir.
               </h2>
               <p style={{ fontSize: 16, color: "#4b5563", lineHeight: 1.75, marginBottom: 20, maxWidth: 420 }}>
-                Juizado Especial Cível é gratuito e não exige advogado para causas até R$28 mil. A Clara mostra o fórum certo, o e-mail do cartório e o que você precisa levar.
+                Qualquer pessoa pode abrir uma ação — é gratuito, não precisa de advogado e a empresa é obrigada a responder. A Clara mostra o fórum certo, o e-mail do cartório e o que você precisa levar.
               </p>
               <Link href="/forum" style={{ fontSize: 13, color: "#185FA5", fontWeight: 500, textDecoration: "none" }}>
                 Ver guia completo: como funciona a audiência →
