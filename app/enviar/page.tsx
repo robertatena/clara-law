@@ -987,7 +987,7 @@ export default function Page() {
             </div>
             <div className="rounded-[14px] bg-amber-50 border border-amber-200 p-4 mb-6">
               <p className="text-sm text-amber-800 leading-relaxed">
-                💡 <strong>Como funciona:</strong> A Clara gera a petição agora. Você protocola no fórum (por e-mail ou presencialmente). Se ganhar, paga <strong>10% do valor recebido</strong>. Se não ganhar, não paga nada.
+                💡 <strong>Como funciona:</strong> A Clara gera a petição agora. Você protocola no fórum (por e-mail ou presencialmente). <strong>R$49,90 — pagamento único</strong> pelo pacote completo.
               </p>
             </div>
             <div className="flex items-center justify-between mobile-action-row">
@@ -1070,9 +1070,9 @@ export default function Page() {
 
             <div className="rounded-[24px] border-2 border-[#0e2b50] bg-white p-6 text-center">
               <div className="text-2xl mb-2">⚖️</div>
-              <h3 className="text-lg font-bold text-[#0e2b50] mb-2">10% apenas se você ganhar</h3>
+              <h3 className="text-lg font-bold text-[#0e2b50] mb-2">R$49,90 — pagamento único</h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Se você ganhar a causa, a Clara recebe 10% do valor recebido. Se não ganhar, não paga nada.
+                Você paga uma única vez pelo pacote completo: notificação, orientações e petição prontas para você agir.
               </p>
             </div>
           </div>
@@ -1128,14 +1128,14 @@ export default function Page() {
             })()}
 
             {isVoo ? (
-              /* ── VOO: CLARA FAZ TUDO ── */
+              /* ── VOO: CLARA PREPARA ── */
               <>
                 {/* Hero */}
                 <div className="rounded-[24px] bg-[#0e2b50] p-6 text-white text-center">
                   <div className="text-5xl mb-3">⚖️</div>
-                  <h3 className="text-2xl font-black mb-2">A Clara faz tudo por você</h3>
+                  <h3 className="text-2xl font-black mb-2">A Clara prepara seu caso</h3>
                   <p className="text-[#93b4d4] text-sm leading-relaxed mb-4">
-                    Sem custo inicial. Você só paga <strong className="text-white">10% do valor ganho</strong> — e apenas se ganhar. Se não ganhar, não paga nada.
+                    <strong className="text-white">R$49,90 por caso — pagamento único</strong>. Você recebe os documentos prontos e age no seu nome.
                   </p>
                   {nomeCompleto && (() => {
                     const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
@@ -1284,7 +1284,7 @@ export default function Page() {
                 {/* Segundo CTA */}
                 <div className="rounded-[24px] border-2 border-[#D4AF37] bg-amber-50 p-6 text-center">
                   <div className="text-lg font-bold text-[#0e2b50] mb-1">Pronto para começar?</div>
-                  <p className="text-sm text-slate-600 mb-4">A Clara cuida de tudo. Você só acompanha.</p>
+                  <p className="text-sm text-slate-600 mb-4">A Clara prepara tudo. Você envia, você age.</p>
                   <button
                     type="button"
                     onClick={() => {
@@ -1298,9 +1298,9 @@ export default function Page() {
                       window.scrollTo(0, 0); escolherModo("jec");
                     }}
                     className="rounded-full bg-[#0e2b50] text-white font-bold text-sm px-8 py-3">
-                    Quero que a Clara cuide do meu caso →
+                    Quero meu pacote completo →
                   </button>
-                  <p className="text-xs text-slate-500 mt-2">Sem custo agora · 10% só se ganhar</p>
+                  <p className="text-xs text-slate-500 mt-2">R$49,90 · pagamento único</p>
                 </div>
               </>
             ) : (
@@ -1545,9 +1545,9 @@ export default function Page() {
                 ))}
               </div>
               <div className="rounded-[14px] bg-slate-50 border border-slate-200 p-4 mb-4">
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Modelo de negócio — fee por sucesso</div>
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Pagamento — único</div>
                 <p className="text-sm text-slate-700 leading-relaxed">
-                  A Clara gera sua petição agora. Você paga <strong>10% do valor ganho</strong> — e apenas se ganhar. Se não ganhar, não paga nada.
+                  A Clara gera sua petição agora. <strong>Pagamento único de R$49,90</strong> — você recebe tudo formatado para protocolar.
                 </p>
               </div>
               <button
