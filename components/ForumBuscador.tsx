@@ -5,10 +5,26 @@ import Link from "next/link";
 
 interface ForumResult {
   encontrado: boolean;
+  fonte?: "mapa_local_sp" | "mapa_nacional" | "tribunal_uf";
+  // Modo rico (SP capital + nacional)
   foro?: string;
   endereco?: string;
   email?: string;
+  telefone?: string;
   horario?: string;
+  // Modo nacional (capitais e cidades verificadas)
+  verificado?: "tj_oficial_fetch" | "busca_oficial" | "parcial";
+  fonteUrl?: string;
+  observacoes?: string;
+  // Modo tribunal (outras UFs / interior sem mapeamento)
+  tribunal?: string;
+  sigla?: string;
+  estado?: string;
+  buscaUrl?: string;
+  // Comuns
+  cidade?: string | null;
+  bairro?: string | null;
+  uf?: string;
   aviso?: string;
   link?: string;
   mensagem?: string;
@@ -100,8 +116,8 @@ export function ForumBuscador({ compact = false }: { compact?: boolean }) {
         Digite o CEP do endereço da empresa ou pessoa que causou o problema — não o seu.
       </p>
 
-      {/* Resultado encontrado */}
-      {resultado?.encontrado && (
+      {/* Resultado rico (SP capital) */}
+      {resultado?.encontrado && resultado.fonte === "mapa_local_sp" && (
         <div style={{
           background: "#F8F7F4",
           border: "1px solid #E0DDD6",
@@ -161,13 +177,149 @@ export function ForumBuscador({ compact = false }: { compact?: boolean }) {
         </div>
       )}
 
-      {/* Não encontrado */}
+      {/* Resultado nacional (capital ou cidade grande mapeada) */}
+      {resultado?.encontrado && resultado.fonte === "mapa_nacional" && (
+        <div style={{
+          background: "#F8F7F4",
+          border: "1px solid #E0DDD6",
+          borderRadius: 14,
+          padding: 20,
+          marginTop: 8,
+          maxWidth: compact ? 400 : 520,
+        }}>
+          <div style={{ background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 10, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span>
+            <p style={{ fontSize: 12, color: "#065f46", lineHeight: 1.6, margin: 0 }}>
+              <strong style={{ fontWeight: 700 }}>Antes de ir ao fórum, tente por e-mail.</strong>
+              {" "}A maioria das empresas resolve ao receber uma notificação formal — sem você precisar sair de casa.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 18 }}>🏛️</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: "#1a2340", fontFamily: "'Raleway', sans-serif" }}>
+              {resultado.foro}
+            </span>
+            {resultado.verificado === "parcial" && (
+              <span style={{ fontSize: 10, background: "#FFF9ED", color: "#92400e", border: "1px solid #fcd34d", borderRadius: 12, padding: "2px 8px", fontWeight: 600 }}>
+                dados parciais
+              </span>
+            )}
+          </div>
+          <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 0, marginBottom: 14 }}>
+            {resultado.cidade}/{resultado.uf}
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+            {resultado.endereco && (
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, color: "#4b5563" }}>
+                <span>📍</span><span>{resultado.endereco}</span>
+              </div>
+            )}
+            {resultado.email && (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}>
+                <span>✉️</span>
+                <a href={`mailto:${resultado.email}`} style={{ color: "#185FA5", fontWeight: 600, textDecoration: "none" }}>
+                  {resultado.email}
+                </a>
+              </div>
+            )}
+            {resultado.telefone && (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: "#4b5563" }}>
+                <span>📞</span><span>{resultado.telefone}</span>
+              </div>
+            )}
+            {resultado.horario && (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: "#4b5563" }}>
+                <span>🕐</span><span>{resultado.horario}</span>
+              </div>
+            )}
+          </div>
+
+          {resultado.observacoes && (
+            <p style={{ fontSize: 11, color: "#92400e", background: "#FFF9ED", border: "1px solid #fcd34d", borderRadius: 8, padding: "8px 12px", lineHeight: 1.55, marginBottom: 12 }}>
+              ⚠️ {resultado.observacoes}
+            </p>
+          )}
+
+          {resultado.aviso && (
+            <p style={{ fontSize: 11, color: "#aaa", marginBottom: 14, lineHeight: 1.5 }}>
+              {resultado.aviso}
+              {resultado.fonteUrl && (
+                <> · <a href={resultado.fonteUrl} target="_blank" rel="noreferrer" style={{ color: "#185FA5" }}>fonte</a></>
+              )}
+            </p>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <Link
+              href={`/enviar?origem=forum&foro=${encodeURIComponent(resultado.foro ?? "")}${resultado.email ? `&email=${encodeURIComponent(resultado.email)}` : ""}`}
+              style={{ background: "#1a2340", color: "#fff", fontSize: 13, fontWeight: 700, padding: "12px 20px", borderRadius: 24, textDecoration: "none", textAlign: "center" }}>
+              ✉️ Gerar e-mail de notificação (recomendado)
+            </Link>
+            <Link href="/forum"
+              style={{ border: "1px solid #C8C3BA", color: "#6b7280", fontSize: 12, padding: "10px 16px", borderRadius: 24, textDecoration: "none", textAlign: "center" }}>
+              Se não resolver: o que levar no fórum →
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Resultado tribunal (qualquer outra UF / interior de SP) */}
+      {resultado?.encontrado && resultado.fonte === "tribunal_uf" && (
+        <div style={{
+          background: "#F8F7F4",
+          border: "1px solid #E0DDD6",
+          borderRadius: 14,
+          padding: 20,
+          marginTop: 8,
+          maxWidth: compact ? 400 : 520,
+        }}>
+          <div style={{ background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 10, padding: "10px 14px", marginBottom: 16, display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <span style={{ fontSize: 16, flexShrink: 0 }}>💡</span>
+            <p style={{ fontSize: 12, color: "#065f46", lineHeight: 1.6, margin: 0 }}>
+              <strong style={{ fontWeight: 700 }}>Antes de ir ao fórum, tente por e-mail.</strong>
+              {" "}A maioria das empresas resolve ao receber uma notificação formal — sem você precisar sair de casa.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <span style={{ fontSize: 18 }}>🏛️</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: "#1a2340", fontFamily: "'Raleway', sans-serif" }}>
+              Comarca de {resultado.cidade ?? "—"}/{resultado.uf}
+            </span>
+          </div>
+          <p style={{ fontSize: 13, color: "#4b5563", lineHeight: 1.6, marginTop: 0, marginBottom: 16 }}>
+            Tribunal competente: <strong style={{ color: "#1a2340" }}>{resultado.tribunal}</strong> ({resultado.sigla}).
+          </p>
+
+          {resultado.aviso && (
+            <p style={{ fontSize: 12, color: "#92400e", background: "#FFF9ED", border: "1px solid #fcd34d", borderRadius: 8, padding: "10px 12px", lineHeight: 1.6, marginBottom: 16 }}>
+              ⚠️ {resultado.aviso}
+            </p>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {resultado.buscaUrl && (
+              <a href={resultado.buscaUrl} target="_blank" rel="noreferrer"
+                style={{ background: "#1a2340", color: "#fff", fontSize: 13, fontWeight: 700, padding: "12px 20px", borderRadius: 24, textDecoration: "none", textAlign: "center" }}>
+                Encontrar JEC no site do {resultado.sigla} →
+              </a>
+            )}
+            <Link href="/enviar?origem=forum"
+              style={{ border: "1px solid #C8C3BA", color: "#1a2340", fontSize: 13, fontWeight: 600, padding: "11px 18px", borderRadius: 24, textDecoration: "none", textAlign: "center" }}>
+              ✉️ Gerar e-mail de notificação primeiro
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* CEP inválido ou ViaCEP indisponível */}
       {resultado && !resultado.encontrado && (
         <div style={{ background: "#FFF9ED", border: "1px solid #fcd34d", borderRadius: 12, padding: 16, marginTop: 8, maxWidth: 480, fontSize: 13, color: "#92400e" }}>
-          <strong style={{ fontWeight: 600 }}>CEP não encontrado no mapa.</strong>
-          {" "}{resultado.mensagem}
+          <strong style={{ fontWeight: 600 }}>{resultado.mensagem ?? "CEP não encontrado."}</strong>
           {resultado.link && (
-            <> <a href={resultado.link} target="_blank" rel="noreferrer" style={{ color: "#185FA5" }}>Consultar TJSP diretamente →</a></>
+            <> <a href={resultado.link} target="_blank" rel="noreferrer" style={{ color: "#185FA5" }}>Conferir o CEP nos Correios →</a></>
           )}
         </div>
       )}
