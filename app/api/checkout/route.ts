@@ -1,13 +1,29 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_missing");
+
+type Produto = "analise" | "pacote";
+
+const PRODUTOS: Record<Produto, { unitAmount: number; name: string; description: string }> = {
+  analise: {
+    unitAmount: 990,
+    name: "Análise de Contrato — Clara Law",
+    description: "Análise de riscos do seu contrato em linguagem simples.",
+  },
+  pacote: {
+    unitAmount: 4990,
+    name: "Pacote Ação — Clara Law",
+    description: "E-mail de notificação + petição JEC + guia de acompanhamento. Você envia, você age.",
+  },
+};
 
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     const email = String(body.email || "").trim().toLowerCase();
     const origin = String(body.origin || process.env.NEXT_PUBLIC_APP_URL || "").trim();
+    const produto = String(body.produto || "").trim() as Produto;
 
     if (!email) {
       return NextResponse.json({ error: "email_required" }, { status: 400 });
@@ -17,8 +33,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "origin_required" }, { status: 400 });
     }
 
-    const priceCents = Number(process.env.CLARA_PRICE_CENTS || 1990);
-    const currency = String(process.env.CLARA_CURRENCY || "brl");
+    if (produto !== "analise" && produto !== "pacote") {
+      return NextResponse.json({ error: "produto_invalido" }, { status: 400 });
+    }
+
+    const cfg = PRODUTOS[produto];
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -27,12 +46,12 @@ export async function POST(req: Request) {
       line_items: [
         {
           price_data: {
-            currency,
+            currency: "brl",
             product_data: {
-              name: "Clara — análise completa",
-              description: "Liberação da análise completa do contrato",
+              name: cfg.name,
+              description: cfg.description,
             },
-            unit_amount: priceCents,
+            unit_amount: cfg.unitAmount,
           },
           quantity: 1,
         },
@@ -41,6 +60,7 @@ export async function POST(req: Request) {
       cancel_url: `${origin}/enviar?pagamento=cancelado`,
       metadata: {
         source: "clara_checkout",
+        produto,
         email,
       },
     });

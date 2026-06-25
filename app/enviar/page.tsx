@@ -366,7 +366,11 @@ export default function Page() {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailUsuario || "nao_informado@clara.law", origin: window.location.origin }),
+        body: JSON.stringify({
+          email: emailUsuario || "nao_informado@clara.law",
+          origin: window.location.origin,
+          produto: "analise",
+        }),
       });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
