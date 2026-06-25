@@ -1805,7 +1805,7 @@ function ResultadoContrato({ resultado, contractType, unlockedAnalysis }: {
           <li>• E-mail pronto com cada ponto do contrato</li>
           <li>• Perguntas para revisar com advogado ou com a outra parte</li>
         </ul>
-        <button type="button" onClick={() => window.location.href = "https://buy.stripe.com/28E6oH7Wc58p2cb6mj57W00"}
+        <button type="button" onClick={() => window.location.href = process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK || ""}
           className="mt-6 w-full rounded-full bg-[#0e2b50] py-3 text-sm font-semibold text-white">
           Desbloquear análise completa →
         </button>
