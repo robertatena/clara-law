@@ -13,11 +13,11 @@ interface Props {
   onFechar: () => void;
 }
 
-function contratoNum() {
+function referenciaAceite() {
   const rand = typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase()
-    : Math.random().toString(36).substr(2, 8).toUpperCase();
-  return `CL-${new Date().getFullYear()}-${rand}`;
+    ? crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()
+    : Math.random().toString(36).slice(2, 14).toUpperCase();
+  return `REF-${rand}`;
 }
 
 function sep(doc: jsPDF, y: number, margin: number, color = [220, 216, 210] as [number, number, number]) {
@@ -51,16 +51,11 @@ export default function ContratoModal({
   const [aceito, setAceito] = useState(false);
   const [gerando, setGerando] = useState(false);
   const dataHoje = new Date().toLocaleDateString("pt-BR");
-  const numContrato = useState(() => contratoNum())[0];
+  const refAceite = useState(() => referenciaAceite())[0];
 
   async function gerarPDF(): Promise<{ blob: Blob; filename: string }> {
     const dataHoraAceite = new Date().toLocaleString("pt-BR");
     const dispositivo = navigator.userAgent.slice(0, 120);
-    let ip = "Nao disponivel";
-    try {
-      const r = await fetch("https://api.ipify.org?format=json");
-      ip = (await r.json()).ip;
-    } catch {}
 
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const margin = 25;
@@ -77,33 +72,17 @@ export default function ContratoModal({
 
     doc.setFontSize(16);
     doc.setTextColor(26, 35, 64);
-    doc.text("CONTRATO DE REPRESENTACAO", pw / 2, y, { align: "center" });
+    doc.text("TERMOS DE USO — CLARA LAW", pw / 2, y, { align: "center" });
     y += 6;
 
-    doc.setFontSize(8.5);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(160, 160, 160);
-    doc.text("Aceite eletronico com validade juridica — claralaw.com.br", pw / 2, y, { align: "center" });
-    y += 5;
-
     doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Contrato no ${numContrato}`, pw / 2, y, { align: "center" });
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Documento de aceite — ${dataHoje}  |  Ref: ${refAceite}`, pw / 2, y, { align: "center" });
     y += 9;
     y = sep(doc, y, margin, [180, 160, 60]);
 
-    // ── PARTES ──────────────────────────────────────────────
-    y = sectionTitle(doc, "PARTES", y, margin);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(60, 65, 80);
-    doc.text(`Contratante : ${nomePassageiro || "Passageiro(a)"}`, margin, y); y += 6;
-    doc.text(`Contratada  : Clara Law (claralaw.com.br)`, margin, y); y += 6;
-    doc.text(`Data        : ${dataHoje}`, margin, y); y += 10;
-    y = sep(doc, y, margin);
-
-    // ── DADOS DO CASO ────────────────────────────────────────
+    // ── DADOS DO CASO (opcional, só se tiver dado de voo) ────
     if (tipoLabel || ciaNome || numVoo || dataVoo) {
       y = sectionTitle(doc, "DADOS DO CASO", y, margin);
       doc.setFont("helvetica", "normal");
@@ -117,84 +96,97 @@ export default function ContratoModal({
       y = sep(doc, y, margin);
     }
 
-    // ── OBJETO ───────────────────────────────────────────────
-    y = sectionTitle(doc, "OBJETO", y, margin);
+    // ── SEÇÃO 1 — O QUE A CLARA LAW É ────────────────────────
+    y = sectionTitle(doc, "1. O QUE A CLARA LAW E", y, margin);
     y = body(doc,
-      "A Clara Law prestara assistencia na elaboracao e envio de notificacao " +
-      "extrajudicial a companhia aerea ou empresa responsavel, bem como " +
-      "acompanhamento das etapas subsequentes para resolucao do caso " +
-      "(ANAC, PROCON, Juizado Especial Civel).",
+      "A Clara Law e uma plataforma educacional de tecnologia que gera " +
+      "documentos orientativos para consumidores. Nao e um escritorio de " +
+      "advocacia e nao representa o usuario.",
       y, margin, cw);
     y = sep(doc, y, margin);
 
-    // ── HONORÁRIOS ───────────────────────────────────────────
-    y = sectionTitle(doc, "HONORARIOS", y, margin);
-    y = body(doc,
-      "Os servicos sao prestados sem custo inicial. Em caso de exito " +
-      "(recebimento de indenizacao ou acordo), sera devido honorario de " +
-      "sucesso equivalente a 10% (dez por cento) do valor obtido. " +
-      "Nao havendo exito, nenhum valor sera cobrado.",
-      y, margin, cw);
+    // ── SEÇÃO 2 — O QUE VOCÊ RECEBE ──────────────────────────
+    y = sectionTitle(doc, "2. O QUE VOCE RECEBE", y, margin);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(60, 65, 80);
+    const itens = [
+      "E-mail de notificacao formatado com a legislacao aplicavel",
+      "Peticao para o Juizado Especial Civel pronta para protocolar",
+      "Guia de acompanhamento com as etapas do processo",
+    ];
+    for (const item of itens) {
+      const lines = doc.splitTextToSize(`•  ${item}`, cw - 4);
+      doc.text(lines, margin + 2, y);
+      y += lines.length * 5.2;
+    }
+    y += 5;
     y = sep(doc, y, margin);
 
-    // ── PRAZO ────────────────────────────────────────────────
-    y = sectionTitle(doc, "PRAZO", y, margin);
-    y = body(doc,
-      "O contrato vigorara ate a resolucao definitiva do caso ou " +
-      "desistencia expressa do contratante, mediante comunicacao escrita.",
-      y, margin, cw);
-    y = sep(doc, y, margin);
-
-    // ── DECLARAÇÃO DE ACEITE ─────────────────────────────────
+    // ── SEÇÃO 3 — RESPONSABILIDADE DO USUÁRIO ───────────────
     if (y > 220) { doc.addPage(); y = 24; }
-    y = sectionTitle(doc, "DECLARACAO DE ACEITE ELETRONICO", y, margin);
+    y = sectionTitle(doc, "3. RESPONSABILIDADE DO USUARIO", y, margin);
     y = body(doc,
-      `Eu, ${nomePassageiro || "o(a) contratante"}, declaro ter lido e ` +
-      "concordado integralmente com os termos acima, autorizando a Clara Law " +
-      "a enviar a notificacao em meu nome e a acompanhar meu caso. " +
-      `Aceite registrado em: ${dataHoraAceite}.`,
+      "O usuario e o unico responsavel pelo envio do e-mail, pelo protocolo " +
+      "da peticao e pelo comparecimento a audiencia. A Clara Law fornece " +
+      "ferramentas educacionais — a acao e inteiramente do usuario.",
       y, margin, cw);
     y = sep(doc, y, margin);
 
-    // ── RASTREABILIDADE ──────────────────────────────────────
-    y = sectionTitle(doc, "RASTREABILIDADE JURIDICA", y, margin);
+    // ── SEÇÃO 4 — PAGAMENTO ─────────────────────────────────
+    y = sectionTitle(doc, "4. PAGAMENTO", y, margin);
+    y = body(doc,
+      "R$ 49,90 por caso — pagamento unico. Sem taxa de exito. " +
+      "Sem cobranca adicional.",
+      y, margin, cw);
+    y = sep(doc, y, margin);
+
+    // ── SEÇÃO 5 — AVISO LEGAL ───────────────────────────────
+    if (y > 220) { doc.addPage(); y = 24; }
+    y = sectionTitle(doc, "5. AVISO LEGAL", y, margin);
+    y = body(doc,
+      "A Clara Law nao e um escritorio de advocacia registrado na OAB e " +
+      "nao presta servicos juridicos. Os documentos gerados sao de natureza " +
+      "educacional e orientativa. Para casos complexos, consulte um advogado " +
+      "habilitado.",
+      y, margin, cw);
+    y = sep(doc, y, margin);
+
+    // ── ACEITE ──────────────────────────────────────────────
+    if (y > 230) { doc.addPage(); y = 24; }
+    y = sectionTitle(doc, "ACEITE", y, margin);
+    y = body(doc,
+      "O usuario declara ter lido e concordado com os presentes termos, " +
+      "ciente de que age em seu proprio nome.",
+      y, margin, cw);
+    y = sep(doc, y, margin);
+
+    // ── REGISTRO DO ACEITE ──────────────────────────────────
+    y = sectionTitle(doc, "REGISTRO DO ACEITE", y, margin);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Data/hora do aceite : ${dataHoraAceite}`, margin, y); y += 5.5;
-    doc.text(`IP do aceite        : ${ip}`, margin, y); y += 5.5;
+    doc.text(`Data/hora           : ${dataHoraAceite}`, margin, y); y += 5.5;
+    doc.text(`Referencia          : ${refAceite}`, margin, y); y += 5.5;
     const dispLines = doc.splitTextToSize(`Dispositivo         : ${dispositivo}`, cw);
-    doc.text(dispLines, margin, y); y += dispLines.length * 5 + 5;
-    y = sep(doc, y, margin);
-
-    // ── AVISO LEGAL ──────────────────────────────────────────
-    y = sectionTitle(doc, "AVISO LEGAL", y, margin);
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(8.5);
-    doc.setTextColor(150, 150, 150);
-    const aviso = doc.splitTextToSize(
-      "A Clara Law nao e um escritorio de advocacia registrado na OAB. " +
-      "Os servicos sao de natureza orientativa e de gestao do caso. " +
-      "Para representacao judicial, um advogado parceiro podera ser indicado.",
-      cw);
-    doc.text(aviso, margin, y);
+    doc.text(dispLines, margin, y); y += dispLines.length * 5 + 2;
 
     // ── FOOTER ───────────────────────────────────────────────
-    const totalPages = (doc.internal as any).getNumberOfPages?.() ?? 1;
+    const totalPages = (doc.internal as { getNumberOfPages?: () => number }).getNumberOfPages?.() ?? 1;
     for (let p = 1; p <= totalPages; p++) {
       doc.setPage(p);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(180, 180, 180);
       doc.text(
-        `Documento gerado eletronicamente em claralaw.com.br  |  Contrato no ${numContrato}  |  Pagina ${p}/${totalPages}`,
+        `Documento gerado eletronicamente em claralaw.com.br  |  Ref ${refAceite}  |  Pagina ${p}/${totalPages}`,
         pw / 2, 291, { align: "center" }
       );
     }
 
-    const nomeLimpo = (nomePassageiro || "passageiro").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().slice(0, 35);
+    const nomeLimpo = (nomePassageiro || "usuario").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().slice(0, 35);
     const dataLimpa = new Date().toISOString().slice(0, 10);
-    const filename = `contrato-claralaw-${nomeLimpo}-${dataLimpa}.pdf`;
+    const filename = `termos-clara-law-${nomeLimpo}-${dataLimpa}.pdf`;
 
     return { blob: doc.output("blob"), filename };
   }
@@ -235,11 +227,8 @@ export default function ContratoModal({
             Clara Law
           </div>
           <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 22, color: "#1a2340", margin: 0 }}>
-            Contrato de Representação
+            Termos de uso — Clara Law
           </h2>
-          <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 5 }}>
-            Contrato nº <strong style={{ color: "#6b7280" }}>{numContrato}</strong>
-          </p>
         </div>
 
         {(tipoLabel || ciaNome || numVoo) && (
@@ -254,28 +243,44 @@ export default function ContratoModal({
           background: "#F8F7F4", border: "1px solid #E0DDD6", borderRadius: 12,
           padding: "20px 22px", marginBottom: 20, fontSize: 14, color: "#4b5563", lineHeight: 1.8,
         }}>
-          <p><strong style={{ color: "#1a2340" }}>Partes:</strong></p>
+          <p><strong style={{ color: "#1a2340" }}>O que a Clara Law é:</strong></p>
           <p>
-            <strong>Contratante:</strong> {nomePassageiro || "Passageiro(a)"}<br />
-            <strong>Contratada:</strong> Clara Law<br />
-            <strong>Data:</strong> {dataHoje}
+            A Clara Law é uma plataforma educacional de tecnologia que gera documentos
+            orientativos para consumidores. Não somos um escritório de advocacia e não
+            representamos usuários.
           </p>
 
-          <p style={{ marginTop: 14 }}><strong style={{ color: "#1a2340" }}>Objeto:</strong></p>
+          <p style={{ marginTop: 14 }}><strong style={{ color: "#1a2340" }}>O que você recebe:</strong></p>
+          <ul style={{ paddingLeft: 20, margin: 0 }}>
+            <li>E-mail de notificação formatado com a legislação aplicável</li>
+            <li>Petição para o Juizado Especial Cível pronta para protocolar</li>
+            <li>Guia de acompanhamento com as etapas do processo</li>
+          </ul>
+
+          <p style={{ marginTop: 14 }}><strong style={{ color: "#1a2340" }}>O que é você quem faz:</strong></p>
           <p>
-            A Clara Law prestará assistência na elaboração e envio de notificação extrajudicial,
-            bem como acompanhamento das etapas subsequentes (ANAC, PROCON, Juizado Especial Cível).
+            Você envia o e-mail do seu próprio endereço. Você assina e protocola a petição.
+            Você comparece à audiência. A Clara te arma com informação — a ação é
+            inteiramente sua.
           </p>
 
-          <p style={{ marginTop: 14 }}><strong style={{ color: "#1a2340" }}>Honorários:</strong></p>
+          <p style={{ marginTop: 14 }}><strong style={{ color: "#1a2340" }}>Pagamento:</strong></p>
           <p>
-            <strong>Sem custo inicial.</strong> Em caso de êxito, 10% do valor obtido.
-            Não havendo êxito, <strong>nenhum valor é cobrado</strong>.
+            R$49,90 por caso — pagamento único. Sem taxa de êxito. Sem cobrança adicional.
           </p>
 
-          <p style={{ marginTop: 14, fontSize: 12, color: "#9ca3af" }}>
-            ⚠️ A Clara Law não é um escritório de advocacia registrado na OAB.
-            Os serviços são de natureza orientativa e de gestão do caso.
+          <p style={{
+            marginTop: 14,
+            fontSize: 12,
+            color: "#92400e",
+            background: "#FFF9ED",
+            border: "1px solid #fcd34d",
+            borderRadius: 10,
+            padding: "14px 16px",
+          }}>
+            ⚠️ A Clara Law não é um escritório de advocacia e não representa o usuário.
+            Os documentos gerados são orientativos e para uso exclusivo do próprio usuário.
+            Para casos complexos, consulte um advogado.
           </p>
         </div>
 
@@ -289,13 +294,13 @@ export default function ContratoModal({
             onChange={(e) => setAceito(e.target.checked)}
             style={{ marginTop: 3, width: 18, height: 18, flexShrink: 0, accentColor: "#1a2340" }}
           />
-          Li e concordo com os termos. Autorizo a Clara Law a enviar a notificação
-          em meu nome e acompanhar meu caso.
+          Li e concordo. Entendo que a Clara Law é uma ferramenta educacional e
+          que sou eu quem age em meu nome.
         </label>
 
         {aceito && (
           <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 14, paddingLeft: 30 }}>
-            📄 Uma cópia PDF do contrato será baixada para o seu dispositivo.
+            📄 Uma cópia PDF dos termos será baixada para o seu dispositivo.
           </p>
         )}
 
