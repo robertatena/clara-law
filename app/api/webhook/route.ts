@@ -1,10 +1,121 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import nodemailer from "nodemailer";
 
 export const runtime = "nodejs";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_missing");
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
+
+// ─── ENTREGA POR E-MAIL ───────────────────────────────────────────────────────
+// Reutiliza mesma config do /api/enviar-email (GMAIL_USER + senha de app).
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_PASS,
+  },
+});
+
+type Produto = "pacote" | "analise" | "desconhecido";
+
+function itensPorProduto(produto: Produto): string[] {
+  if (produto === "pacote") {
+    return [
+      "E-mail de notificação com a lei certa",
+      "Orientação para ANAC e consumidor.gov.br",
+      "Petição para o JEC pronta para protocolar",
+      "Guia completo das etapas do processo",
+    ];
+  }
+  if (produto === "analise") {
+    return [
+      "Análise completa do seu contrato",
+      "Pontos de risco identificados",
+      "Perguntas para negociar antes de assinar",
+    ];
+  }
+  return [];
+}
+
+function montarHtml(produto: Produto): string {
+  const itens = itensPorProduto(produto);
+  const listaItens = itens
+    .map(
+      (i) =>
+        `<li style="color:#374151;line-height:1.7;margin-bottom:6px;">${i}</li>`
+    )
+    .join("");
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8" /></head>
+<body style="margin:0;padding:0;background:#F8F7F4;font-family:Arial,sans-serif;">
+  <div style="max-width:600px;margin:0 auto;padding:32px 20px;">
+
+    <div style="background:#1a2340;border-radius:12px;padding:24px;text-align:center;margin-bottom:20px;">
+      <div style="color:#D4AF37;font-size:11px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;">Clara Law</div>
+      <h1 style="color:#fff;font-size:24px;font-weight:800;margin:8px 0 0;">Tudo pronto. Agora é com você.</h1>
+    </div>
+
+    <div style="background:#fff;border-radius:12px;padding:28px 24px;border:1px solid #E0DDD6;">
+      <p style="color:#374151;font-size:15px;line-height:1.7;margin:0 0 20px;">
+        Obrigada por confiar na Clara Law. Seu kit foi gerado e está disponível.
+      </p>
+
+      ${
+        itens.length > 0
+          ? `<div style="background:#F8F7F4;border:1px solid #E0DDD6;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
+              <div style="color:#1a2340;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">O que você recebeu</div>
+              <ul style="margin:0;padding-left:20px;">${listaItens}</ul>
+            </div>`
+          : ""
+      }
+
+      <div style="text-align:center;margin:28px 0;">
+        <a href="https://www.claralaw.com.br/guia" style="display:inline-block;background:#D4AF37;color:#1a2340;font-weight:800;font-size:15px;padding:14px 28px;border-radius:40px;text-decoration:none;">
+          Acesse seu guia do processo →
+        </a>
+      </div>
+
+      <p style="color:#6b7280;font-size:14px;line-height:1.7;margin:20px 0 0;">
+        Dúvidas? Responda este e-mail ou escreva para
+        <a href="mailto:contato@claralaw.com.br" style="color:#185FA5;text-decoration:none;">contato@claralaw.com.br</a>.
+      </p>
+
+      <hr style="border:none;border-top:1px solid #E0DDD6;margin:24px 0 16px;" />
+
+      <p style="color:#9ca3af;font-size:11px;line-height:1.6;text-align:center;margin:0;">
+        A Clara Law é uma plataforma educacional. Os documentos são orientativos.
+      </p>
+    </div>
+
+  </div>
+</body>
+</html>`;
+}
+
+async function enviarConfirmacaoCompra(email: string, produto: Produto): Promise<void> {
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
+    console.warn("webhook_email_skipped_missing_credentials", {
+      hasUser: !!process.env.GMAIL_USER,
+      hasPass: !!process.env.GMAIL_PASS,
+    });
+    return;
+  }
+
+  const html = montarHtml(produto);
+
+  await transporter.sendMail({
+    from: `"Clara Law" <${process.env.GMAIL_USER}>`,
+    to: email,
+    subject: "Seu kit Clara Law está pronto 🎉",
+    html,
+  });
+}
+
+// ─── HANDLER ──────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
   const sig = req.headers.get("stripe-signature") || "";
@@ -27,24 +138,51 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_signature" }, { status: 400 });
   }
 
-  // Processa o evento. Sempre responder 200 (mesmo para eventos não tratados)
-  // — caso contrário Stripe retentará indefinidamente.
+  // Processa o evento. Sempre responder 200 (mesmo para eventos não tratados
+  // ou com erro de processamento) — caso contrário Stripe retentará
+  // indefinidamente. Falhas no envio de e-mail NÃO devem propagar.
   try {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const produto = session.metadata?.produto ?? "desconhecido";
-        const email = session.customer_email ?? session.metadata?.email ?? "(sem email)";
+        const produtoRaw = session.metadata?.produto ?? "desconhecido";
+        const produto: Produto =
+          produtoRaw === "pacote" || produtoRaw === "analise" ? produtoRaw : "desconhecido";
+        const email = session.customer_email || session.metadata?.email || "";
         const amountCents = session.amount_total ?? 0;
+
         console.log("checkout_completed", {
           session_id: session.id,
           produto,
-          email,
+          email: email || "(sem email)",
           amount_brl: (amountCents / 100).toFixed(2),
           payment_status: session.payment_status,
         });
-        // TODO: aqui é onde a entrega real do produto será disparada
-        // (e.g. enviar e-mail com documentos via nodemailer, registrar no Supabase, etc.)
+
+        // Entrega: e-mail de confirmação para o cliente.
+        // Erro no envio é logado mas NÃO propaga — respondemos 200 pro Stripe
+        // (retentar webhook não conserta uma falha de SMTP; problema fica
+        // registrado no log pra tratamento manual).
+        if (email && produto !== "desconhecido") {
+          try {
+            await enviarConfirmacaoCompra(email, produto);
+            console.log("delivery_email_sent", { session_id: session.id, email, produto });
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : "unknown";
+            console.error("delivery_email_failed", {
+              session_id: session.id,
+              email,
+              produto,
+              error: msg,
+            });
+          }
+        } else {
+          console.warn("delivery_email_not_sent", {
+            session_id: session.id,
+            reason: !email ? "missing_email" : "unknown_product",
+            produto,
+          });
+        }
         break;
       }
       default:

@@ -5,6 +5,14 @@ import ContratoModal from "@/components/ContratoModal";
 import { salvarCaso, uploadDocumento, uploadContrato, salvarLead } from "@/lib/supabase";
 import { useEffect, useRef, useState } from "react";
 
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+
+function emailValido(email: string): boolean {
+  const e = (email || "").trim();
+  // Formato mínimo: algo + @ + algo + . + algo (sem espaços)
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+}
+
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 
 type Modo = "contrato" | "caso" | "jec" | null;
@@ -202,6 +210,7 @@ export default function Page() {
         if (inputMethod === "paste" && pasted.trim().length < 50) { setError("Cole pelo menos um trecho do contrato."); return; }
       }
       if (step === 3 && !papelNoContrato) { setError("Escolha seu papel no contrato."); return; }
+      if (step === 4 && !emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
     }
     if (modo === "caso") {
       if (step === 1 && !tipoCaso) { setError("Escolha o que aconteceu com você."); return; }
@@ -255,6 +264,7 @@ export default function Page() {
   }
 
   function gerarPeticaoJec() {
+    if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
     salvarLead({ email: emailUsuario, origem: "jec" });
     const descricao = descricaoJecRef.current?.value || "";
     const foroNome = foroJec?.foro || "Juizado Especial Cível";
@@ -289,6 +299,7 @@ export default function Page() {
   }
 
   async function analisar() {
+    if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
     salvarLead({ email: emailUsuario, origem: "contrato" });
     try {
       setLoading(true); setError(""); setResultado(null);
@@ -318,6 +329,7 @@ export default function Page() {
   }
 
   async function analisarCaso() {
+    if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
     salvarLead({ email: emailUsuario, origem: "caso", tipo_caso: tipoCaso ?? undefined });
     try {
       setLoading(true); setError(""); setResultado(null);
@@ -358,6 +370,8 @@ export default function Page() {
 
   async function handleCheckout() {
     if (!resultado) return;
+    if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
+    setError("");
     setCheckoutLoading(true);
     localStorage.setItem("clara_resultado", JSON.stringify({ resultado, contractType, modo }));
     try {
@@ -365,7 +379,7 @@ export default function Page() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: emailUsuario || "nao_informado@clara.law",
+          email: emailUsuario,
           origin: window.location.origin,
           produto: "analise",
         }),
@@ -515,9 +529,9 @@ export default function Page() {
 
         {/* CONTRATO step 4 */}
         {modo === "contrato" && step === 4 && (
-          <Shell title="Qual é o seu e-mail?" subtitle="Para você receber o resultado — opcional.">
-            <input type="email" value={emailUsuario} onChange={(e) => setEmailUsuario(e.target.value)}
-              placeholder="voce@email.com (opcional)"
+          <Shell title="Qual é o seu e-mail?" subtitle="Você vai receber a análise e os documentos por aqui.">
+            <input type="email" required value={emailUsuario} onChange={(e) => setEmailUsuario(e.target.value)}
+              placeholder="voce@email.com"
               className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-lg outline-none" />
             <Nav nextLabel="Revisar e analisar" onNext={next} onBack={back} />
           </Shell>
@@ -825,9 +839,9 @@ export default function Page() {
 
         {/* CASO step 3 — e-mail */}
         {modo === "caso" && step === 3 && (
-          <Shell title="Qual é o seu e-mail?" subtitle="Para enviar o plano de ação e acompanhar o caso — opcional.">
-            <input type="email" value={emailUsuario} onChange={(e) => setEmailUsuario(e.target.value)}
-              placeholder="voce@email.com (opcional)"
+          <Shell title="Qual é o seu e-mail?" subtitle="Você vai receber o plano de ação e os documentos por aqui.">
+            <input type="email" required value={emailUsuario} onChange={(e) => setEmailUsuario(e.target.value)}
+              placeholder="voce@email.com"
               className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-lg outline-none" />
             <div className="mt-8 flex items-center justify-between mobile-action-row">
               <button type="button" onClick={back} className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700">Voltar</button>
@@ -978,9 +992,10 @@ export default function Page() {
               </div>
             </div>
             <div className="mb-6">
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Seu e-mail (opcional)</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Seu e-mail <span className="text-red-500">*</span></label>
               <input
                 type="email"
+                required
                 value={emailUsuario}
                 onChange={(e) => setEmailUsuario(e.target.value)}
                 placeholder="voce@email.com"
@@ -1188,21 +1203,26 @@ export default function Page() {
                   <button
                     type="button"
                     onClick={async () => {
+                      if (!emailValido(emailUsuario)) {
+                        setError("Informe seu e-mail para receber os documentos");
+                        return;
+                      }
+                      setError("");
                       try {
                         const res = await fetch("/api/checkout", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({
-                            email: emailUsuario || "nao_informado@clara.law",
+                            email: emailUsuario,
                             origin: window.location.origin,
                             produto: "pacote",
                           }),
                         });
                         const data = await res.json();
                         if (data.url) window.location.href = data.url;
-                        else alert("Não foi possível iniciar o pagamento. Tente novamente.");
+                        else setError("Não foi possível iniciar o pagamento. Tente novamente.");
                       } catch {
-                        alert("Erro ao iniciar o pagamento. Tente novamente.");
+                        setError("Erro ao iniciar o pagamento. Tente novamente.");
                       }
                     }}
                     className="w-full rounded-full bg-[#D4AF37] text-[#0e2b50] font-black text-base py-4"
