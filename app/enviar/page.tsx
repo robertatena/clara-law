@@ -2,7 +2,7 @@
 
 import LegalInsightsCard from "@/components/LegalInsightsCard";
 import ContratoModal from "@/components/ContratoModal";
-import { salvarCaso, uploadDocumento, uploadContrato, marcarEmailEnviado, salvarLead } from "@/lib/supabase";
+import { salvarCaso, uploadDocumento, uploadContrato, salvarLead } from "@/lib/supabase";
 import { useEffect, useRef, useState } from "react";
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
@@ -132,8 +132,9 @@ export default function Page() {
   const [docBilhete, setDocBilhete] = useState<File | null>(null);
   const [docAtraso, setDocAtraso] = useState<File | null>(null);
   const [docDespesas, setDocDespesas] = useState<File | null>(null);
-  const [enviandoEmail, setEnviandoEmail] = useState(false);
-  const [emailEnviado, setEmailEnviado] = useState(false);
+  const [modalEmailAberto, setModalEmailAberto] = useState(false);
+  const [emailCopiado, setEmailCopiado] = useState(false);
+  const [emailPreviewData, setEmailPreviewData] = useState<{ assunto: string; corpo: string; para: string; ciaNome: string } | null>(null);
 
   // JEC state
   const [cepEmpresa, setCepEmpresa] = useState("");
@@ -747,6 +748,104 @@ export default function Page() {
               </button>
             </div>
 
+            {/* Modal: e-mail pronto para o usuário copiar e enviar do próprio e-mail */}
+            {modalEmailAberto && emailPreviewData && (
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Seu e-mail está pronto"
+                style={{
+                  position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+                  zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center",
+                  padding: "24px",
+                }}
+                onClick={() => setModalEmailAberto(false)}
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    background: "#fff", borderRadius: 20, maxWidth: 640, width: "100%",
+                    maxHeight: "90vh", overflow: "auto", padding: "32px 30px",
+                    boxShadow: "0 24px 64px rgba(0,0,0,0.2)",
+                  }}
+                >
+                  <div style={{ textAlign: "center", marginBottom: 20 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 6 }}>
+                      Clara Law
+                    </div>
+                    <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 22, color: "#1a2340", margin: 0 }}>
+                      Seu e-mail está pronto
+                    </h2>
+                    <p style={{ fontSize: 13, color: "#6b7280", marginTop: 6, lineHeight: 1.55 }}>
+                      Copie o texto abaixo e envie do seu próprio e-mail para a companhia.
+                    </p>
+                  </div>
+
+                  {/* Metadados: Para + Assunto */}
+                  <div style={{ background: "#F0F4FF", border: "1px solid #C7D2FE", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: "#3730a3", lineHeight: 1.7 }}>
+                    <div><strong>Para:</strong> {emailPreviewData.para}</div>
+                    <div style={{ marginTop: 4 }}><strong>Assunto:</strong> {emailPreviewData.assunto}</div>
+                  </div>
+
+                  {/* Box do e-mail — monospace, selecionável */}
+                  <div style={{
+                    background: "#F8F7F4", border: "1px solid #E0DDD6", borderRadius: 12,
+                    padding: "16px 18px", marginBottom: 16,
+                    fontFamily: "ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
+                    fontSize: 13, color: "#374151", lineHeight: 1.65,
+                    whiteSpace: "pre-wrap", wordBreak: "break-word",
+                    maxHeight: 320, overflow: "auto",
+                    userSelect: "text",
+                  }}>
+                    {emailPreviewData.corpo}
+                  </div>
+
+                  {/* Botões */}
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(emailPreviewData.corpo);
+                          setEmailCopiado(true);
+                          setTimeout(() => setEmailCopiado(false), 2000);
+                        } catch {
+                          alert("Não foi possível copiar automaticamente. Selecione o texto e use Ctrl+C.");
+                        }
+                      }}
+                      style={{
+                        flex: 1, minWidth: 200,
+                        padding: "14px 20px", borderRadius: 40, border: "none",
+                        background: emailCopiado ? "#10b981" : "#1a2340",
+                        color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
+                        transition: "background 0.2s",
+                      }}
+                    >
+                      {emailCopiado ? "✓ Copiado!" : "📋 Copiar e-mail"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModalEmailAberto(false);
+                        setTimeout(() => {
+                          document.getElementById("roadmap")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }, 100);
+                      }}
+                      style={{
+                        flex: 1, minWidth: 180,
+                        padding: "13px 18px", borderRadius: 40,
+                        border: "1.5px solid #D1CCC4",
+                        background: "#fff", color: "#1a2340",
+                        fontSize: 14, fontWeight: 600, cursor: "pointer",
+                      }}
+                    >
+                      Ver próximos passos →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Modal de contrato */}
             {mostrarContrato && (
               <ContratoModal
@@ -1156,63 +1255,36 @@ export default function Page() {
                       </div>
                     );
                   })()}
-                  {/* Botão de envio de e-mail pela Clara */}
-                  {!emailEnviado ? (
-                    <button
-                      type="button"
-                      disabled={enviandoEmail}
-                      onClick={async () => {
-                        const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
-                        if (!cia || cia.id === "outra" || !cia.email) {
-                          alert("Companhia sem e-mail direto cadastrado. Use o formulário oficial.");
-                          return;
-                        }
-                        setEnviandoEmail(true);
-                        try {
-                          const emailData = gerarEmailEmpresa(tipoCaso!, `Passageiro ${nomeCompleto}${cpf ? ", CPF " + cpf : ""}. Voo ${numVoo}${dataVoo ? " em " + new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : ""}. ${SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo || ""}.`, cia);
-                          const res = await fetch("/api/enviar-email", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              nomePassageiro: nomeCompleto,
-                              emailPassageiro: emailUsuario,
-                              ciaAerea: cia.nome,
-                              emailCia: cia.email,
-                              numVoo,
-                              dataVoo,
-                              cpf,
-                              tempoAtraso,
-                              assunto: emailData.assunto,
-                              corpo: emailData.corpo,
-                            }),
-                          });
-                          if (res.ok) {
-                            setEmailEnviado(true);
-                            if (casoId) await marcarEmailEnviado(casoId);
-                          } else {
-                            alert("Erro ao enviar. Tente novamente.");
-                          }
-                        } catch {
-                          alert("Erro ao enviar. Tente novamente.");
-                        } finally {
-                          setEnviandoEmail(false);
-                        }
-                      }}
-                      className="w-full rounded-full bg-[#D4AF37] text-[#0e2b50] font-black text-base py-4 mb-2">
-                      {enviandoEmail ? "Enviando..." : "✉️ Clara envia o e-mail para a companhia agora"}
-                    </button>
-                  ) : (
-                    <div className="w-full rounded-full bg-green-100 border border-green-300 text-green-800 font-bold text-sm py-4 mb-2 text-center">
-                      ✅ E-mail enviado para {CIAS_AEREAS.find(c => c.id === ciaAerea)?.nome} — você receberá a confirmação
-                    </div>
-                  )}
-                  <p className="text-xs text-[#93b4d4] mt-2">Sem custo agora · notificação formal enviada em seu nome</p>
+                  {/* Botão que abre o modal do e-mail pronto — o usuário envia do próprio e-mail */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
+                      const emailData = gerarEmailEmpresa(
+                        tipoCaso!,
+                        `Passageiro ${nomeCompleto}${cpf ? ", CPF " + cpf : ""}. Voo ${numVoo}${dataVoo ? " em " + new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : ""}. ${SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo || ""}.`,
+                        cia
+                      );
+                      const assuntoModal = `Notificação Extrajudicial — Voo ${numVoo || "[número]"}${nomeCompleto ? " — " + nomeCompleto : ""}`;
+                      setEmailPreviewData({
+                        assunto: assuntoModal,
+                        corpo: emailData.corpo,
+                        para: cia?.email && cia.id !== "outra" ? cia.email : "consulte o site da companhia",
+                        ciaNome: cia?.nome || "companhia aérea",
+                      });
+                      setEmailCopiado(false);
+                      setModalEmailAberto(true);
+                    }}
+                    className="w-full rounded-full bg-[#D4AF37] text-[#0e2b50] font-black text-base py-4 mb-2">
+                    Ver meu e-mail pronto →
+                  </button>
+                  <p className="text-xs text-[#93b4d4] mt-2">Você envia do seu próprio e-mail · gratuito</p>
                 </div>
 
                 {/* Roadmap */}
-                <div className="rounded-[24px] border border-slate-200 bg-white p-6">
-                  <h3 className="text-xl font-bold text-[#0e2b50] mb-1">O que a Clara faz pelo seu caso</h3>
-                  <p className="text-sm text-slate-500 mb-6">Três etapas em ordem — a Clara conduz cada uma delas por você.</p>
+                <div id="roadmap" className="rounded-[24px] border border-slate-200 bg-white p-6 scroll-mt-6">
+                  <h3 className="text-xl font-bold text-[#0e2b50] mb-1">O que você vai fazer — com a Clara te guiando</h3>
+                  <p className="text-sm text-slate-500 mb-6">Três etapas em ordem — a Clara prepara tudo, você age.</p>
                   <div className="space-y-0">
 
                     {/* Etapa 1 */}
@@ -1223,10 +1295,10 @@ export default function Page() {
                       </div>
                       <div className="pb-6 flex-1 min-w-0">
                         <div className="text-xs font-semibold text-green-600 uppercase tracking-wider mb-0.5">Etapa 1 · Prazo: até 10 dias</div>
-                        <div className="text-base font-bold text-[#0e2b50] mb-1">Notificação formal para a cia aérea</div>
-                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">A Clara envia um e-mail jurídico com seu nome, número do voo e base legal (Resolução ANAC 400/2016) exigindo indenização. A maioria das empresas responde nesta etapa.</p>
+                        <div className="text-base font-bold text-[#0e2b50] mb-1">Você envia a notificação para a cia aérea</div>
+                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">A Clara gerou o e-mail com a lei certa. Você copia e envia do seu próprio e-mail. A maioria das empresas responde nesta etapa.</p>
                         <div className="rounded-[12px] bg-green-50 border border-green-100 p-3">
-                          <div className="text-xs font-semibold text-green-700 mb-2">Documentos que você envia para a Clara</div>
+                          <div className="text-xs font-semibold text-green-700 mb-2">Documentos que você vai precisar</div>
                           {[
                             "Comprovante de reserva ou bilhete",
                             "Comprovante do problema — print do app, e-mail da cia ou boarding pass",
@@ -1246,8 +1318,8 @@ export default function Page() {
                       </div>
                       <div className="pb-6 flex-1 min-w-0">
                         <div className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-0.5">Etapa 2 · Se a empresa não resolver</div>
-                        <div className="text-base font-bold text-[#0e2b50] mb-1">Registro na ANAC e consumidor.gov.br</div>
-                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">A Clara registra a reclamação nos dois órgãos reguladores. Isso pressiona a empresa publicamente e cria um histórico oficial do caso — essencial se precisar ir ao JEC.</p>
+                        <div className="text-base font-bold text-[#0e2b50] mb-1">Você registra na ANAC e consumidor.gov.br</div>
+                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">A Clara te mostra exatamente onde e como registrar. Isso pressiona a empresa publicamente e cria histórico oficial — essencial se precisar ir ao JEC.</p>
                         <div className="rounded-[12px] bg-amber-50 border border-amber-100 p-3">
                           <div className="text-xs font-semibold text-amber-700 mb-2">Documentos adicionais nesta etapa</div>
                           {[
@@ -1267,8 +1339,8 @@ export default function Page() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-semibold text-[#854F0B] uppercase tracking-wider mb-0.5">Etapa 3 · Caso extremo — sem advogado</div>
-                        <div className="text-base font-bold text-[#0e2b50] mb-1">Ação no Juizado Especial Cível (JEC)</div>
-                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">Se as etapas anteriores não resolverem, a Clara prepara e protocola a petição no JEC competente. É gratuito, sem advogado necessário, e o processo corre por e-mail na maioria dos foros. A empresa ré tem endereço preenchido automaticamente.</p>
+                        <div className="text-base font-bold text-[#0e2b50] mb-1">Você protocola no Juizado Especial Cível (JEC)</div>
+                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">Se as etapas anteriores não resolverem, a Clara gera sua petição formatada. Você protocola no JEC competente. É gratuito, sem advogado necessário, e o processo corre por e-mail na maioria dos foros. A empresa ré tem endereço preenchido automaticamente.</p>
                         <div className="rounded-[12px] bg-slate-50 border border-slate-200 p-3">
                           <div className="text-xs font-semibold text-slate-600 mb-2">Documentos adicionais para o JEC</div>
                           {[
