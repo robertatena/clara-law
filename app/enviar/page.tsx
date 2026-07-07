@@ -748,104 +748,6 @@ export default function Page() {
               </button>
             </div>
 
-            {/* Modal: e-mail pronto para o usuário copiar e enviar do próprio e-mail */}
-            {modalEmailAberto && emailPreviewData && (
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-label="Seu e-mail está pronto"
-                style={{
-                  position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
-                  zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center",
-                  padding: "24px",
-                }}
-                onClick={() => setModalEmailAberto(false)}
-              >
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  style={{
-                    background: "#fff", borderRadius: 20, maxWidth: 640, width: "100%",
-                    maxHeight: "90vh", overflow: "auto", padding: "32px 30px",
-                    boxShadow: "0 24px 64px rgba(0,0,0,0.2)",
-                  }}
-                >
-                  <div style={{ textAlign: "center", marginBottom: 20 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 6 }}>
-                      Clara Law
-                    </div>
-                    <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 22, color: "#1a2340", margin: 0 }}>
-                      Seu e-mail está pronto
-                    </h2>
-                    <p style={{ fontSize: 13, color: "#6b7280", marginTop: 6, lineHeight: 1.55 }}>
-                      Copie o texto abaixo e envie do seu próprio e-mail para a companhia.
-                    </p>
-                  </div>
-
-                  {/* Metadados: Para + Assunto */}
-                  <div style={{ background: "#F0F4FF", border: "1px solid #C7D2FE", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: "#3730a3", lineHeight: 1.7 }}>
-                    <div><strong>Para:</strong> {emailPreviewData.para}</div>
-                    <div style={{ marginTop: 4 }}><strong>Assunto:</strong> {emailPreviewData.assunto}</div>
-                  </div>
-
-                  {/* Box do e-mail — monospace, selecionável */}
-                  <div style={{
-                    background: "#F8F7F4", border: "1px solid #E0DDD6", borderRadius: 12,
-                    padding: "16px 18px", marginBottom: 16,
-                    fontFamily: "ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
-                    fontSize: 13, color: "#374151", lineHeight: 1.65,
-                    whiteSpace: "pre-wrap", wordBreak: "break-word",
-                    maxHeight: 320, overflow: "auto",
-                    userSelect: "text",
-                  }}>
-                    {emailPreviewData.corpo}
-                  </div>
-
-                  {/* Botões */}
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(emailPreviewData.corpo);
-                          setEmailCopiado(true);
-                          setTimeout(() => setEmailCopiado(false), 2000);
-                        } catch {
-                          alert("Não foi possível copiar automaticamente. Selecione o texto e use Ctrl+C.");
-                        }
-                      }}
-                      style={{
-                        flex: 1, minWidth: 200,
-                        padding: "14px 20px", borderRadius: 40, border: "none",
-                        background: emailCopiado ? "#10b981" : "#1a2340",
-                        color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
-                        transition: "background 0.2s",
-                      }}
-                    >
-                      {emailCopiado ? "✓ Copiado!" : "📋 Copiar e-mail"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setModalEmailAberto(false);
-                        setTimeout(() => {
-                          document.getElementById("roadmap")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                        }, 100);
-                      }}
-                      style={{
-                        flex: 1, minWidth: 180,
-                        padding: "13px 18px", borderRadius: 40,
-                        border: "1.5px solid #D1CCC4",
-                        background: "#fff", color: "#1a2340",
-                        fontSize: 14, fontWeight: 600, cursor: "pointer",
-                      }}
-                    >
-                      Ver próximos passos →
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Modal de contrato */}
             {mostrarContrato && (
               <ContratoModal
@@ -1363,15 +1265,23 @@ export default function Page() {
                   <p className="text-sm text-slate-600 mb-4">A Clara prepara tudo. Você envia, você age.</p>
                   <button
                     type="button"
-                    onClick={() => {
-                      const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
-                      if (cia && cia.id !== "outra") setNomeEmpresa(cia.nome);
-                      const jecDesc = nomeCompleto
-                        ? `Passageiro ${nomeCompleto}${cpf ? ", CPF " + cpf : ""}. Voo ${numVoo}${dataVoo ? " em " + new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : ""}. ${SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo || ""}.`
-                        : "";
-                      setDefaultDescricaoJec(jecDesc);
-                      setResultado(null); setForoJec(null); setPeticaoJec(null);
-                      window.scrollTo(0, 0); escolherModo("jec");
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("/api/checkout", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            email: emailUsuario || "nao_informado@clara.law",
+                            origin: window.location.origin,
+                            produto: "pacote",
+                          }),
+                        });
+                        const data = await res.json();
+                        if (data.url) window.location.href = data.url;
+                        else alert("Não foi possível iniciar o pagamento. Tente novamente.");
+                      } catch {
+                        alert("Erro ao iniciar o pagamento. Tente novamente.");
+                      }
                     }}
                     className="rounded-full bg-[#0e2b50] text-white font-bold text-sm px-8 py-3">
                     Quero meu pacote completo →
@@ -1665,6 +1575,104 @@ export default function Page() {
           .clara-mobile-fix textarea { min-height: 180px !important; }
         }
       `}</style>
+
+      {/* Modal: e-mail pronto — MONTADO NO NÍVEL EXTERNO para funcionar em qualquer step */}
+      {modalEmailAberto && emailPreviewData && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Seu e-mail está pronto"
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+            zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "24px",
+          }}
+          onClick={() => setModalEmailAberto(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff", borderRadius: 20, maxWidth: 640, width: "100%",
+              maxHeight: "90vh", overflow: "auto", padding: "32px 30px",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.2)",
+            }}
+          >
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 6 }}>
+                Clara Law
+              </div>
+              <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 22, color: "#1a2340", margin: 0 }}>
+                Seu e-mail está pronto
+              </h2>
+              <p style={{ fontSize: 13, color: "#6b7280", marginTop: 6, lineHeight: 1.55 }}>
+                Copie o texto abaixo e envie do seu próprio e-mail para a companhia.
+              </p>
+            </div>
+
+            {/* Metadados: Para + Assunto */}
+            <div style={{ background: "#F0F4FF", border: "1px solid #C7D2FE", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: "#3730a3", lineHeight: 1.7 }}>
+              <div><strong>Para:</strong> {emailPreviewData.para}</div>
+              <div style={{ marginTop: 4 }}><strong>Assunto:</strong> {emailPreviewData.assunto}</div>
+            </div>
+
+            {/* Box do e-mail — monospace, selecionável */}
+            <div style={{
+              background: "#F8F7F4", border: "1px solid #E0DDD6", borderRadius: 12,
+              padding: "16px 18px", marginBottom: 16,
+              fontFamily: "ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
+              fontSize: 13, color: "#374151", lineHeight: 1.65,
+              whiteSpace: "pre-wrap", wordBreak: "break-word",
+              maxHeight: 320, overflow: "auto",
+              userSelect: "text",
+            }}>
+              {emailPreviewData.corpo}
+            </div>
+
+            {/* Botões */}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(emailPreviewData.corpo);
+                    setEmailCopiado(true);
+                    setTimeout(() => setEmailCopiado(false), 2000);
+                  } catch {
+                    alert("Não foi possível copiar automaticamente. Selecione o texto e use Ctrl+C.");
+                  }
+                }}
+                style={{
+                  flex: 1, minWidth: 200,
+                  padding: "14px 20px", borderRadius: 40, border: "none",
+                  background: emailCopiado ? "#10b981" : "#1a2340",
+                  color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
+                  transition: "background 0.2s",
+                }}
+              >
+                {emailCopiado ? "✓ Copiado!" : "📋 Copiar e-mail"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setModalEmailAberto(false);
+                  setTimeout(() => {
+                    document.getElementById("roadmap")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 100);
+                }}
+                style={{
+                  flex: 1, minWidth: 180,
+                  padding: "13px 18px", borderRadius: 40,
+                  border: "1.5px solid #D1CCC4",
+                  background: "#fff", color: "#1a2340",
+                  fontSize: 14, fontWeight: 600, cursor: "pointer",
+                }}
+              >
+                Ver próximos passos →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
