@@ -132,9 +132,6 @@ export default function Page() {
   const [docBilhete, setDocBilhete] = useState<File | null>(null);
   const [docAtraso, setDocAtraso] = useState<File | null>(null);
   const [docDespesas, setDocDespesas] = useState<File | null>(null);
-  const [modalEmailAberto, setModalEmailAberto] = useState(false);
-  const [emailCopiado, setEmailCopiado] = useState(false);
-  const [emailPreviewData, setEmailPreviewData] = useState<{ assunto: string; corpo: string; para: string; ciaNome: string } | null>(null);
 
   // JEC state
   const [cepEmpresa, setCepEmpresa] = useState("");
@@ -1135,13 +1132,10 @@ export default function Page() {
             {isVoo ? (
               /* ── VOO: CLARA PREPARA ── */
               <>
-                {/* Hero */}
+                {/* Hero — card do resultado */}
                 <div className="rounded-[24px] bg-[#0e2b50] p-6 text-white text-center">
                   <div className="text-5xl mb-3">⚖️</div>
-                  <h3 className="text-2xl font-black mb-2">A Clara prepara seu caso</h3>
-                  <p className="text-[#93b4d4] text-sm leading-relaxed mb-4">
-                    <strong className="text-white">R$49,90 por caso — pagamento único</strong>. Você recebe os documentos prontos e age no seu nome.
-                  </p>
+
                   {nomeCompleto && (() => {
                     const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
                     const dataFmt = dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : "";
@@ -1157,30 +1151,65 @@ export default function Page() {
                       </div>
                     );
                   })()}
-                  {/* Botão que abre o modal do e-mail pronto — o usuário envia do próprio e-mail */}
+
+                  {/* Título + subtítulo */}
+                  <h3 className="text-2xl font-black mb-2">Seu caso tem solução.</h3>
+                  <p className="text-[#93b4d4] text-sm leading-relaxed mb-4">
+                    A Clara analisou e preparou tudo. Você recebe o kit completo para resolver do início ao fim — sem advogado, no seu tempo.
+                  </p>
+
+                  {/* Kit — lista do que vem no pacote */}
+                  <div
+                    className="text-left mb-5"
+                    style={{
+                      background: "rgba(255,255,255,0.07)",
+                      borderRadius: 12,
+                      padding: 16,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                    }}
+                  >
+                    {[
+                      { icon: "📧", texto: "E-mail de notificação com a lei certa" },
+                      { icon: "📋", texto: "Orientação para ANAC e consumidor.gov.br" },
+                      { icon: "⚖️", texto: "Petição para o JEC pronta para protocolar" },
+                      { icon: "🗺️", texto: "Guia completo das etapas do processo" },
+                      { icon: "💬", texto: "O que fazer quando chegar a intimação" },
+                    ].map((item) => (
+                      <div key={item.texto} className="flex items-start gap-3 text-white" style={{ fontSize: 14, lineHeight: 1.5 }}>
+                        <span className="flex-shrink-0" aria-hidden="true">{item.icon}</span>
+                        <span>{item.texto}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Botão único de pagamento */}
                   <button
                     type="button"
-                    onClick={() => {
-                      const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
-                      const emailData = gerarEmailEmpresa(
-                        tipoCaso!,
-                        `Passageiro ${nomeCompleto}${cpf ? ", CPF " + cpf : ""}. Voo ${numVoo}${dataVoo ? " em " + new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : ""}. ${SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo || ""}.`,
-                        cia
-                      );
-                      const assuntoModal = `Notificação Extrajudicial — Voo ${numVoo || "[número]"}${nomeCompleto ? " — " + nomeCompleto : ""}`;
-                      setEmailPreviewData({
-                        assunto: assuntoModal,
-                        corpo: emailData.corpo,
-                        para: cia?.email && cia.id !== "outra" ? cia.email : "consulte o site da companhia",
-                        ciaNome: cia?.nome || "companhia aérea",
-                      });
-                      setEmailCopiado(false);
-                      setModalEmailAberto(true);
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("/api/checkout", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            email: emailUsuario || "nao_informado@clara.law",
+                            origin: window.location.origin,
+                            produto: "pacote",
+                          }),
+                        });
+                        const data = await res.json();
+                        if (data.url) window.location.href = data.url;
+                        else alert("Não foi possível iniciar o pagamento. Tente novamente.");
+                      } catch {
+                        alert("Erro ao iniciar o pagamento. Tente novamente.");
+                      }
                     }}
-                    className="w-full rounded-full bg-[#D4AF37] text-[#0e2b50] font-black text-base py-4 mb-2">
-                    Ver meu e-mail pronto →
+                    className="w-full rounded-full bg-[#D4AF37] text-[#0e2b50] font-black text-base py-4"
+                  >
+                    Quero resolver meu caso →
                   </button>
-                  <p className="text-xs text-[#93b4d4] mt-2">Você envia do seu próprio e-mail · gratuito</p>
+                  <p className="text-xs text-[#93b4d4] mt-2 text-center">R$49,90 · pagamento único · você recebe tudo por e-mail</p>
                 </div>
 
                 {/* Roadmap */}
@@ -1259,35 +1288,9 @@ export default function Page() {
                   </div>
                 </div>
 
-                {/* Segundo CTA */}
-                <div className="rounded-[24px] border-2 border-[#D4AF37] bg-amber-50 p-6 text-center">
-                  <div className="text-lg font-bold text-[#0e2b50] mb-1">Pronto para começar?</div>
-                  <p className="text-sm text-slate-600 mb-4">A Clara prepara tudo. Você envia, você age.</p>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        const res = await fetch("/api/checkout", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            email: emailUsuario || "nao_informado@clara.law",
-                            origin: window.location.origin,
-                            produto: "pacote",
-                          }),
-                        });
-                        const data = await res.json();
-                        if (data.url) window.location.href = data.url;
-                        else alert("Não foi possível iniciar o pagamento. Tente novamente.");
-                      } catch {
-                        alert("Erro ao iniciar o pagamento. Tente novamente.");
-                      }
-                    }}
-                    className="rounded-full bg-[#0e2b50] text-white font-bold text-sm px-8 py-3">
-                    Quero meu pacote completo →
-                  </button>
-                  <p className="text-xs text-slate-500 mt-2">R$49,90 · pagamento único</p>
-                </div>
+                <p className="text-center" style={{ color: "#6b7280", fontSize: 13, marginTop: 8 }}>
+                  ↑ Comece pelo botão acima para receber seu kit completo.
+                </p>
               </>
             ) : (
               /* ── OUTROS CASOS: passos para o usuário ── */
@@ -1575,104 +1578,6 @@ export default function Page() {
           .clara-mobile-fix textarea { min-height: 180px !important; }
         }
       `}</style>
-
-      {/* Modal: e-mail pronto — MONTADO NO NÍVEL EXTERNO para funcionar em qualquer step */}
-      {modalEmailAberto && emailPreviewData && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Seu e-mail está pronto"
-          style={{
-            position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
-            zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center",
-            padding: "24px",
-          }}
-          onClick={() => setModalEmailAberto(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "#fff", borderRadius: 20, maxWidth: 640, width: "100%",
-              maxHeight: "90vh", overflow: "auto", padding: "32px 30px",
-              boxShadow: "0 24px 64px rgba(0,0,0,0.2)",
-            }}
-          >
-            <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 6 }}>
-                Clara Law
-              </div>
-              <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 22, color: "#1a2340", margin: 0 }}>
-                Seu e-mail está pronto
-              </h2>
-              <p style={{ fontSize: 13, color: "#6b7280", marginTop: 6, lineHeight: 1.55 }}>
-                Copie o texto abaixo e envie do seu próprio e-mail para a companhia.
-              </p>
-            </div>
-
-            {/* Metadados: Para + Assunto */}
-            <div style={{ background: "#F0F4FF", border: "1px solid #C7D2FE", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: "#3730a3", lineHeight: 1.7 }}>
-              <div><strong>Para:</strong> {emailPreviewData.para}</div>
-              <div style={{ marginTop: 4 }}><strong>Assunto:</strong> {emailPreviewData.assunto}</div>
-            </div>
-
-            {/* Box do e-mail — monospace, selecionável */}
-            <div style={{
-              background: "#F8F7F4", border: "1px solid #E0DDD6", borderRadius: 12,
-              padding: "16px 18px", marginBottom: 16,
-              fontFamily: "ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
-              fontSize: 13, color: "#374151", lineHeight: 1.65,
-              whiteSpace: "pre-wrap", wordBreak: "break-word",
-              maxHeight: 320, overflow: "auto",
-              userSelect: "text",
-            }}>
-              {emailPreviewData.corpo}
-            </div>
-
-            {/* Botões */}
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(emailPreviewData.corpo);
-                    setEmailCopiado(true);
-                    setTimeout(() => setEmailCopiado(false), 2000);
-                  } catch {
-                    alert("Não foi possível copiar automaticamente. Selecione o texto e use Ctrl+C.");
-                  }
-                }}
-                style={{
-                  flex: 1, minWidth: 200,
-                  padding: "14px 20px", borderRadius: 40, border: "none",
-                  background: emailCopiado ? "#10b981" : "#1a2340",
-                  color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer",
-                  transition: "background 0.2s",
-                }}
-              >
-                {emailCopiado ? "✓ Copiado!" : "📋 Copiar e-mail"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setModalEmailAberto(false);
-                  setTimeout(() => {
-                    document.getElementById("roadmap")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }, 100);
-                }}
-                style={{
-                  flex: 1, minWidth: 180,
-                  padding: "13px 18px", borderRadius: 40,
-                  border: "1.5px solid #D1CCC4",
-                  background: "#fff", color: "#1a2340",
-                  fontSize: 14, fontWeight: 600, cursor: "pointer",
-                }}
-              >
-                Ver próximos passos →
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
