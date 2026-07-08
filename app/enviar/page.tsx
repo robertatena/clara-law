@@ -132,6 +132,26 @@ export default function Page() {
   const [avisoPrevia] = useState("");
   const [tipoBagagem] = useState("");
 
+  // Voo cancelado — campos específicos (reusa nomeCompleto, cpf, numVoo, dataVoo, ciaAerea)
+  const [voocanOferecido, setVoocanOferecido] = useState("");
+  const [voocanAviso, setVoocanAviso] = useState("");
+  const [voocanPrejuizos, setVoocanPrejuizos] = useState<string[]>([]);
+
+  // Cobrança indevida / Serasa
+  const [cobrancaTipo, setCobrancaTipo] = useState("");
+  const [cobrancaEmpresa, setCobrancaEmpresa] = useState("");
+  const [cobrancaValor, setCobrancaValor] = useState("");
+  const [cobrancaSerasa, setCobrancaSerasa] = useState("");
+  const [cobrancaComprovante, setCobrancaComprovante] = useState("");
+
+  // Produto com defeito
+  const [prodNome, setProdNome] = useState("");
+  const [prodProblema, setProdProblema] = useState("");
+  const [prodPrazo, setProdPrazo] = useState("");
+  const [prodOnde, setProdOnde] = useState("");
+  const [prodEmpresa, setProdEmpresa] = useState("");
+  const [prodValor, setProdValor] = useState("");
+
   // Novos estados
   const [telefone, setTelefone] = useState("");
   const [mostrarContrato, setMostrarContrato] = useState(false);
@@ -159,6 +179,7 @@ export default function Page() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const isVoo = tipoCaso === "voo_atrasado" || tipoCaso === "voo_cancelado" || tipoCaso === "bagagem";
+  const isCasoAtivo = tipoCaso === "voo_atrasado" || tipoCaso === "voo_cancelado" || tipoCaso === "cobranca_indevida" || tipoCaso === "produto_defeito";
   const totalStepsContrato = 5;
   const totalStepsCaso = 3;
   const totalStepsJec = 3;
@@ -215,11 +236,31 @@ export default function Page() {
     if (modo === "caso") {
       if (step === 1 && !tipoCaso) { setError("Escolha o que aconteceu com você."); return; }
       if (step === 2) {
-        if (isVoo) {
+        if (tipoCaso === "voo_atrasado") {
           if (!nomeCompleto.trim()) { setError("Informe seu nome completo."); return; }
           if (!numVoo.trim()) { setError("Informe o número do voo."); return; }
           if (!dataVoo) { setError("Informe a data do voo."); return; }
           if (!ciaAerea) { setError("Selecione a companhia aérea."); return; }
+        } else if (tipoCaso === "voo_cancelado") {
+          if (!nomeCompleto.trim()) { setError("Informe seu nome completo."); return; }
+          if (!numVoo.trim()) { setError("Informe o número do voo."); return; }
+          if (!dataVoo) { setError("Informe a data do voo."); return; }
+          if (!ciaAerea) { setError("Selecione a companhia aérea."); return; }
+          if (!voocanOferecido) { setError("Selecione o que a companhia ofereceu."); return; }
+          if (!voocanAviso) { setError("Selecione quando você soube do cancelamento."); return; }
+        } else if (tipoCaso === "cobranca_indevida") {
+          if (!cobrancaTipo) { setError("Selecione o que a empresa fez."); return; }
+          if (!cobrancaEmpresa.trim()) { setError("Informe o nome da empresa."); return; }
+          if (!cobrancaValor.trim()) { setError("Informe o valor cobrado."); return; }
+          if (!cobrancaSerasa) { setError("Informe se seu nome foi ao Serasa/SPC."); return; }
+          if (!cobrancaComprovante) { setError("Informe se você tem comprovante."); return; }
+        } else if (tipoCaso === "produto_defeito") {
+          if (!prodNome.trim()) { setError("Informe o que você comprou."); return; }
+          if (!prodProblema) { setError("Selecione qual o problema."); return; }
+          if (!prodPrazo) { setError("Informe quando você comprou."); return; }
+          if (!prodOnde) { setError("Informe onde você comprou."); return; }
+          if (!prodEmpresa.trim()) { setError("Informe o nome da empresa."); return; }
+          if (!prodValor.trim()) { setError("Informe o valor do produto."); return; }
         } else {
           if ((descricaoCasoRef.current?.value || "").trim().length < 30) { setError("Conta um pouco mais sobre o que aconteceu."); return; }
         }
@@ -339,6 +380,62 @@ export default function Page() {
         const tipoLabel: Record<string,string> = { "voo_atrasado": "atraso do voo", "voo_cancelado": "cancelamento do voo", "bagagem": "problema com bagagem" };
         const dataFormatada = dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : "data não informada";
         descricaoCaso = `Passageiro ${nomeCompleto}${cpf ? `, CPF ${cpf}` : ""}. Voo ${numVoo} em ${dataFormatada} pela ${cia?.nome || "companhia aérea"}. Problema: ${tipoLabel[tipoCaso!] || tipoCaso}.`;
+        if (tipoCaso === "voo_cancelado") {
+          const ofLabel: Record<string,string> = {
+            nada: "nada foi oferecido",
+            reacomodacao_ruim: "reacomodação em voo muito posterior (+4h)",
+            reembolso_atrasado: "reembolso demorou ou não foi recebido",
+            vale_viagem: "ofereceram apenas vale-viagem",
+          };
+          const avLabel: Record<string,string> = {
+            sem_aviso: "sem aviso prévio (soube no aeroporto)",
+            menos_24h: "com menos de 72h de antecedência",
+            mais_72h: "com mais de 72h de antecedência",
+          };
+          const prejLabel: Record<string,string> = {
+            hotel: "hotel perdido",
+            reuniao: "reunião/evento perdido",
+            outros_gastos: "outros gastos comprovados",
+            nenhum: "sem prejuízos adicionais",
+          };
+          const prejTxt = voocanPrejuizos.length > 0 ? voocanPrejuizos.map((v) => prejLabel[v] || v).join(", ") : "não informado";
+          descricaoCaso += ` Oferta da companhia: ${ofLabel[voocanOferecido] || voocanOferecido}. Aviso: ${avLabel[voocanAviso] || voocanAviso}. Prejuízos: ${prejTxt}.`;
+        }
+      } else if (tipoCaso === "cobranca_indevida") {
+        const tpLabel: Record<string,string> = {
+          nao_devo: "cobrança de algo que o consumidor não deve",
+          serasa_sem_motivo: "negativação no Serasa/SPC sem motivo",
+          valor_errado: "cobrança de valor errado (maior que o combinado)",
+          apos_cancel: "cobrança persistente após cancelamento",
+        };
+        const serasaLabel: Record<string,string> = { sim: "sim", nao: "não", nao_sei: "não sabe ainda" };
+        const compLabel: Record<string,string> = { sim: "sim, tem comprovante", nao: "não tem comprovante" };
+        descricaoCaso =
+          `Situação: ${tpLabel[cobrancaTipo] || cobrancaTipo}. Empresa: ${cobrancaEmpresa}. ` +
+          `Valor cobrado: R$ ${cobrancaValor}. Negativação (Serasa/SPC): ${serasaLabel[cobrancaSerasa] || cobrancaSerasa}. ` +
+          `Comprovante: ${compLabel[cobrancaComprovante] || cobrancaComprovante}.`;
+      } else if (tipoCaso === "produto_defeito") {
+        const probLabel: Record<string,string> = {
+          defeito_entrega: "produto chegou com defeito",
+          parou_pouco_tempo: "produto parou de funcionar em pouco tempo",
+          diferente_anunciado: "produto diferente do que foi anunciado",
+          nao_entregue: "produto não foi entregue",
+        };
+        const prazoLabel: Record<string,string> = {
+          ate_30d: "menos de 30 dias",
+          "30_90d": "entre 30 e 90 dias",
+          "90d_6m": "entre 90 dias e 6 meses",
+          mais_6m: "mais de 6 meses",
+        };
+        const ondeLabel: Record<string,string> = {
+          loja_fisica: "loja física",
+          site_app: "site/app (compra online)",
+          marketplace: "marketplace (Mercado Livre, Shopee, etc)",
+        };
+        descricaoCaso =
+          `Produto: ${prodNome}. Problema: ${probLabel[prodProblema] || prodProblema}. ` +
+          `Comprado ${prazoLabel[prodPrazo] || prodPrazo} em ${ondeLabel[prodOnde] || prodOnde}. ` +
+          `Empresa: ${prodEmpresa}. Valor: R$ ${prodValor}.`;
       }
       const situacao = SITUACOES_CASO.find((s) => s.id === tipoCaso);
       const res = await fetch("/api/analyze-pdf", {
@@ -572,7 +669,7 @@ export default function Page() {
           <Shell title="O que aconteceu com você?" subtitle="Escolha a situação que melhor descreve o seu caso.">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {SITUACOES_CASO.map((s) => {
-                const ativo = s.id === "voo_atrasado";
+                const ativo = s.id === "voo_atrasado" || s.id === "voo_cancelado" || s.id === "cobranca_indevida" || s.id === "produto_defeito";
                 return (
                   <button key={s.id} type="button"
                     onClick={() => ativo && setTipoCaso(s.id)}
@@ -601,8 +698,8 @@ export default function Page() {
           </Shell>
         )}
 
-        {/* CASO step 2 — VOO (dados pessoais + cia) */}
-        {modo === "caso" && step === 2 && isVoo && (
+        {/* CASO step 2 — VOO ATRASADO (dados pessoais + cia + perguntas de atraso) */}
+        {modo === "caso" && step === 2 && tipoCaso === "voo_atrasado" && (
           <Shell title="Seus dados para o caso" subtitle="A Clara vai preparar tudo com seu nome e número de voo.">
             <div className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -817,8 +914,278 @@ export default function Page() {
           </Shell>
         )}
 
-        {/* CASO step 2 — OUTROS */}
-        {modo === "caso" && step === 2 && !isVoo && (
+        {/* CASO step 2 — VOO CANCELADO */}
+        {modo === "caso" && step === 2 && tipoCaso === "voo_cancelado" && (
+          <Shell title="Seus dados para o caso" subtitle="A Clara vai preparar tudo com seu nome e número de voo.">
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Nome completo</label>
+                  <input type="text" value={nomeCompleto} onChange={(e) => setNomeCompleto(e.target.value)}
+                    placeholder="Como consta no documento de identidade"
+                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">CPF <span className="text-slate-400 font-normal">(opcional)</span></label>
+                  <input type="text" value={cpf} onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 11);
+                    setCpf(v.length > 9 ? v.slice(0,3)+"."+v.slice(3,6)+"."+v.slice(6,9)+"-"+v.slice(9) : v.length > 6 ? v.slice(0,3)+"."+v.slice(3,6)+"."+v.slice(6) : v.length > 3 ? v.slice(0,3)+"."+v.slice(3) : v);
+                  }}
+                    placeholder="000.000.000-00"
+                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Número do voo</label>
+                  <input type="text" value={numVoo} onChange={(e) => setNumVoo(e.target.value.toUpperCase())}
+                    placeholder="Ex: LA1234 ou G31234"
+                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Data do voo</label>
+                  <input type="date" value={dataVoo} onChange={(e) => setDataVoo(e.target.value)}
+                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">Companhia aérea</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {CIAS_AEREAS.map((cia) => (
+                    <button key={cia.id} type="button" onClick={() => setCiaAerea(cia.id)}
+                      className={`rounded-[16px] border-2 p-3 text-left transition-all ${ciaAerea === cia.id ? "border-[#D4AF37] bg-amber-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                      <div className="text-sm font-semibold text-[#0e2b50]">{cia.nome}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-[14px] bg-slate-50 border border-slate-200 p-4 space-y-4">
+                <div className="text-xs font-bold text-slate-600 uppercase tracking-wider">Sobre o cancelamento</div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">O que a companhia ofereceu?</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { v: "nada", l: "Nada — não ofereceram alternativa" },
+                      { v: "reacomodacao_ruim", l: "Reacomodação em voo muito posterior (+4h)" },
+                      { v: "reembolso_atrasado", l: "Reembolso, mas demorou / não recebi" },
+                      { v: "vale_viagem", l: "Vale-viagem que não quero" },
+                    ].map((op) => (
+                      <button key={op.v} type="button" onClick={() => setVoocanOferecido(op.v)}
+                        className={`rounded-[12px] border-2 p-2 text-xs font-semibold text-left transition-all ${voocanOferecido === op.v ? "border-[#D4AF37] bg-amber-50 text-[#0e2b50]" : "border-slate-200 bg-white text-slate-600"}`}>
+                        {op.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">O cancelamento foi avisado com antecedência?</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { v: "sem_aviso", l: "Não — soube no aeroporto" },
+                      { v: "menos_24h", l: "Menos de 72h antes" },
+                      { v: "mais_72h", l: "Mais de 72h antes" },
+                    ].map((op) => (
+                      <button key={op.v} type="button" onClick={() => setVoocanAviso(op.v)}
+                        className={`rounded-[12px] border-2 p-2 text-xs font-semibold text-left transition-all ${voocanAviso === op.v ? "border-[#D4AF37] bg-amber-50 text-[#0e2b50]" : "border-slate-200 bg-white text-slate-600"}`}>
+                        {op.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Teve prejuízo além do voo? <span className="text-slate-400 font-normal">(pode marcar mais de um)</span></label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { v: "hotel", l: "Hotel perdido" },
+                      { v: "reuniao", l: "Reunião/evento perdido" },
+                      { v: "outros_gastos", l: "Outros gastos comprovados" },
+                      { v: "nenhum", l: "Não tive prejuízo adicional" },
+                    ].map((op) => {
+                      const marcado = voocanPrejuizos.includes(op.v);
+                      return (
+                        <button key={op.v} type="button"
+                          onClick={() => {
+                            if (op.v === "nenhum") { setVoocanPrejuizos(marcado ? [] : ["nenhum"]); return; }
+                            const semNenhum = voocanPrejuizos.filter((v) => v !== "nenhum");
+                            setVoocanPrejuizos(marcado ? semNenhum.filter((v) => v !== op.v) : [...semNenhum, op.v]);
+                          }}
+                          className={`rounded-[12px] border-2 p-2 text-xs font-semibold text-left transition-all ${marcado ? "border-[#D4AF37] bg-amber-50 text-[#0e2b50]" : "border-slate-200 bg-white text-slate-600"}`}>
+                          {op.l}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Nav nextLabel="Continuar" onNext={next} onBack={back} />
+          </Shell>
+        )}
+
+        {/* CASO step 2 — COBRANÇA INDEVIDA / SERASA */}
+        {modo === "caso" && step === 2 && tipoCaso === "cobranca_indevida" && (
+          <Shell title="Conta o que aconteceu" subtitle="A Clara vai preparar sua notificação com base nas suas respostas.">
+            <div className="space-y-5">
+              <div className="rounded-[14px] bg-slate-50 border border-slate-200 p-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">O que a empresa fez com você?</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { v: "nao_devo", l: "Cobraram algo que não devo" },
+                      { v: "serasa_sem_motivo", l: "Meu nome foi ao Serasa/SPC sem motivo" },
+                      { v: "valor_errado", l: "Cobraram valor errado (maior que o combinado)" },
+                      { v: "apos_cancel", l: "Continuaram cobrando após cancelamento" },
+                    ].map((op) => (
+                      <button key={op.v} type="button" onClick={() => setCobrancaTipo(op.v)}
+                        className={`rounded-[12px] border-2 p-2 text-sm font-semibold text-left transition-all ${cobrancaTipo === op.v ? "border-[#D4AF37] bg-amber-50 text-[#0e2b50]" : "border-slate-200 bg-white text-slate-600"}`}>
+                        {op.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Qual empresa está te cobrando?</label>
+                  <p className="text-xs text-slate-500 mb-2">Pode ser banco, financeira, operadora, loja — qualquer uma.</p>
+                  <input type="text" value={cobrancaEmpresa} onChange={(e) => setCobrancaEmpresa(e.target.value)}
+                    placeholder="Ex: Banco X, Operadora Y, Loja Z"
+                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Qual valor estão cobrando?</label>
+                  <p className="text-xs text-slate-500 mb-2">Mesmo que seja pequeno, a lei prevê devolução. Coloque o valor que estão cobrando.</p>
+                  <input type="text" inputMode="decimal" value={cobrancaValor} onChange={(e) => setCobrancaValor(e.target.value.replace(/[^\d,.]/g, ""))}
+                    placeholder="R$ 0,00"
+                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Seu nome foi para o Serasa ou SPC?</label>
+                  <p className="text-xs text-slate-500 mb-2">Negativação indevida costuma gerar indenização por dano moral — mesmo sem prejuízo comprovado.</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { v: "sim", l: "Sim" },
+                      { v: "nao", l: "Não" },
+                      { v: "nao_sei", l: "Não sei ainda" },
+                    ].map((op) => (
+                      <button key={op.v} type="button" onClick={() => setCobrancaSerasa(op.v)}
+                        className={`rounded-[12px] border-2 p-2 text-xs font-semibold transition-all ${cobrancaSerasa === op.v ? "border-[#D4AF37] bg-amber-50 text-[#0e2b50]" : "border-slate-200 bg-white text-slate-600"}`}>
+                        {op.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Você tem algum comprovante?</label>
+                  <p className="text-xs text-slate-500 mb-2">Pagamento, cancelamento, contrato — qualquer coisa que mostre que a cobrança está errada. Se não tiver, tudo bem — ainda tem como resolver.</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { v: "sim", l: "Sim, tenho" },
+                      { v: "nao", l: "Não tenho" },
+                    ].map((op) => (
+                      <button key={op.v} type="button" onClick={() => setCobrancaComprovante(op.v)}
+                        className={`rounded-[12px] border-2 p-2 text-xs font-semibold transition-all ${cobrancaComprovante === op.v ? "border-[#D4AF37] bg-amber-50 text-[#0e2b50]" : "border-slate-200 bg-white text-slate-600"}`}>
+                        {op.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Nav nextLabel="Continuar" onNext={next} onBack={back} />
+          </Shell>
+        )}
+
+        {/* CASO step 2 — PRODUTO COM DEFEITO */}
+        {modo === "caso" && step === 2 && tipoCaso === "produto_defeito" && (
+          <Shell title="Conta sobre o produto" subtitle="A Clara vai preparar sua notificação com base no CDC art. 18.">
+            <div className="space-y-5">
+              <div className="rounded-[14px] bg-slate-50 border border-slate-200 p-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">O que você comprou?</label>
+                  <p className="text-xs text-slate-500 mb-2">Ex: celular, geladeira, roupa, sapato…</p>
+                  <input type="text" value={prodNome} onChange={(e) => setProdNome(e.target.value)}
+                    placeholder="Nome do produto"
+                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Qual o problema?</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { v: "defeito_entrega", l: "Produto chegou com defeito" },
+                      { v: "parou_pouco_tempo", l: "Parou de funcionar em pouco tempo" },
+                      { v: "diferente_anunciado", l: "É diferente do que foi anunciado" },
+                      { v: "nao_entregue", l: "Produto não foi entregue" },
+                    ].map((op) => (
+                      <button key={op.v} type="button" onClick={() => setProdProblema(op.v)}
+                        className={`rounded-[12px] border-2 p-2 text-sm font-semibold text-left transition-all ${prodProblema === op.v ? "border-[#D4AF37] bg-amber-50 text-[#0e2b50]" : "border-slate-200 bg-white text-slate-600"}`}>
+                        {op.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Quando você comprou?</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { v: "ate_30d", l: "Menos de 30 dias" },
+                      { v: "30_90d", l: "Entre 30 e 90 dias" },
+                      { v: "90d_6m", l: "Entre 90 dias e 6 meses" },
+                      { v: "mais_6m", l: "Mais de 6 meses" },
+                    ].map((op) => (
+                      <button key={op.v} type="button" onClick={() => setProdPrazo(op.v)}
+                        className={`rounded-[12px] border-2 p-2 text-sm font-semibold text-left transition-all ${prodPrazo === op.v ? "border-[#D4AF37] bg-amber-50 text-[#0e2b50]" : "border-slate-200 bg-white text-slate-600"}`}>
+                        {op.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Onde comprou?</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {[
+                      { v: "loja_fisica", l: "Loja física" },
+                      { v: "site_app", l: "Site / app (compra online)" },
+                      { v: "marketplace", l: "Marketplace (Mercado Livre, Shopee, etc)" },
+                    ].map((op) => (
+                      <button key={op.v} type="button" onClick={() => setProdOnde(op.v)}
+                        className={`rounded-[12px] border-2 p-2 text-sm font-semibold text-left transition-all ${prodOnde === op.v ? "border-[#D4AF37] bg-amber-50 text-[#0e2b50]" : "border-slate-200 bg-white text-slate-600"}`}>
+                        {op.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Qual empresa?</label>
+                    <input type="text" value={prodEmpresa} onChange={(e) => setProdEmpresa(e.target.value)}
+                      placeholder="Nome da loja/fabricante"
+                      className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Valor do produto</label>
+                    <input type="text" inputMode="decimal" value={prodValor} onChange={(e) => setProdValor(e.target.value.replace(/[^\d,.]/g, ""))}
+                      placeholder="R$ 0,00"
+                      className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Nav nextLabel="Continuar" onNext={next} onBack={back} />
+          </Shell>
+        )}
+
+        {/* CASO step 2 — OUTROS (fallback textarea para tipos ainda não implementados) */}
+        {modo === "caso" && step === 2 && !isCasoAtivo && (
           <Shell title="Conta com suas palavras o que aconteceu" subtitle="Quanto mais detalhe, mais preciso será o plano de ação da Clara.">
             <div className="mb-4 rounded-[14px] bg-blue-50 border border-blue-100 p-4 text-sm text-blue-800">
               <strong className="font-medium">Dicas para um relato completo:</strong>
@@ -1144,14 +1511,15 @@ export default function Page() {
               );
             })()}
 
-            {isVoo ? (
-              /* ── VOO: CLARA PREPARA ── */
+            {isCasoAtivo ? (
+              /* ── CASO ATIVO: CLARA PREPARA ── */
               <>
                 {/* Hero — card do resultado */}
                 <div className="rounded-[24px] bg-[#0e2b50] p-6 text-white text-center">
                   <div className="text-5xl mb-3">⚖️</div>
 
-                  {nomeCompleto && (() => {
+                  {/* Bloco "Seu caso registrado" varia por tipo */}
+                  {isVoo && nomeCompleto && (() => {
                     const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
                     const dataFmt = dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : "";
                     return (
@@ -1166,14 +1534,38 @@ export default function Page() {
                       </div>
                     );
                   })()}
+                  {tipoCaso === "cobranca_indevida" && (
+                    <div className="rounded-[16px] bg-white/10 border border-white/20 p-4 mb-4 text-left">
+                      <div className="text-xs font-semibold text-[#93b4d4] uppercase tracking-wider mb-2">Seu caso registrado</div>
+                      <div className="space-y-1 text-sm text-white">
+                        <div><span className="text-[#93b4d4]">Empresa:</span> {cobrancaEmpresa}</div>
+                        <div><span className="text-[#93b4d4]">Valor cobrado:</span> R$ {cobrancaValor}</div>
+                        {cobrancaSerasa === "sim" && <div><span className="text-[#93b4d4]">Negativação:</span> nome no Serasa/SPC</div>}
+                      </div>
+                    </div>
+                  )}
+                  {tipoCaso === "produto_defeito" && (
+                    <div className="rounded-[16px] bg-white/10 border border-white/20 p-4 mb-4 text-left">
+                      <div className="text-xs font-semibold text-[#93b4d4] uppercase tracking-wider mb-2">Seu caso registrado</div>
+                      <div className="space-y-1 text-sm text-white">
+                        <div><span className="text-[#93b4d4]">Produto:</span> {prodNome}</div>
+                        <div><span className="text-[#93b4d4]">Empresa:</span> {prodEmpresa}</div>
+                        <div><span className="text-[#93b4d4]">Valor:</span> R$ {prodValor}</div>
+                      </div>
+                    </div>
+                  )}
 
-                  {/* Título + subtítulo */}
-                  <h3 className="text-2xl font-black mb-2">Seu caso tem solução.</h3>
+                  {/* Título + subtítulo (varia por tipo) */}
+                  <h3 className="text-2xl font-black mb-2">
+                    {tipoCaso === "cobranca_indevida" ? "A lei do consumidor protege você nessa situação." :
+                     tipoCaso === "produto_defeito" ? "O CDC protege você nessa situação." :
+                     "Seu caso tem solução."}
+                  </h3>
                   <p className="text-[#93b4d4] text-sm leading-relaxed mb-4">
                     A Clara analisou e preparou tudo. Você recebe o kit completo para resolver do início ao fim — sem advogado, no seu tempo.
                   </p>
 
-                  {/* Kit — lista do que vem no pacote */}
+                  {/* Kit — item 2 varia por tipo (ANAC / Procon+BC / Procon+Reclame Aqui) */}
                   <div
                     className="text-left mb-5"
                     style={{
@@ -1185,13 +1577,19 @@ export default function Page() {
                       gap: 10,
                     }}
                   >
-                    {[
-                      { icon: "📧", texto: "E-mail de notificação com a lei certa" },
-                      { icon: "📋", texto: "Orientação para ANAC e consumidor.gov.br" },
-                      { icon: "⚖️", texto: "Petição para o JEC pronta para protocolar" },
-                      { icon: "🗺️", texto: "Guia completo das etapas do processo" },
-                      { icon: "💬", texto: "O que fazer quando chegar a intimação" },
-                    ].map((item) => (
+                    {(() => {
+                      const orientItem =
+                        tipoCaso === "cobranca_indevida" ? "Orientação para Procon e Banco Central" :
+                        tipoCaso === "produto_defeito"  ? "Orientação para Procon e Reclame Aqui"    :
+                        "Orientação para ANAC e consumidor.gov.br";
+                      return [
+                        { icon: "📧", texto: "E-mail de notificação com a lei certa" },
+                        { icon: "📋", texto: orientItem },
+                        { icon: "⚖️", texto: "Petição para o JEC pronta para protocolar" },
+                        { icon: "🗺️", texto: "Guia completo das etapas do processo" },
+                        { icon: "💬", texto: "O que fazer quando chegar a intimação" },
+                      ];
+                    })().map((item) => (
                       <div key={item.texto} className="flex items-start gap-3 text-white" style={{ fontSize: 14, lineHeight: 1.5 }}>
                         <span className="flex-shrink-0" aria-hidden="true">{item.icon}</span>
                         <span>{item.texto}</span>
@@ -1844,19 +2242,19 @@ function gerarResumoDireitos(tipo: TipoCaso, cia: typeof CIAS_AEREAS[0] | undefi
   const ciaNome = cia?.nome || "a companhia aérea";
   switch (tipo) {
     case "voo_atrasado":
-      return `Pela ANAC Resolução 400, ${ciaNome} é obrigada a oferecer assistência material a partir de 1h de atraso (comunicação), alimentação a partir de 2h, e acomodação + transporte a partir de 4h. Se você teve danos comprovados (reunião perdida, hotel, etc.), tem direito a indenização por danos materiais. Dano moral é frequentemente reconhecido pelo TJSP para atrasos acima de 4h.`;
+      return `Pela Resolução ANAC 400/2016, ${ciaNome} deve oferecer assistência material a partir de 1h de atraso (comunicação), alimentação a partir de 2h e acomodação + transporte a partir de 4h. Casos assim costumam resultar em reembolso das despesas comprovadas e, para atrasos acima de 4h, indenização por danos morais reconhecida pelo TJSP. Orientativo · depende do caso e do juiz.`;
     case "voo_cancelado":
-      return `${ciaNome} é obrigada a oferecer reacomodação imediata em outro voo, reembolso integral ou viagem em data futura — à sua escolha. Além disso, deve cobrir alimentação, hospedagem e transporte se necessário. Em caso de cancelamento sem aviso prévio, o dano moral é frequentemente reconhecido nos juizados.`;
+      return `Pela Resolução ANAC 400/2016 (art. 21 e 25), ${ciaNome} deve oferecer reacomodação, reembolso integral ou viagem em data futura — à escolha do passageiro — além de assistência material completa. Cancelamento sem aviso prévio costuma ensejar reparação por dano moral. Orientativo · depende do caso e do juiz.`;
     case "bagagem":
-      return `A ANAC estabelece prazo de 7 dias (doméstico) ou 21 dias (internacional) para resolver bagagem extraviada ou danificada. Se não resolvido, você tem direito a indenização pelo valor dos itens danificados/perdidos e possível dano moral.`;
+      return `A Resolução ANAC 400/2016 fixa prazo de 7 dias (doméstico) ou 21 dias (internacional) para localização de bagagem extraviada. Casos assim costumam resultar em indenização pelo valor dos itens perdidos ou danificados e, em muitos casos, dano moral. Orientativo · depende do caso e do juiz.`;
     case "produto_defeito":
-      return `O CDC (art. 18) garante que você tem direito à troca, conserto gratuito ou devolução do dinheiro quando um produto apresenta defeito dentro do prazo de garantia. A loja tem 30 dias para resolver (produtos não duráveis) ou 90 dias (duráveis). Se não resolver, você pode pedir a substituição, devolução ou abatimento do preço.`;
+      return `O CDC (art. 18) prevê que, em caso de vício ou defeito de produto, a loja/fabricante deve reparar em até 30 dias. Não sanado o vício no prazo, casos assim costumam resultar em substituição, devolução ou abatimento do preço, à escolha do consumidor. Compras online têm ainda direito de arrependimento em 7 dias (art. 49). Orientativo · depende do caso e do juiz.`;
     case "cobranca_indevida":
-      return `Cobrança de valores que você não deve é prática abusiva (CDC art. 42). Se seu nome foi negativado indevidamente, o STJ reconhece dano moral automático (Súmula 385). Você tem direito à remoção imediata da negativação e indenização por danos morais, além da devolução em dobro do valor cobrado indevidamente.`;
+      return `Cobrança de valor que o consumidor não deve vai contra o CDC (art. 42). Casos assim costumam resultar em devolução em dobro do valor cobrado. Se houve negativação indevida no Serasa/SPC, a Súmula 385 do STJ e a jurisprudência dominante costumam reconhecer reparação por dano moral. Orientativo · depende do caso e do juiz.`;
     case "servico_nao_entregue":
-      return `Quando você paga por um serviço e ele não é entregue conforme acordado, você tem direito à devolução integral do valor pago (CDC art. 35). Dependendo dos danos causados pelo descumprimento, também pode pedir indenização por danos morais e materiais.`;
+      return `Serviço pago e não entregue vai contra o CDC (art. 35). Casos assim costumam resultar em devolução integral do valor pago, mais reparação pelos danos materiais e morais comprovados. Orientativo · depende do caso e do juiz.`;
     default:
-      return `Você tem direitos como consumidor garantidos pelo CDC. A Clara vai te ajudar a identificar o caminho certo para resolver seu caso.`;
+      return `O CDC prevê proteção ao consumidor em diversas situações. A Clara vai te ajudar a identificar o caminho certo para resolver seu caso.`;
   }
 }
 
@@ -1904,8 +2302,13 @@ O não atendimento dos pedidos no prazo estabelecido será interpretado como
 recusa expressa e será utilizado como prova nos procedimentos acima.`;
 
   const rodape = (n: string, c: string) =>
-    `Atenciosamente,\n\n${n}\nCPF: ${c}\n\n` +
-    `(Notificação gerada e enviada por Clara Law — claralaw.com.br)`;
+    `Atenciosamente,\n\n${n}${c && c !== "[CPF]" ? `\nCPF: ${c}` : ""}\n\n` +
+    `(Informação gerada pela plataforma educacional Clara Law — claralaw.com.br. Este e-mail é enviado pelo próprio consumidor.)`;
+
+  // Rodapé genérico (sem exigir passageiro/CPF) — para casos não-voo
+  const rodapeGenerico = (n: string) =>
+    `Atenciosamente,\n\n${n || "[SEU NOME COMPLETO]"}\n\n` +
+    `(Informação gerada pela plataforma educacional Clara Law — claralaw.com.br. Este e-mail é enviado pelo próprio consumidor.)`;
 
   const corpo = tipo === "voo_atrasado" ? `\
 Ao Departamento de Atendimento ao Consumidor
@@ -2126,17 +2529,185 @@ ${advertencia}
 
 ${rodape(nome, cpf)}`
 
-  : `Prezados,\n\nVenho, por meio desta, notificar formalmente sobre o problema descrito abaixo, solicitando resolução:\n\n${descricao}\n\nNos termos do Código de Defesa do Consumidor (Lei 8.078/90, art. 14 e art. 6º, VI), solicito, no prazo de 10 (dez) dias úteis, a devida reparação pelos danos causados.\n\nNa ausência de resposta satisfatória, procederei com registro nos órgãos competentes e, se necessário, ação no Juizado Especial Cível.\n\nAtenciosamente.\n\n${nome}\nCPF: ${cpf}`;
+  : tipo === "cobranca_indevida" ? `\
+Ao Departamento de Atendimento ao Consumidor
+[NOME DA EMPRESA — preencher com a empresa cobradora]
+
+NOTIFICAÇÃO EXTRAJUDICIAL — COBRANÇA INDEVIDA
+Solicitação de Cessação de Cobrança e Reparação — CDC
+
+Prezados Senhores,
+
+Venho, por meio desta NOTIFICAÇÃO EXTRAJUDICIAL, comunicar e formalizar
+reclamação em relação a cobrança indevida, com base nas informações abaixo:
+
+${sep}
+IDENTIFICAÇÃO DO CONSUMIDOR
+${sep}
+Nome:          [SEU NOME COMPLETO]
+CPF:           [SEU CPF]
+${sep}
+
+${sep}
+I. DOS FATOS
+${sep}
+
+${descricao}
+
+${sep}
+II. DO DIREITO
+${sep}
+
+A conduta descrita vai contra o Código de Defesa do Consumidor (Lei 8.078/1990),
+em especial:
+
+  • Art. 42, caput — Vedação de constrangimento ou ameaça na cobrança de dívidas;
+
+  • Art. 42, parágrafo único — O consumidor cobrado em quantia indevida tem
+    direito à repetição do indébito, por valor igual ao dobro do que pagou em
+    excesso, acrescido de correção monetária e juros legais, salvo hipótese
+    de engano justificável;
+
+  • Art. 43 — Direito de acesso e correção de dados cadastrais em bancos de
+    dados de proteção ao crédito (Serasa, SPC, SCPC);
+
+  • Súmula 385 STJ — Em caso de negativação indevida, casos assim costumam
+    ensejar reparação por dano moral, salvo comprovada preexistência de
+    negativação regular.
+
+${sep}
+III. DOS PEDIDOS
+${sep}
+
+Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 5 (cinco) dias úteis
+contados do recebimento desta notificação:
+
+  1. A cessação imediata da cobrança indevida;
+
+  2. A devolução em dobro do valor cobrado indevidamente, corrigido
+     monetariamente, nos termos do art. 42, parágrafo único, do CDC;
+
+  3. A retirada imediata do meu nome de eventuais órgãos de proteção ao
+     crédito (Serasa, SPC ou similares), se aplicável;
+
+  4. Resposta formal e escrita ao presente comunicado.
+
+${sep}
+ADVERTÊNCIA FINAL
+${sep}
+
+Na ausência de resposta satisfatória no prazo indicado, serão adotadas,
+imediata e cumulativamente, as seguintes medidas:
+
+  1. Reclamação formal no Procon;
+  2. Registro no Portal consumidor.gov.br;
+  3. Reclamação junto ao Banco Central (se instituição financeira);
+  4. Ação no Juizado Especial Cível competente, com pedidos cumulativos
+     de repetição de indébito, indenização por danos morais e antecipação
+     de tutela para remoção da negativação (quando aplicável).
+
+${rodapeGenerico(nome !== "[NOME DO PASSAGEIRO]" ? nome : "")}`
+
+  : tipo === "produto_defeito" ? `\
+Ao Departamento de Atendimento ao Consumidor
+[NOME DA EMPRESA — preencher com a loja/fabricante]
+
+NOTIFICAÇÃO EXTRAJUDICIAL — PRODUTO COM VÍCIO / DEFEITO
+Solicitação de Reparação — CDC art. 18
+
+Prezados Senhores,
+
+Venho, por meio desta NOTIFICAÇÃO EXTRAJUDICIAL, comunicar formalmente
+reclamação a respeito de produto adquirido com vício/defeito, conforme
+descrito abaixo:
+
+${sep}
+IDENTIFICAÇÃO DO CONSUMIDOR
+${sep}
+Nome:          [SEU NOME COMPLETO]
+CPF:           [SEU CPF]
+${sep}
+
+${sep}
+I. DOS FATOS
+${sep}
+
+${descricao}
+
+${sep}
+II. DO DIREITO
+${sep}
+
+A conduta narrada vai contra o Código de Defesa do Consumidor (Lei 8.078/1990),
+em especial:
+
+  • Art. 18, caput — Os fornecedores de produtos de consumo duráveis ou não
+    duráveis respondem solidariamente pelos vícios de qualidade que os tornem
+    impróprios ou inadequados ao consumo a que se destinam ou lhes diminuam
+    o valor;
+
+  • Art. 18, § 1º — Não sanado o vício no prazo máximo de 30 (trinta) dias,
+    o consumidor pode exigir, à sua escolha:
+      (i)  a substituição do produto por outro da mesma espécie;
+      (ii) a restituição imediata da quantia paga, corrigida;
+      (iii) o abatimento proporcional do preço;
+
+  • Art. 26, II — Prazo decadencial de 90 (noventa) dias para reclamar de
+    vícios em produtos duráveis, contados da entrega efetiva do produto ou
+    da constatação do vício oculto;
+
+  • Art. 49 (se aplicável a compras online/à distância) — Direito de
+    arrependimento em até 7 (sete) dias, contados do recebimento do produto;
+
+  • Art. 14 — Responsabilidade objetiva do fornecedor pelo defeito na
+    prestação do serviço.
+
+${sep}
+III. DOS PEDIDOS
+${sep}
+
+Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 5 (cinco) dias úteis
+contados do recebimento desta notificação:
+
+  1. Reparo do produto, sem custos, no prazo máximo legal de 30 (trinta)
+     dias; OU, alternativamente, à minha escolha:
+
+  2. Substituição do produto por outro da mesma espécie, em perfeitas
+     condições de uso; OU
+
+  3. Restituição imediata da quantia paga, monetariamente atualizada; OU
+
+  4. Abatimento proporcional do preço;
+
+  5. Resposta formal e escrita ao presente comunicado.
+
+${sep}
+ADVERTÊNCIA FINAL
+${sep}
+
+Na ausência de resposta satisfatória no prazo indicado, serão adotadas,
+imediata e cumulativamente, as seguintes medidas:
+
+  1. Reclamação formal no Procon;
+  2. Registro no Portal consumidor.gov.br;
+  3. Registro no Reclame Aqui;
+  4. Ação no Juizado Especial Cível competente, com pedido de condenação
+     por danos materiais e morais.
+
+${rodapeGenerico(nome !== "[NOME DO PASSAGEIRO]" ? nome : "")}`
+
+  : `Prezados,\n\nVenho, por meio desta, notificar formalmente sobre o problema descrito abaixo, solicitando resolução:\n\n${descricao}\n\nNos termos do Código de Defesa do Consumidor (Lei 8.078/90, art. 14 e art. 6º, VI), solicito, no prazo de 10 (dez) dias úteis, a devida reparação pelos danos causados.\n\nNa ausência de resposta satisfatória, procederei com registro nos órgãos competentes e, se necessário, ação no Juizado Especial Cível.\n\n${rodapeGenerico(nome !== "[NOME DO PASSAGEIRO]" ? nome : "")}`;
 
   return { assunto, corpo };
 }
 
 function estimarValor(tipo: TipoCaso): string {
   switch (tipo) {
-    case "voo_atrasado":      return "R$2.000 – R$5.000 (dano moral) + despesas comprovadas";
-    case "voo_cancelado":     return "R$3.000 – R$8.000 (dano moral) + reembolso integral do bilhete";
-    case "bagagem":           return "R$2.000 – R$5.000 (dano moral) + valor dos itens perdidos";
-    case "cobranca_indevida": return "R$2.000 – R$5.000 (dano moral) + valor em dobro da cobrança";
-    default:                  return "Valor a calcular com base nos seus danos materiais + dano moral";
+    case "voo_atrasado":      return "R$2.000 – R$5.000 (dano moral) + despesas comprovadas — orientativo";
+    case "voo_cancelado":     return "R$3.000 – R$8.000 (dano moral) + reembolso integral do bilhete — orientativo";
+    case "bagagem":           return "R$2.000 – R$5.000 (dano moral) + valor dos itens perdidos — orientativo";
+    case "cobranca_indevida": return "Devolução em dobro do valor cobrado + R$3.000 – R$10.000 (dano moral se houve negativação) — orientativo";
+    case "produto_defeito":   return "Substituição / devolução / abatimento (à escolha do consumidor) + eventual dano moral — orientativo";
+    default:                  return "Valor a calcular com base nos danos materiais + dano moral — orientativo";
   }
 }
