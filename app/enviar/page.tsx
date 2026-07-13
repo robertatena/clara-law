@@ -13,6 +13,74 @@ function emailValido(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 }
 
+// Config do roadmap "O que você vai fazer" — varia por tipoCaso.
+// Etapa 3 (JEC) é igual para todos; etapas 1 e 2 mudam título/texto/documentos.
+type EtapaRoadmap = { titulo: string; texto: string; documentos: string[] };
+function getRoadmapConfig(tipo: string | null): { etapa1: EtapaRoadmap; etapa2: EtapaRoadmap } {
+  if (tipo === "cobranca_indevida") {
+    return {
+      etapa1: {
+        titulo: "Você envia a notificação para a empresa",
+        texto: "A Clara gerou o e-mail com os artigos do CDC certos. Você copia e envia do seu próprio e-mail. Muitas empresas resolvem nesta etapa.",
+        documentos: [
+          "Comprovante de pagamento ou contrato (se tiver)",
+          "Print da cobrança ou extrato",
+          "Print da negativação no Serasa/SPC (se aplicável)",
+        ],
+      },
+      etapa2: {
+        titulo: "Você registra no Procon e consumidor.gov.br",
+        texto: "A Clara te mostra onde registrar. Isso pressiona a empresa e cria histórico oficial — essencial se precisar ir ao JEC.",
+        documentos: [
+          "Protocolo de atendimento da empresa — número recebido na Etapa 1",
+          "Print ou e-mail mostrando que a empresa não respondeu",
+        ],
+      },
+    };
+  }
+  if (tipo === "produto_defeito") {
+    return {
+      etapa1: {
+        titulo: "Você envia a notificação para a loja/fabricante",
+        texto: "A Clara gerou o e-mail com base no CDC Art. 18. Você copia e envia do seu próprio e-mail. A maioria das lojas resolve nesta etapa.",
+        documentos: [
+          "Nota fiscal ou comprovante de compra",
+          "Foto do defeito ou print do problema",
+          "Print da recusa da loja (e-mail, chat, etc)",
+        ],
+      },
+      etapa2: {
+        titulo: "Você registra no Procon e Reclame Aqui",
+        texto: "A Clara te mostra onde registrar. Isso pressiona a empresa publicamente — essencial se precisar ir ao JEC.",
+        documentos: [
+          "Protocolo de atendimento da loja — número recebido na Etapa 1",
+          "Print ou e-mail mostrando que a loja não respondeu",
+        ],
+      },
+    };
+  }
+  // Default: voo_atrasado / voo_cancelado / bagagem
+  return {
+    etapa1: {
+      titulo: "Você envia a notificação para a cia aérea",
+      texto: "A Clara gerou o e-mail com a lei certa. Você copia e envia do seu próprio e-mail. A maioria das empresas responde nesta etapa.",
+      documentos: [
+        "Comprovante de reserva ou bilhete",
+        "Comprovante do problema — print do app, e-mail da cia ou boarding pass",
+        "Notas de despesas extras, se tiver — hotel, refeição",
+      ],
+    },
+    etapa2: {
+      titulo: "Você registra na ANAC e consumidor.gov.br",
+      texto: "A Clara te mostra exatamente onde e como registrar. Isso pressiona a empresa publicamente e cria histórico oficial — essencial se precisar ir ao JEC.",
+      documentos: [
+        "Protocolo de atendimento da cia — número recebido na Etapa 1",
+        "Print ou e-mail mostrando que a empresa não respondeu",
+      ],
+    },
+  };
+}
+
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 
 type Modo = "contrato" | "caso" | "jec" | null;
@@ -1495,7 +1563,7 @@ export default function Page() {
                 <div className={`rounded-[24px] border-2 ${bgClass} p-6`}>
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: prob.cor }}>Probabilidade de ganhar</div>
+                      <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: prob.cor }}>Casos similares</div>
                       <div className="text-2xl font-black" style={{ color: prob.cor }}>{prob.score}% — {prob.label}</div>
                     </div>
                     <div className="w-16 h-16 rounded-full border-4 flex items-center justify-center flex-shrink-0" style={{ borderColor: prob.cor }}>
@@ -1506,7 +1574,7 @@ export default function Page() {
                     <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${prob.score}%`, backgroundColor: prob.cor }} />
                   </div>
                   <p className="text-sm leading-relaxed" style={{ color: prob.cor.replace("f", "0") }}>{prob.texto}</p>
-                  <p className="text-xs mt-2 opacity-60">Baseado em jurisprudência do TJSP · orientativo</p>
+                  <p className="text-xs mt-2 opacity-60">Baseado em casos similares · orientativo · não é garantia de resultado</p>
                 </div>
               );
             })()}
@@ -1606,6 +1674,39 @@ export default function Page() {
                         return;
                       }
                       setError("");
+
+                      // Gerar e salvar o e-mail no sessionStorage ANTES do redirect Stripe.
+                      // Assim /sucesso pode mostrar o e-mail pronto para copiar.
+                      try {
+                        const cia = CIAS_AEREAS.find((c) => c.id === ciaAerea);
+                        // Reconstrói a descrição estruturada (mesma que analisarCaso monta)
+                        const dataFmt = dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : "";
+                        let descricao = "";
+                        if (isVoo) {
+                          const tipoLabel: Record<string, string> = { voo_atrasado: "atraso do voo", voo_cancelado: "cancelamento do voo", bagagem: "problema com bagagem" };
+                          descricao = `Passageiro ${nomeCompleto}${cpf ? ", CPF " + cpf : ""}. Voo ${numVoo}${dataFmt ? " em " + dataFmt : ""}. ${SITUACOES_CASO.find((s) => s.id === tipoCaso)?.titulo || tipoLabel[tipoCaso!] || ""}.`;
+                        } else if (tipoCaso === "cobranca_indevida") {
+                          descricao = `Empresa: ${cobrancaEmpresa}. Valor cobrado: R$ ${cobrancaValor}. Negativação (Serasa/SPC): ${cobrancaSerasa === "sim" ? "sim" : cobrancaSerasa === "nao" ? "não" : "não sabe ainda"}.`;
+                        } else if (tipoCaso === "produto_defeito") {
+                          descricao = `Produto: ${prodNome}. Empresa: ${prodEmpresa}. Valor: R$ ${prodValor}.`;
+                        }
+                        const emailGerado = gerarEmailEmpresa(tipoCaso!, descricao, cia);
+                        const paraEmpresa =
+                          isVoo ? (cia && cia.id !== "outra" && cia.email ? cia.email : "consulte o site da companhia") :
+                          tipoCaso === "cobranca_indevida" ? "consulte o site da empresa (SAC)" :
+                          tipoCaso === "produto_defeito" ? "consulte o site da loja (SAC)" :
+                          "consulte o site da empresa";
+                        sessionStorage.setItem("clara_email_gerado", JSON.stringify({
+                          assunto: emailGerado.assunto,
+                          corpo: emailGerado.corpo,
+                          para: paraEmpresa,
+                          geradoEm: new Date().toISOString(),
+                        }));
+                      } catch {
+                        // Se a geração falhar, seguimos com o checkout sem quebrar o fluxo.
+                        // A /sucesso simplesmente não mostrará o bloco do e-mail.
+                      }
+
                       try {
                         const res = await fetch("/api/checkout", {
                           method: "POST",
@@ -1630,7 +1731,10 @@ export default function Page() {
                   <p className="text-xs text-[#93b4d4] mt-2 text-center">R$49,90 · pagamento único · você recebe tudo por e-mail</p>
                 </div>
 
-                {/* Roadmap */}
+                {/* Roadmap — títulos, textos e documentos variam por tipoCaso */}
+                {(() => {
+                  const rc = getRoadmapConfig(tipoCaso);
+                  return (
                 <div id="roadmap" className="rounded-[24px] border border-slate-200 bg-white p-6 scroll-mt-6">
                   <h3 className="text-xl font-bold text-[#0e2b50] mb-1">O que você vai fazer — com a Clara te guiando</h3>
                   <p className="text-sm text-slate-500 mb-6">Três etapas em ordem — a Clara prepara tudo, você age.</p>
@@ -1644,15 +1748,11 @@ export default function Page() {
                       </div>
                       <div className="pb-6 flex-1 min-w-0">
                         <div className="text-xs font-semibold text-green-600 uppercase tracking-wider mb-0.5">Etapa 1 · Prazo: até 10 dias</div>
-                        <div className="text-base font-bold text-[#0e2b50] mb-1">Você envia a notificação para a cia aérea</div>
-                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">A Clara gerou o e-mail com a lei certa. Você copia e envia do seu próprio e-mail. A maioria das empresas responde nesta etapa.</p>
+                        <div className="text-base font-bold text-[#0e2b50] mb-1">{rc.etapa1.titulo}</div>
+                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">{rc.etapa1.texto}</p>
                         <div className="rounded-[12px] bg-green-50 border border-green-100 p-3">
                           <div className="text-xs font-semibold text-green-700 mb-2">Documentos que você vai precisar</div>
-                          {[
-                            "Comprovante de reserva ou bilhete",
-                            "Comprovante do problema — print do app, e-mail da cia ou boarding pass",
-                            "Notas de despesas extras, se tiver — hotel, refeição",
-                          ].map((d, i) => (
+                          {rc.etapa1.documentos.map((d, i) => (
                             <div key={i} className="flex gap-2 text-xs text-green-800 mt-1"><span className="flex-shrink-0">✅</span><span>{d}</span></div>
                           ))}
                         </div>
@@ -1667,14 +1767,11 @@ export default function Page() {
                       </div>
                       <div className="pb-6 flex-1 min-w-0">
                         <div className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-0.5">Etapa 2 · Se a empresa não resolver</div>
-                        <div className="text-base font-bold text-[#0e2b50] mb-1">Você registra na ANAC e consumidor.gov.br</div>
-                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">A Clara te mostra exatamente onde e como registrar. Isso pressiona a empresa publicamente e cria histórico oficial — essencial se precisar ir ao JEC.</p>
+                        <div className="text-base font-bold text-[#0e2b50] mb-1">{rc.etapa2.titulo}</div>
+                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">{rc.etapa2.texto}</p>
                         <div className="rounded-[12px] bg-amber-50 border border-amber-100 p-3">
                           <div className="text-xs font-semibold text-amber-700 mb-2">Documentos adicionais nesta etapa</div>
-                          {[
-                            "Protocolo de atendimento da cia — número recebido na Etapa 1",
-                            "Print ou e-mail mostrando que a empresa não respondeu",
-                          ].map((d, i) => (
+                          {rc.etapa2.documentos.map((d, i) => (
                             <div key={i} className="flex gap-2 text-xs text-amber-800 mt-1"><span className="flex-shrink-0">✅</span><span>{d}</span></div>
                           ))}
                         </div>
@@ -1705,6 +1802,8 @@ export default function Page() {
 
                   </div>
                 </div>
+                  );
+                })()}
 
                 <p className="text-center" style={{ color: "#6b7280", fontSize: 13, marginTop: 8 }}>
                   ↑ Comece pelo botão acima para receber seu kit completo.
@@ -2049,7 +2148,7 @@ function calcularProbabilidade(
   const label = score >= 75 ? "Alta" : score >= 50 ? "Média" : "Baixa";
   const cor = score >= 75 ? "#22c55e" : score >= 50 ? "#f59e0b" : "#ef4444";
   const texto = score >= 75
-    ? "A jurisprudência do TJSP favorece fortemente esse tipo de caso. Prossiga com o plano de ação."
+    ? "Em casos similares registrados no TJSP, consumidores obtiveram resultado favorável. Cada caso é único — resultado não garantido."
     : score >= 50
     ? "Há boas chances, mas o resultado depende das provas que você conseguir reunir."
     : "Atraso curto tem menos precedentes de dano moral — o e-mail costuma resolver.";

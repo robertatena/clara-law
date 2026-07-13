@@ -1,6 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+
+type EmailGerado = {
+  assunto: string;
+  corpo: string;
+  para: string;
+  geradoEm: string;
+};
 
 const ClaraIcon = ({ size = 36 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
@@ -16,6 +24,24 @@ const passos = [
 ];
 
 export default function SucessoPage() {
+  const [emailGerado, setEmailGerado] = useState<EmailGerado | null>(null);
+  const [copiado, setCopiado] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("clara_email_gerado");
+      if (raw) {
+        const parsed = JSON.parse(raw) as EmailGerado;
+        if (parsed && parsed.corpo) {
+          setEmailGerado(parsed);
+          sessionStorage.removeItem("clara_email_gerado");
+        }
+      }
+    } catch {
+      // sessionStorage indisponível ou JSON inválido — ignorar
+    }
+  }, []);
+
   return (
     <main style={{ fontFamily: "'Montserrat', sans-serif", background: "#F8F7F4", minHeight: "100vh", paddingTop: 64 }}>
 
@@ -77,6 +103,69 @@ export default function SucessoPage() {
           </p>
         </div>
       </section>
+
+      {/* SEU E-MAIL ESTÁ PRONTO — só aparece se veio do /enviar via sessionStorage */}
+      {emailGerado && (
+        <section className="reveal" style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "56px 24px" }}>
+          <div style={{ maxWidth: 640, margin: "0 auto" }}>
+            <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 12, textAlign: "center" }}>
+              Seu e-mail está pronto
+            </p>
+            <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(20px, 3vw, 26px)", color: "#1a2340", lineHeight: 1.25, marginBottom: 8, textAlign: "center" }}>
+              Copie o texto abaixo
+            </h2>
+            <p style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.7, textAlign: "center", marginBottom: 24 }}>
+              Envie do seu próprio e-mail para a empresa.
+            </p>
+
+            {/* Metadados: Para + Assunto */}
+            <div style={{ background: "#F0F4FF", border: "1px solid #C7D2FE", borderRadius: 10, padding: "12px 14px", marginBottom: 14, fontSize: 13, color: "#3730a3", lineHeight: 1.7 }}>
+              <div><strong>Para:</strong> {emailGerado.para}</div>
+              <div style={{ marginTop: 4 }}><strong>Assunto:</strong> {emailGerado.assunto}</div>
+            </div>
+
+            {/* Corpo do e-mail — monospace, selecionável, scroll */}
+            <div style={{
+              background: "#F8F7F4", border: "1px solid #E0DDD6", borderRadius: 12,
+              padding: "16px 18px", marginBottom: 16,
+              fontFamily: "ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
+              fontSize: 13, color: "#374151", lineHeight: 1.65,
+              whiteSpace: "pre-wrap", wordBreak: "break-word",
+              maxHeight: 300, overflow: "auto",
+              userSelect: "text",
+            }}>
+              {emailGerado.corpo}
+            </div>
+
+            {/* Botão Copiar */}
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(emailGerado.corpo);
+                  setCopiado(true);
+                  setTimeout(() => setCopiado(false), 2000);
+                } catch {
+                  alert("Não foi possível copiar automaticamente. Selecione o texto e use Ctrl+C.");
+                }
+              }}
+              style={{
+                width: "100%",
+                padding: "14px 20px", borderRadius: 40, border: "none",
+                background: copiado ? "#10b981" : "#1a2340",
+                color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
+                transition: "background 0.2s",
+              }}
+            >
+              {copiado ? "✓ Copiado!" : "📋 Copiar e-mail"}
+            </button>
+
+            <p style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.7, textAlign: "center", marginTop: 14 }}>
+              Depois de enviar, guarde o comprovante — você vai precisar.
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* PRÓXIMOS PASSOS */}
       <section className="reveal" style={{ background: "#F8F7F4", borderBottom: "1px solid #ECEAE4", padding: "64px 24px" }}>
