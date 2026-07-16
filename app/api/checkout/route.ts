@@ -25,6 +25,16 @@ export async function POST(req: Request) {
     const origin = String(body.origin || process.env.NEXT_PUBLIC_APP_URL || "").trim();
     const produto = String(body.produto || "").trim() as Produto;
 
+    // Metadata adicional opcional (tipo_caso, descricao, dados do wizard).
+    // Stripe aceita até 50 chaves, cada valor até 500 chars.
+    const extraMetadataRaw = (body.metadata && typeof body.metadata === "object" ? body.metadata : {}) as Record<string, unknown>;
+    const extraMetadata: Record<string, string> = {};
+    for (const [k, v] of Object.entries(extraMetadataRaw)) {
+      if (v === undefined || v === null) continue;
+      const str = typeof v === "string" ? v : JSON.stringify(v);
+      extraMetadata[k] = str.slice(0, 500);
+    }
+
     if (!email) {
       return NextResponse.json({ error: "email_required" }, { status: 400 });
     }
@@ -62,6 +72,7 @@ export async function POST(req: Request) {
         source: "clara_checkout",
         produto,
         email,
+        ...extraMetadata,
       },
     });
 

@@ -1708,6 +1708,16 @@ export default function Page() {
                       }
 
                       try {
+                        // Descrição curta para o webhook salvar em user_casos
+                        const situacaoTitulo = SITUACOES_CASO.find((s) => s.id === tipoCaso)?.titulo ?? tipoCaso ?? "";
+                        let descricaoCurta = situacaoTitulo;
+                        if (isVoo && nomeCompleto) {
+                          descricaoCurta = `${situacaoTitulo} — ${nomeCompleto}${numVoo ? ` · Voo ${numVoo}` : ""}`;
+                        } else if (tipoCaso === "cobranca_indevida" && cobrancaEmpresa) {
+                          descricaoCurta = `Cobrança indevida — ${cobrancaEmpresa} · R$ ${cobrancaValor}`;
+                        } else if (tipoCaso === "produto_defeito" && prodNome) {
+                          descricaoCurta = `Produto defeituoso — ${prodNome}${prodEmpresa ? ` · ${prodEmpresa}` : ""}`;
+                        }
                         const res = await fetch("/api/checkout", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
@@ -1715,6 +1725,10 @@ export default function Page() {
                             email: emailUsuario,
                             origin: window.location.origin,
                             produto: "pacote",
+                            metadata: {
+                              tipo_caso: tipoCaso ?? "",
+                              descricao: descricaoCurta,
+                            },
                           }),
                         });
                         const data = await res.json();

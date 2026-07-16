@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import nodemailer from "nodemailer";
+import { supabaseAdmin } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_missing");
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.claralaw.com.br";
 
 // ─── ENTREGA POR E-MAIL ───────────────────────────────────────────────────────
 // Reutiliza mesma config do /api/enviar-email (GMAIL_USER + senha de app).
@@ -39,7 +41,7 @@ function itensPorProduto(produto: Produto): string[] {
   return [];
 }
 
-function montarHtml(produto: Produto): string {
+function montarHtml(produto: Produto, magicLinkUrl?: string): string {
   const itens = itensPorProduto(produto);
   const listaItens = itens
     .map(
@@ -47,6 +49,15 @@ function montarHtml(produto: Produto): string {
         `<li style="color:#374151;line-height:1.7;margin-bottom:6px;">${i}</li>`
     )
     .join("");
+
+  const blocoMinhaConta = magicLinkUrl
+    ? `<div style="text-align:center;margin:12px 0 28px;">
+        <a href="${magicLinkUrl}" style="display:inline-block;background:#1a2340;color:#fff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:40px;text-decoration:none;">
+          Acessar minha área →
+        </a>
+        <p style="color:#9ca3af;font-size:11px;margin:8px 0 0;">Login sem senha · válido por 1 hora</p>
+      </div>`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -73,11 +84,13 @@ function montarHtml(produto: Produto): string {
           : ""
       }
 
-      <div style="text-align:center;margin:28px 0;">
-        <a href="https://www.claralaw.com.br/guia" style="display:inline-block;background:#D4AF37;color:#1a2340;font-weight:800;font-size:15px;padding:14px 28px;border-radius:40px;text-decoration:none;">
+      <div style="text-align:center;margin:28px 0 12px;">
+        <a href="${APP_URL}/guia" style="display:inline-block;background:#D4AF37;color:#1a2340;font-weight:800;font-size:15px;padding:14px 28px;border-radius:40px;text-decoration:none;">
           Acesse seu guia do processo →
         </a>
       </div>
+
+      ${blocoMinhaConta}
 
       <p style="color:#6b7280;font-size:14px;line-height:1.7;margin:20px 0 0;">
         Dúvidas? Responda este e-mail ou escreva para
@@ -96,7 +109,7 @@ function montarHtml(produto: Produto): string {
 </html>`;
 }
 
-async function enviarConfirmacaoCompra(email: string, produto: Produto): Promise<void> {
+async function enviarConfirmacaoCompra(email: string, produto: Produto, magicLinkUrl?: string): Promise<void> {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
     console.warn("webhook_email_skipped_missing_credentials", {
       hasUser: !!process.env.GMAIL_USER,
@@ -105,7 +118,7 @@ async function enviarConfirmacaoCompra(email: string, produto: Produto): Promise
     return;
   }
 
-  const html = montarHtml(produto);
+  const html = montarHtml(produto, magicLinkUrl);
 
   await transporter.sendMail({
     from: `"Clara Law" <${process.env.GMAIL_USER}>`,
@@ -113,6 +126,91 @@ async function enviarConfirmacaoCompra(email: string, produto: Produto): Promise
     subject: "Seu kit Clara Law está pronto 🎉",
     html,
   });
+}
+
+// Provisiona o usuário no Supabase Auth (idempotente) e retorna o user_id.
+// Se o usuário já existe, apenas retorna o id.
+async function provisionarUsuario(email: string): Promise<string | null> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn("provisionar_usuario_skipped_missing_service_key");
+    return null;
+  }
+  try {
+    // Tenta criar. Se já existe, o admin.createUser retorna erro que capturamos e
+    // buscamos o user pelo email via listUsers (não há getUserByEmail no SDK).
+    const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      email_confirm: true, // já confirmado — o pagamento comprova o email
+    });
+    if (created?.user?.id) return created.user.id;
+
+    // Já existia — procurar. listUsers lê a primeira página; para volume alto
+    // seria preciso paginar, mas pra checkout único a probabilidade é irrelevante.
+    if (createErr) {
+      const { data: list } = await supabaseAdmin.auth.admin.listUsers({ perPage: 200 });
+      // Tipar user como Record — supabase-js infere `never[]` aqui por motivos internos
+      const usersList = (list?.users ?? []) as Array<{ id: string; email?: string }>;
+      const found = usersList.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+      if (found?.id) return found.id;
+    }
+    return null;
+  } catch (err) {
+    console.error("provisionar_usuario_error", { email, err: err instanceof Error ? err.message : "unknown" });
+    return null;
+  }
+}
+
+// Gera um magic link e retorna a URL (o próprio Supabase cria o token).
+// Se falhar, retorna null e o email de confirmação segue sem o botão de acesso.
+async function gerarMagicLink(email: string): Promise<string | null> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  try {
+    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+      type: "magiclink",
+      email,
+      options: { redirectTo: `${APP_URL}/auth/callback?next=/minha-conta` },
+    });
+    if (error) {
+      console.error("gerar_magic_link_error", error.message);
+      return null;
+    }
+    return data.properties?.action_link ?? null;
+  } catch (err) {
+    console.error("gerar_magic_link_error", err instanceof Error ? err.message : "unknown");
+    return null;
+  }
+}
+
+// Salva o caso no Supabase (idempotente — usa UNIQUE em stripe_session_id).
+async function salvarCasoNoSupabase(params: {
+  userId: string;
+  email: string;
+  produto: Produto;
+  sessionId: string;
+  metadata: Record<string, string>;
+}): Promise<void> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  const tipoCaso =
+    params.produto === "pacote"
+      ? (params.metadata.tipo_caso || "desconhecido")
+      : "analise_contrato";
+  const descricao = params.metadata.descricao || "";
+
+  const { error } = await supabaseAdmin.from("user_casos").upsert(
+    {
+      user_id: params.userId,
+      email: params.email,
+      tipo_caso: tipoCaso,
+      descricao,
+      dados_json: params.metadata,
+      stripe_session_id: params.sessionId,
+      status: "ativo",
+    },
+    { onConflict: "stripe_session_id", ignoreDuplicates: true },
+  );
+  if (error) {
+    console.error("salvar_caso_error", { sessionId: params.sessionId, error: error.message });
+  }
 }
 
 // ─── HANDLER ──────────────────────────────────────────────────────────────────
@@ -159,14 +257,31 @@ export async function POST(req: Request) {
           payment_status: session.payment_status,
         });
 
-        // Entrega: e-mail de confirmação para o cliente.
-        // Erro no envio é logado mas NÃO propaga — respondemos 200 pro Stripe
-        // (retentar webhook não conserta uma falha de SMTP; problema fica
-        // registrado no log pra tratamento manual).
+        // Pipeline pós-pagamento (executa se tiver email + produto válido).
+        // Cada etapa é independente e loga erro sem propagar — webhook sempre 200.
         if (email && produto !== "desconhecido") {
+          // 1) Provisiona (ou encontra) usuário no Supabase Auth
+          const userId = await provisionarUsuario(email);
+          console.log("user_provisioned", { session_id: session.id, email, userId: userId || "(none)" });
+
+          // 2) Salva o caso na tabela user_casos (idempotente por stripe_session_id)
+          if (userId) {
+            const md: Record<string, string> = {};
+            for (const [k, v] of Object.entries(session.metadata || {})) {
+              if (typeof v === "string") md[k] = v;
+            }
+            await salvarCasoNoSupabase({ userId, email, produto, sessionId: session.id, metadata: md });
+            console.log("caso_salvo", { session_id: session.id, userId });
+          }
+
+          // 3) Gera magic link pra área logada (segue mesmo se falhar)
+          const magicLink = await gerarMagicLink(email);
+          if (magicLink) console.log("magic_link_gerado", { session_id: session.id });
+
+          // 4) Envia e-mail de confirmação com botão "Acessar minha área" (se magic link ok)
           try {
-            await enviarConfirmacaoCompra(email, produto);
-            console.log("delivery_email_sent", { session_id: session.id, email, produto });
+            await enviarConfirmacaoCompra(email, produto, magicLink ?? undefined);
+            console.log("delivery_email_sent", { session_id: session.id, email, produto, hasMagicLink: !!magicLink });
           } catch (err) {
             const msg = err instanceof Error ? err.message : "unknown";
             console.error("delivery_email_failed", {
