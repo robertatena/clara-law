@@ -79,12 +79,15 @@ export default function MinhaContaPage() {
         },
       });
       if (error) {
-        setErro("Não foi possível enviar o link. Tente novamente.");
+        console.error("signInWithOtp error:", error);
+        setErro(`Erro: ${error?.message || "desconhecido"}`);
       } else {
         setLinkEnviado(true);
       }
-    } catch {
-      setErro("Erro ao enviar o link. Tente novamente.");
+    } catch (err) {
+      console.error("signInWithOtp exception:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      setErro(`Erro: ${msg}`);
     } finally {
       setEnviando(false);
     }
