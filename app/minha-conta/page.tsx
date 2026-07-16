@@ -28,17 +28,22 @@ const LABEL_TIPO: Record<string, string> = {
   desconhecido: "Caso",
 };
 
+type Modo = "login" | "cadastro";
+
 export default function MinhaContaPage() {
   const supabase = createBrowserSupabase();
   const [carregando, setCarregando] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
   const [casos, setCasos] = useState<Caso[]>([]);
 
-  // Formulário magic link
+  // Formulário auth (login/cadastro)
+  const [modo, setModo] = useState<Modo>("login");
   const [emailForm, setEmailForm] = useState("");
+  const [senha, setSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
   const [enviando, setEnviando] = useState(false);
-  const [linkEnviado, setLinkEnviado] = useState(false);
   const [erro, setErro] = useState("");
+  const [sucesso, setSucesso] = useState("");
 
   useEffect(() => {
     let cancelado = false;
@@ -62,30 +67,73 @@ export default function MinhaContaPage() {
     return () => { cancelado = true; };
   }, [supabase]);
 
-  async function enviarMagicLink(e: React.FormEvent) {
+  function trocarModo(novoModo: Modo) {
+    setModo(novoModo);
+    setErro("");
+    setSucesso("");
+    setSenha("");
+    setConfirmarSenha("");
+  }
+
+  async function submeter(e: React.FormEvent) {
     e.preventDefault();
     setErro("");
+    setSucesso("");
+
     const emailLimpo = emailForm.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLimpo)) {
       setErro("Digite um e-mail válido.");
       return;
     }
+    if (senha.length < 8) {
+      setErro("A senha deve ter pelo menos 8 caracteres.");
+      return;
+    }
+    if (modo === "cadastro" && senha !== confirmarSenha) {
+      setErro("As senhas não conferem.");
+      return;
+    }
+
     setEnviando(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: emailLimpo,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/minha-conta`,
-        },
-      });
-      if (error) {
-        console.error("signInWithOtp error:", error);
-        setErro(`Erro: ${error?.message || "desconhecido"}`);
+      if (modo === "login") {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: emailLimpo,
+          password: senha,
+        });
+        if (error) {
+          console.error("signInWithPassword error:", error);
+          if (error.message === "Invalid login credentials") {
+            setErro("E-mail ou senha incorretos.");
+          } else {
+            setErro("Erro ao entrar. Tente novamente.");
+          }
+        } else {
+          // Sucesso — recarrega pra pegar session e casos
+          window.location.reload();
+        }
       } else {
-        setLinkEnviado(true);
+        // Cadastro
+        const { error } = await supabase.auth.signUp({
+          email: emailLimpo,
+          password: senha,
+          options: {
+            emailRedirectTo: `${window.location.origin}/minha-conta`,
+          },
+        });
+        if (error) {
+          console.error("signUp error:", error);
+          if (error.message.toLowerCase().includes("already registered")) {
+            setErro("Este e-mail já tem conta. Faça login.");
+          } else {
+            setErro(`Erro: ${error.message}`);
+          }
+        } else {
+          setSucesso("Conta criada! Verifique seu e-mail para confirmar o cadastro.");
+        }
       }
     } catch (err) {
-      console.error("signInWithOtp exception:", err);
+      console.error("auth exception:", err);
       const msg = err instanceof Error ? err.message : String(err);
       setErro(`Erro: ${msg}`);
     } finally {
@@ -97,7 +145,9 @@ export default function MinhaContaPage() {
     await supabase.auth.signOut();
     setEmail(null);
     setCasos([]);
-    setLinkEnviado(false);
+    setSenha("");
+    setConfirmarSenha("");
+    setSucesso("");
   }
 
   return (
@@ -132,44 +182,95 @@ export default function MinhaContaPage() {
             <p style={{ color: "#6b7280", fontSize: 14, textAlign: "center" }}>Carregando…</p>
           )}
 
-          {/* ── ESTADO A: não logado — formulário magic link ── */}
+          {/* ── ESTADO A: não logado — formulário login/cadastro ── */}
           {!carregando && !email && (
-            <div style={{ background: "#fff", border: "1px solid #E0DDD6", borderRadius: 16, padding: "32px 28px", boxShadow: "0 6px 20px rgba(26,35,64,0.04)" }}>
+            <div style={{ background: "#fff", border: "1px solid #E0DDD6", borderRadius: 16, padding: "32px 28px", boxShadow: "0 6px 20px rgba(26,35,64,0.04)", maxWidth: 460, margin: "0 auto" }}>
               <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 12 }}>
                 Área do cliente
               </div>
               <h1 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(24px, 3.4vw, 34px)", color: "#1a2340", marginBottom: 12, lineHeight: 1.2 }}>
-                Acesse sua área
+                {modo === "login" ? "Acesse sua área" : "Criar sua conta"}
               </h1>
               <p style={{ fontSize: 15, color: "#6b7280", lineHeight: 1.65, marginBottom: 24 }}>
-                Digite seu e-mail para receber o link de acesso — sem senha.
+                {modo === "login" ? "Entre com seu e-mail e senha." : "Crie sua conta para acompanhar seus casos."}
               </p>
 
-              {linkEnviado ? (
-                <div style={{ background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 10, padding: "16px 18px", color: "#065f46" }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>✓ Verifique seu e-mail</div>
-                  <div style={{ fontSize: 13, lineHeight: 1.6 }}>O link chega em instantes. Clique nele pra entrar na sua área.</div>
+              {sucesso && (
+                <div style={{ background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 10, padding: "16px 18px", color: "#065f46", marginBottom: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>✓ Sucesso</div>
+                  <div style={{ fontSize: 13, lineHeight: 1.6 }}>{sucesso}</div>
                 </div>
-              ) : (
-                <form onSubmit={enviarMagicLink}>
-                  <input
-                    type="email"
-                    required
-                    value={emailForm}
-                    onChange={(e) => { setEmailForm(e.target.value); setErro(""); }}
-                    placeholder="voce@email.com"
-                    style={{ width: "100%", padding: "14px 16px", fontSize: 15, borderRadius: 12, border: "1px solid #D0CCC4", outline: "none", background: "#fff", color: "#1a2340", marginBottom: 12, fontFamily: "'Montserrat', sans-serif" }}
-                  />
-                  {erro && <p style={{ fontSize: 12, color: "#dc2626", marginBottom: 12 }}>{erro}</p>}
-                  <button
-                    type="submit"
-                    disabled={enviando}
-                    style={{ width: "100%", background: enviando ? "#9ca3af" : "#1a2340", color: "#fff", fontSize: 15, fontWeight: 700, padding: "14px 20px", borderRadius: 40, border: "none", cursor: enviando ? "not-allowed" : "pointer" }}
-                  >
-                    {enviando ? "Enviando…" : "Enviar link de acesso"}
-                  </button>
-                </form>
               )}
+
+              <form onSubmit={submeter}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6 }}>E-mail</label>
+                <input
+                  type="email"
+                  required
+                  value={emailForm}
+                  onChange={(e) => { setEmailForm(e.target.value); setErro(""); }}
+                  placeholder="voce@email.com"
+                  style={{ width: "100%", padding: "14px 16px", fontSize: 15, borderRadius: 12, border: "1px solid #D0CCC4", outline: "none", background: "#fff", color: "#1a2340", marginBottom: 14, fontFamily: "'Montserrat', sans-serif" }}
+                />
+
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6 }}>Senha</label>
+                <input
+                  type="password"
+                  required
+                  minLength={modo === "cadastro" ? 8 : undefined}
+                  value={senha}
+                  onChange={(e) => { setSenha(e.target.value); setErro(""); }}
+                  placeholder={modo === "cadastro" ? "Mínimo 8 caracteres" : "Sua senha"}
+                  style={{ width: "100%", padding: "14px 16px", fontSize: 15, borderRadius: 12, border: "1px solid #D0CCC4", outline: "none", background: "#fff", color: "#1a2340", marginBottom: 14, fontFamily: "'Montserrat', sans-serif" }}
+                />
+
+                {modo === "cadastro" && (
+                  <>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6 }}>Confirmar senha</label>
+                    <input
+                      type="password"
+                      required
+                      minLength={8}
+                      value={confirmarSenha}
+                      onChange={(e) => { setConfirmarSenha(e.target.value); setErro(""); }}
+                      placeholder="Digite a senha novamente"
+                      style={{ width: "100%", padding: "14px 16px", fontSize: 15, borderRadius: 12, border: "1px solid #D0CCC4", outline: "none", background: "#fff", color: "#1a2340", marginBottom: 14, fontFamily: "'Montserrat', sans-serif" }}
+                    />
+                  </>
+                )}
+
+                {erro && <p style={{ fontSize: 12, color: "#dc2626", marginBottom: 12 }}>{erro}</p>}
+
+                <button
+                  type="submit"
+                  disabled={enviando}
+                  style={{ width: "100%", background: enviando ? "#9ca3af" : "#1a2340", color: "#fff", fontSize: 15, fontWeight: 700, padding: "14px 20px", borderRadius: 40, border: "none", cursor: enviando ? "not-allowed" : "pointer" }}
+                >
+                  {enviando
+                    ? (modo === "login" ? "Entrando…" : "Criando conta…")
+                    : (modo === "login" ? "Entrar" : "Criar conta")}
+                </button>
+              </form>
+
+              <div style={{ marginTop: 18, textAlign: "center" }}>
+                {modo === "login" ? (
+                  <button
+                    type="button"
+                    onClick={() => trocarModo("cadastro")}
+                    style={{ background: "transparent", border: "none", color: "#185FA5", fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0 }}
+                  >
+                    Primeira vez? Criar conta →
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => trocarModo("login")}
+                    style={{ background: "transparent", border: "none", color: "#185FA5", fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0 }}
+                  >
+                    Já tem conta? Entrar →
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
