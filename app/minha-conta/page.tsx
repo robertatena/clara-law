@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase-auth";
 
 const ClaraIcon = ({ size = 32 }: { size?: number }) => (
@@ -28,7 +28,7 @@ const LABEL_TIPO: Record<string, string> = {
   desconhecido: "Caso",
 };
 
-type Modo = "login" | "cadastro";
+type Modo = "login" | "cadastro" | "esqueci";
 
 export default function MinhaContaPage() {
   const supabase = createBrowserSupabase();
@@ -44,6 +44,56 @@ export default function MinhaContaPage() {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
+
+  // Chat de acolhimento (estado logado, sem caso específico)
+  type MsgChat = { role: "user" | "assistant"; content: string };
+  const [chatHistorico, setChatHistorico] = useState<MsgChat[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatEnviando, setChatEnviando] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatHistorico.length, chatEnviando]);
+
+  async function enviarChatAcolhimento(mensagemTexto?: string) {
+    const texto = (mensagemTexto ?? chatInput).trim();
+    if (!texto || chatEnviando) return;
+    setChatInput("");
+    setChatEnviando(true);
+    // Mensagem do usuário aparece imediatamente
+    const novoHistorico: MsgChat[] = [...chatHistorico, { role: "user", content: texto }];
+    setChatHistorico(novoHistorico);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          casoId: null,
+          mensagem: texto,
+          historico: chatHistorico, // histórico ANTES da nova mensagem
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.resposta) {
+        setChatHistorico([...novoHistorico, {
+          role: "assistant",
+          content: "Desculpe, tive um problema pra responder agora. Tente de novo em instantes.",
+        }]);
+      } else {
+        setChatHistorico([...novoHistorico, { role: "assistant", content: data.resposta }]);
+      }
+    } catch {
+      setChatHistorico([...novoHistorico, {
+        role: "assistant",
+        content: "Erro de conexão. Verifique sua internet e tente de novo.",
+      }]);
+    } finally {
+      setChatEnviando(false);
+    }
+  }
 
   useEffect(() => {
     let cancelado = false;
@@ -85,7 +135,7 @@ export default function MinhaContaPage() {
       setErro("Digite um e-mail válido.");
       return;
     }
-    if (senha.length < 8) {
+    if (modo !== "esqueci" && senha.length < 8) {
       setErro("A senha deve ter pelo menos 8 caracteres.");
       return;
     }
@@ -109,11 +159,9 @@ export default function MinhaContaPage() {
             setErro("Erro ao entrar. Tente novamente.");
           }
         } else {
-          // Sucesso — recarrega pra pegar session e casos
           window.location.reload();
         }
-      } else {
-        // Cadastro
+      } else if (modo === "cadastro") {
         const { error } = await supabase.auth.signUp({
           email: emailLimpo,
           password: senha,
@@ -130,6 +178,17 @@ export default function MinhaContaPage() {
           }
         } else {
           setSucesso("Conta criada! Verifique seu e-mail para confirmar o cadastro.");
+        }
+      } else {
+        // Esqueci minha senha
+        const { error } = await supabase.auth.resetPasswordForEmail(emailLimpo, {
+          redirectTo: `${window.location.origin}/auth/reset-password`,
+        });
+        if (error) {
+          console.error("resetPasswordForEmail error:", error);
+          setErro(`Erro: ${error.message}`);
+        } else {
+          setSucesso("Verifique seu e-mail — enviamos o link de recuperação.");
         }
       }
     } catch (err) {
@@ -189,10 +248,12 @@ export default function MinhaContaPage() {
                 Área do cliente
               </div>
               <h1 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(24px, 3.4vw, 34px)", color: "#1a2340", marginBottom: 12, lineHeight: 1.2 }}>
-                {modo === "login" ? "Acesse sua área" : "Criar sua conta"}
+                {modo === "login" ? "Acesse sua área" : modo === "cadastro" ? "Criar sua conta" : "Recuperar senha"}
               </h1>
               <p style={{ fontSize: 15, color: "#6b7280", lineHeight: 1.65, marginBottom: 24 }}>
-                {modo === "login" ? "Entre com seu e-mail e senha." : "Crie sua conta para acompanhar seus casos."}
+                {modo === "login" ? "Entre com seu e-mail e senha."
+                  : modo === "cadastro" ? "Crie sua conta para acompanhar seus casos."
+                  : "Digite seu e-mail para receber o link de recuperação."}
               </p>
 
               {sucesso && (
@@ -213,16 +274,20 @@ export default function MinhaContaPage() {
                   style={{ width: "100%", padding: "14px 16px", fontSize: 15, borderRadius: 12, border: "1px solid #D0CCC4", outline: "none", background: "#fff", color: "#1a2340", marginBottom: 14, fontFamily: "'Montserrat', sans-serif" }}
                 />
 
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6 }}>Senha</label>
-                <input
-                  type="password"
-                  required
-                  minLength={modo === "cadastro" ? 8 : undefined}
-                  value={senha}
-                  onChange={(e) => { setSenha(e.target.value); setErro(""); }}
-                  placeholder={modo === "cadastro" ? "Mínimo 8 caracteres" : "Sua senha"}
-                  style={{ width: "100%", padding: "14px 16px", fontSize: 15, borderRadius: 12, border: "1px solid #D0CCC4", outline: "none", background: "#fff", color: "#1a2340", marginBottom: 14, fontFamily: "'Montserrat', sans-serif" }}
-                />
+                {modo !== "esqueci" && (
+                  <>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6 }}>Senha</label>
+                    <input
+                      type="password"
+                      required
+                      minLength={modo === "cadastro" ? 8 : undefined}
+                      value={senha}
+                      onChange={(e) => { setSenha(e.target.value); setErro(""); }}
+                      placeholder={modo === "cadastro" ? "Mínimo 8 caracteres" : "Sua senha"}
+                      style={{ width: "100%", padding: "14px 16px", fontSize: 15, borderRadius: 12, border: "1px solid #D0CCC4", outline: "none", background: "#fff", color: "#1a2340", marginBottom: 14, fontFamily: "'Montserrat', sans-serif" }}
+                    />
+                  </>
+                )}
 
                 {modo === "cadastro" && (
                   <>
@@ -247,27 +312,46 @@ export default function MinhaContaPage() {
                   style={{ width: "100%", background: enviando ? "#9ca3af" : "#1a2340", color: "#fff", fontSize: 15, fontWeight: 700, padding: "14px 20px", borderRadius: 40, border: "none", cursor: enviando ? "not-allowed" : "pointer" }}
                 >
                   {enviando
-                    ? (modo === "login" ? "Entrando…" : "Criando conta…")
-                    : (modo === "login" ? "Entrar" : "Criar conta")}
+                    ? (modo === "login" ? "Entrando…" : modo === "cadastro" ? "Criando conta…" : "Enviando…")
+                    : (modo === "login" ? "Entrar" : modo === "cadastro" ? "Criar conta" : "Enviar link de recuperação")}
                 </button>
               </form>
 
-              <div style={{ marginTop: 18, textAlign: "center" }}>
-                {modo === "login" ? (
-                  <button
-                    type="button"
-                    onClick={() => trocarModo("cadastro")}
-                    style={{ background: "transparent", border: "none", color: "#185FA5", fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0 }}
-                  >
-                    Primeira vez? Criar conta →
-                  </button>
-                ) : (
+              <div style={{ marginTop: 18, textAlign: "center", display: "flex", flexDirection: "column", gap: 10 }}>
+                {modo === "login" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => trocarModo("esqueci")}
+                      style={{ background: "transparent", border: "none", color: "#6b7280", fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0 }}
+                    >
+                      Esqueci minha senha
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => trocarModo("cadastro")}
+                      style={{ background: "transparent", border: "none", color: "#185FA5", fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0 }}
+                    >
+                      Primeira vez? Criar conta →
+                    </button>
+                  </>
+                )}
+                {modo === "cadastro" && (
                   <button
                     type="button"
                     onClick={() => trocarModo("login")}
                     style={{ background: "transparent", border: "none", color: "#185FA5", fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0 }}
                   >
                     Já tem conta? Entrar →
+                  </button>
+                )}
+                {modo === "esqueci" && (
+                  <button
+                    type="button"
+                    onClick={() => trocarModo("login")}
+                    style={{ background: "transparent", border: "none", color: "#185FA5", fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0 }}
+                  >
+                    ← Voltar para o login
                   </button>
                 )}
               </div>
@@ -326,6 +410,104 @@ export default function MinhaContaPage() {
                   ))}
                 </div>
               )}
+
+              {/* ── SEÇÃO: Fale com a Clara (chat de acolhimento) ── */}
+              <div style={{ marginTop: 40 }}>
+                <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 20, color: "#1a2340", marginBottom: 6 }}>
+                  Fale com a Clara
+                </h2>
+                <p style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.65, marginBottom: 16 }}>
+                  Tem alguma dúvida sobre seu caso ou sobre o processo? A Clara te explica com calma.
+                </p>
+
+                <div style={{ background: "#fff", border: "1px solid #E0DDD6", borderRadius: 14, boxShadow: "0 6px 20px rgba(26,35,64,0.04)", overflow: "hidden" }}>
+
+                  {/* Sugestões rápidas (aparecem quando não tem histórico ainda) */}
+                  {chatHistorico.length === 0 && (
+                    <div style={{ padding: "16px 18px", borderBottom: "1px solid #ECEAE4", background: "#F8F7F4" }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", color: "#6b7280", textTransform: "uppercase", marginBottom: 10 }}>
+                        Sugestões rápidas
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {[
+                          "Recebi uma intimação — o que significa?",
+                          "A empresa não respondeu meu e-mail. E agora?",
+                          "Como me comporto na audiência?",
+                          "Me ofereceram um acordo. Aceito?",
+                        ].map((sug) => (
+                          <button
+                            key={sug}
+                            type="button"
+                            onClick={() => enviarChatAcolhimento(sug)}
+                            disabled={chatEnviando}
+                            style={{ textAlign: "left", background: "#fff", border: "1px solid #E0DDD6", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#1a2340", cursor: chatEnviando ? "not-allowed" : "pointer", fontFamily: "'Montserrat', sans-serif" }}
+                          >
+                            {sug}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Histórico da conversa */}
+                  {chatHistorico.length > 0 && (
+                    <div ref={chatScrollRef} style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10, maxHeight: 400, overflowY: "auto" }}>
+                      {chatHistorico.map((m, i) => (
+                        <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
+                          {m.role === "assistant" && (
+                            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 4 }}>Clara</span>
+                          )}
+                          <div style={{
+                            maxWidth: "85%",
+                            background: m.role === "user" ? "#1a2340" : "#F8F7F4",
+                            color: m.role === "user" ? "#fff" : "#374151",
+                            padding: "10px 14px",
+                            borderRadius: 12,
+                            fontSize: 14,
+                            lineHeight: 1.6,
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                            border: m.role === "user" ? "none" : "1px solid #E0DDD6",
+                          }}>
+                            {m.content}
+                          </div>
+                        </div>
+                      ))}
+                      {chatEnviando && (
+                        <div style={{ alignSelf: "flex-start", color: "#9ca3af", fontSize: 12, fontStyle: "italic" }}>
+                          Clara está digitando…
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Input do chat */}
+                  <form
+                    onSubmit={(e) => { e.preventDefault(); enviarChatAcolhimento(); }}
+                    style={{ borderTop: "1px solid #ECEAE4", padding: "12px 14px", display: "flex", gap: 8, background: "#fff" }}
+                  >
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      placeholder="Escreva sua dúvida…"
+                      disabled={chatEnviando}
+                      style={{ flex: 1, padding: "12px 14px", fontSize: 14, borderRadius: 22, border: "1px solid #D0CCC4", outline: "none", background: "#fff", color: "#1a2340", fontFamily: "'Montserrat', sans-serif" }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={!chatInput.trim() || chatEnviando}
+                      style={{ background: !chatInput.trim() || chatEnviando ? "#E0DDD6" : "#1a2340", color: !chatInput.trim() || chatEnviando ? "#9ca3af" : "#fff", fontSize: 14, fontWeight: 700, padding: "12px 20px", borderRadius: 22, border: "none", cursor: !chatInput.trim() || chatEnviando ? "not-allowed" : "pointer" }}
+                    >
+                      Perguntar
+                    </button>
+                  </form>
+                </div>
+
+                <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", marginTop: 12, lineHeight: 1.6 }}>
+                  ⚠️ A Clara é uma ferramenta educacional. As respostas são orientativas e não substituem consulta com advogado.
+                </p>
+              </div>
             </div>
           )}
 

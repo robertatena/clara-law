@@ -28,6 +28,19 @@ IMPORTANTE:
 
 Responda de forma curta e objetiva (máximo 4-5 parágrafos curtos). Use quebras de linha para facilitar leitura em mobile.`;
 
+// Prompt especial para o chat de acolhimento (sem caso específico)
+const SYSTEM_PROMPT_ACOLHIMENTO = `Você é a Clara, assistente educacional da plataforma Clara Law. O usuário está com uma dúvida geral sobre o processo de defesa do consumidor no Brasil.
+
+Seja especialmente acolhedora — muitas pessoas têm medo de processos judiciais. Desmistifique, acalme e oriente em linguagem simples.
+
+Quando alguém perguntar sobre INTIMAÇÃO: explique que é boa notícia (ação foi aceita), não é processo criminal, não afeta CPF, é só uma convocação formal — como um e-mail formal da Justiça.
+
+NUNCA dê consultoria jurídica específica.
+
+Sempre termine sua resposta com: "Se precisar de ajuda mais específica, pode falar com um advogado."
+
+Responda de forma curta e objetiva (máximo 4-5 parágrafos curtos). Use quebras de linha para facilitar leitura em mobile.`;
+
 // Transporter do Gmail (mesma config do webhook/enviar-email)
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -86,17 +99,22 @@ async function enviarEmailEscalada(caso: CasoRow, ultimaMensagem: string): Promi
   });
 }
 
+type HistoricoMsg = { role: "user" | "assistant"; content: string };
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const casoId = String(body.casoId || "").trim();
+    const casoIdRaw = body.casoId;
+    const casoId = typeof casoIdRaw === "string" ? casoIdRaw.trim() : "";
     const mensagem = String(body.mensagem || "").trim();
+    // Histórico opcional enviado pelo cliente (usado no chat de acolhimento sem caso)
+    const historicoCliente = Array.isArray(body.historico) ? (body.historico as HistoricoMsg[]) : [];
 
-    if (!casoId || !mensagem) {
+    if (!mensagem) {
       return NextResponse.json({ error: "missing_fields" }, { status: 400 });
     }
 
-    // 1. Autenticação — usuário só pode conversar sobre casos próprios
+    // Autenticação — obrigatória em ambos os fluxos
     const cookieStore = await cookies();
     const supabase = createRouteSupabase(cookieStore);
     const { data: { user } } = await supabase.auth.getUser();
@@ -104,7 +122,45 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    // 2. Buscar caso (RLS garante que só retorna se for do usuário)
+    // ── FLUXO A: chat de acolhimento (sem caso específico) ─────────────────
+    // Não persiste nada no banco. Histórico vem do cliente (state local).
+    if (!casoId) {
+      if (!process.env.ANTHROPIC_API_KEY) {
+        return NextResponse.json({
+          resposta: "A Clara IA está temporariamente indisponível. Tente novamente em instantes.",
+          escalado: false,
+        });
+      }
+
+      const previousMessages: HistoricoMsg[] = historicoCliente
+        .filter((m) => m && typeof m.content === "string" && (m.role === "user" || m.role === "assistant"))
+        .slice(-20); // últimas 20 pra não estourar contexto
+
+      let respostaTexto = "";
+      try {
+        const resp = await anthropic.messages.create({
+          model: MODEL,
+          max_tokens: 800,
+          system: SYSTEM_PROMPT_ACOLHIMENTO,
+          messages: [
+            ...previousMessages.map((m) => ({ role: m.role, content: m.content })),
+            { role: "user" as const, content: mensagem },
+          ],
+        });
+        const bloco = resp.content.find((c) => c.type === "text");
+        respostaTexto = bloco && "text" in bloco ? bloco.text : "";
+        if (!respostaTexto) throw new Error("empty_response");
+      } catch (err) {
+        console.error("anthropic_acolhimento_failed", err instanceof Error ? err.message : "unknown");
+        respostaTexto = "Desculpe, tive um problema pra responder agora. Tente de novo em instantes.";
+      }
+
+      return NextResponse.json({ resposta: respostaTexto, escalado: false });
+    }
+
+    // ── FLUXO B: chat sobre caso específico (persiste no banco) ────────────
+
+    // Buscar caso (RLS garante que só retorna se for do usuário)
     const { data: caso, error: casoErr } = await supabase
       .from("user_casos")
       .select("id, user_id, email, tipo_caso, descricao, dados_json")
@@ -115,7 +171,7 @@ export async function POST(req: Request) {
     }
     const casoTyped = caso as CasoRow;
 
-    // 3. Buscar histórico da conversa (últimas 20 pra não estourar contexto)
+    // Buscar histórico da conversa (últimas 20 pra não estourar contexto)
     const { data: msgsPrev } = await supabase
       .from("mensagens")
       .select("role, conteudo")
@@ -123,7 +179,7 @@ export async function POST(req: Request) {
       .order("created_at", { ascending: true })
       .limit(20);
 
-    // 4. Salvar mensagem do usuário
+    // Salvar mensagem do usuário
     const { error: insertUserErr } = await supabaseAdmin.from("mensagens").insert({
       caso_id: casoId,
       user_id: user.id,
@@ -134,7 +190,7 @@ export async function POST(req: Request) {
       console.error("chat_insert_user_error", insertUserErr.message);
     }
 
-    // 5. Escalada — se detectada, dispara e-mail em paralelo (não bloqueia resposta IA)
+    // Escalada — se detectada, dispara e-mail em paralelo (não bloqueia resposta IA)
     const escalado = detectaEscalada(mensagem);
     if (escalado) {
       enviarEmailEscalada(casoTyped, mensagem).catch((err) =>
@@ -142,9 +198,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // 6. Chamar Anthropic
+    // Chamar Anthropic
     if (!process.env.ANTHROPIC_API_KEY) {
-      // Fallback amigável quando a chave não está configurada
       const fallback = "A Clara IA está temporariamente indisponível. Se precisar de ajuda urgente, clique em \"Falar com humano\" no topo do chat.";
       await supabaseAdmin.from("mensagens").insert({
         caso_id: casoId,
@@ -164,7 +219,6 @@ CONTEXTO DO CASO DO USUÁRIO:
 
 Use esse contexto para dar respostas específicas ao caso do usuário — cite os detalhes dele quando fizer sentido.`;
 
-    // Montar histórico no formato Anthropic
     const previousMessages = ((msgsPrev as MsgRow[] | null) ?? []).map((m) => ({
       role: m.role === "user" ? ("user" as const) : ("assistant" as const),
       content: m.conteudo,
@@ -181,17 +235,14 @@ Use esse contexto para dar respostas específicas ao caso do usuário — cite o
           { role: "user", content: mensagem },
         ],
       });
-      // Primeiro bloco de texto da resposta
       const bloco = resp.content.find((c) => c.type === "text");
       respostaTexto = bloco && "text" in bloco ? bloco.text : "";
       if (!respostaTexto) throw new Error("empty_response");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "unknown";
-      console.error("anthropic_call_failed", msg);
+      console.error("anthropic_call_failed", err instanceof Error ? err.message : "unknown");
       respostaTexto = "Desculpe, tive um problema pra responder agora. Tente novamente em instantes — ou clique em \"Falar com humano\" se for urgente.";
     }
 
-    // 7. Salvar resposta da assistente
     await supabaseAdmin.from("mensagens").insert({
       caso_id: casoId,
       user_id: user.id,
