@@ -507,6 +507,12 @@ export default function MinhaContaPage() {
                 <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", marginTop: 12, lineHeight: 1.6 }}>
                   ⚠️ A Clara é uma ferramenta educacional. As respostas são orientativas e não substituem consulta com advogado.
                 </p>
+                <p style={{ fontSize: 12, color: "#6b7280", textAlign: "center", marginTop: 6, lineHeight: 1.6 }}>
+                  Para dúvidas mais específicas sobre seu caso:{" "}
+                  <a href="mailto:contato@claralaw.com.br" style={{ color: "#185FA5", textDecoration: "none", fontWeight: 500 }}>
+                    contato@claralaw.com.br
+                  </a>
+                </p>
               </div>
             </div>
           )}
