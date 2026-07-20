@@ -87,6 +87,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("checkout_error", error);
+    const err = error as { code?: string; message?: string };
+    const msg = err.message?.toLowerCase() ?? "";
+    if (err.code === "resource_missing" || msg.includes("coupon") || msg.includes("promotion code")) {
+      return NextResponse.json({ error: "cupom_invalido" }, { status: 400 });
+    }
     return NextResponse.json(
       { error: "checkout_error" },
       { status: 500 }

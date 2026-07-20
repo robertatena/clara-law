@@ -1949,7 +1949,7 @@ export default function Page() {
                     type="text"
                     value={cupomDigitado}
                     onChange={(e) => setCupomDigitado(e.target.value.toUpperCase())}
-                    placeholder="Tem um cupom? Ex: CLARAFREE"
+                    placeholder="Tem um cupom de desconto?"
                     style={{
                       width: "100%",
                       padding: "10px 14px",
@@ -2039,6 +2039,10 @@ export default function Page() {
                           }),
                         });
                         const data = await res.json();
+                        if (data.error === "cupom_invalido") {
+                          setError("Cupom inválido ou expirado.");
+                          return;
+                        }
                         if (data.url) window.location.href = data.url;
                         else setError("Não foi possível iniciar o pagamento. Tente novamente.");
                       } catch {
