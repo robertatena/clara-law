@@ -33,7 +33,7 @@ const etapas: Etapa[] = [
     titulo: "Hora do Juizado Especial",
     texto: "O JEC é gratuito, não precisa de advogado para causas até 20 salários mínimos, e a empresa é obrigada a comparecer.",
     acoes: [
-      "Pegue a petição que a Clara gerou.",
+      "Se você contratou o Pacote Ação, pegue a petição que a Clara gerou. Caso contrário, o próprio JEC pode ajudar a formalizar a reclamação no balcão.",
       "Leve ao fórum do CEP que você consultou — confira em claralaw.com.br/#forum.",
       "Documentos para levar: RG ou CPF, comprovante de residência, print do e-mail enviado, nota fiscal ou contrato, petição impressa.",
     ],

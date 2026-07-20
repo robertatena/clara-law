@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Clara Law — Inteligência para um mundo mais claro.",
   description:
-    "Analise contratos, descubra seus direitos e saiba o que fazer — sem juridiquês e sem advogado.",
+    "Descubra seus direitos como consumidor e saiba o que fazer — sem advogado, sem juridiquês. A Clara te guia do início ao fim.",
 };
 
 export default function RootLayout({

@@ -61,6 +61,7 @@ export default function SucessoPage() {
             <Link href="/#como-funciona" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Como funciona</Link>
             <Link href="/#forum" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Encontrar fórum</Link>
             <Link href="/#aprenda" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Aprenda</Link>
+            <Link href="/minha-conta" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Minha conta</Link>
             <Link href="/enviar" style={{ background: "#1a2340", color: "#fff", fontSize: 13, fontWeight: 600, padding: "10px 22px", borderRadius: 40, textDecoration: "none" }}>
               Reivindicar meus direitos
             </Link>
@@ -114,7 +115,7 @@ export default function SucessoPage() {
           <div style={{ maxWidth: 640, margin: "0 auto" }}>
             <div style={{ background: "#F8F7F4", border: "1px solid #E0DDD6", borderRadius: 12, padding: "18px 20px", textAlign: "center" }}>
               <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.7, margin: 0 }}>
-                📬 Seu e-mail foi enviado para você. Verifique sua caixa de entrada (e o spam, por segurança).
+                📬 Seus documentos foram enviados para o e-mail informado no checkout. Verifique sua caixa de entrada e a pasta de spam.
               </p>
             </div>
           </div>
