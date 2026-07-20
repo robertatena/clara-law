@@ -72,7 +72,7 @@ export default function Home() {
           </p>
 
           <p style={{ fontSize: 14, color: "#6b7280", marginBottom: 40, lineHeight: 1.6 }}>
-            📧 Muitos casos se resolvem com um simples e-mail — a Clara escreve pra você, com a lei certa.
+            📧 Muitos casos se resolvem com um simples e-mail — a Clara gera o e-mail, com a lei certa.
           </p>
 
           <div style={{ display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>

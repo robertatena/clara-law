@@ -1830,26 +1830,16 @@ export default function Page() {
               )}
             </div>
 
-            {/* Probabilidade de ganhar */}
+            {/* Casos similares — classificação qualitativa (sem percentual) */}
             {(() => {
               const prob = calcularProbabilidade(tipoCaso!, tempoAtraso, assistenciaComida, assistenciaHotel, prejuizoExtra, avisoPrevia, tipoBagagem);
-              const bgClass = prob.score >= 75 ? "bg-green-50 border-green-200" : prob.score >= 50 ? "bg-amber-50 border-amber-200" : "bg-red-50 border-red-200";
+              const bgClass = prob.score >= 80 ? "bg-green-50 border-green-200" : prob.score >= 60 ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-200";
               return (
                 <div className={`rounded-[24px] border-2 ${bgClass} p-6`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: prob.cor }}>Casos similares</div>
-                      <div className="text-2xl font-black" style={{ color: prob.cor }}>{prob.score}% — {prob.label}</div>
-                    </div>
-                    <div className="w-16 h-16 rounded-full border-4 flex items-center justify-center flex-shrink-0" style={{ borderColor: prob.cor }}>
-                      <span className="text-lg font-black" style={{ color: prob.cor }}>{prob.score}</span>
-                    </div>
-                  </div>
-                  <div className="h-2 rounded-full bg-white/60 mb-3">
-                    <div className="h-2 rounded-full transition-all duration-700" style={{ width: `${prob.score}%`, backgroundColor: prob.cor }} />
-                  </div>
-                  <p className="text-sm leading-relaxed" style={{ color: prob.cor.replace("f", "0") }}>{prob.texto}</p>
-                  <p className="text-xs mt-2 opacity-60">Baseado em casos similares · orientativo · não é garantia de resultado</p>
+                  <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: prob.cor }}>Casos similares</div>
+                  <div className="text-lg font-bold mb-3" style={{ color: prob.cor }}>{prob.label}</div>
+                  <p className="text-sm leading-relaxed text-slate-700">{prob.texto}</p>
+                  <p className="text-xs mt-3 text-slate-500">Baseado em casos similares · orientativo · não é garantia de resultado</p>
                 </div>
               );
             })()}
@@ -2451,13 +2441,13 @@ function calcularProbabilidade(
   } else if (tipo === "cobranca_indevida") { score = 84; }
   else if (tipo === "produto_defeito") { score = 71; }
   else if (tipo === "servico_nao_entregue") { score = 85; }
-  const label = score >= 75 ? "Alta" : score >= 50 ? "Média" : "Baixa";
-  const cor = score >= 75 ? "#22c55e" : score >= 50 ? "#f59e0b" : "#ef4444";
-  const texto = score >= 75
+  const label = score >= 80 ? "Favorável em casos similares" : score >= 60 ? "Moderado em casos similares" : "Depende do contexto";
+  const cor = score >= 80 ? "#22c55e" : score >= 60 ? "#f59e0b" : "#6b7280";
+  const texto = score >= 80
     ? "Em casos similares registrados no TJSP, consumidores obtiveram resultado favorável. Cada caso é único — resultado não garantido."
-    : score >= 50
-    ? "Há boas chances, mas o resultado depende das provas que você conseguir reunir."
-    : "Atraso curto tem menos precedentes de dano moral — o e-mail costuma resolver.";
+    : score >= 60
+    ? "Há precedentes favoráveis, mas o resultado depende das provas que você conseguir reunir."
+    : "O resultado depende bastante do contexto e das provas — o e-mail costuma ser o melhor primeiro passo.";
   return { score, label, cor, texto };
 }
 
@@ -3196,10 +3186,10 @@ ${rodapeGenerico(nome !== "[NOME DO PASSAGEIRO]" ? nome : "")}`
 
 function estimarValor(tipo: TipoCaso): string {
   switch (tipo) {
-    case "voo_atrasado":      return "R$2.000 – R$5.000 (dano moral) + despesas comprovadas — orientativo";
-    case "voo_cancelado":     return "R$3.000 – R$8.000 (dano moral) + reembolso integral do bilhete — orientativo";
-    case "bagagem":           return "Indenização de até USD 1.288 (limite internacional Convenção de Montreal) ou dano moral se comprovado — orientativo";
-    case "cobranca_indevida": return "Devolução em dobro do valor cobrado + R$3.000 – R$10.000 (dano moral se houve negativação) — orientativo";
+    case "voo_atrasado":      return "Indenização por dano moral — valor varia conforme o caso e o juiz + despesas comprovadas — orientativo";
+    case "voo_cancelado":     return "Indenização por dano moral — valor varia conforme o caso e o juiz + reembolso integral do bilhete — orientativo";
+    case "bagagem":           return "Indenização de até USD 1.288 (limite Convenção de Montreal) ou dano moral se comprovado — valor varia conforme o caso e o juiz — orientativo";
+    case "cobranca_indevida": return "Devolução em dobro do valor cobrado + indenização por dano moral em casos de negativação indevida — valor varia conforme o caso e o juiz — orientativo";
     case "produto_defeito":   return "Substituição / devolução / abatimento (à escolha do consumidor) + eventual dano moral — orientativo";
     case "servico_nao_entregue": return "Devolução integral do valor pago + possível indenização por danos materiais e morais — orientativo";
     default:                  return "Valor a calcular com base nos danos materiais + dano moral — orientativo";
