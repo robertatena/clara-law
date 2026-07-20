@@ -51,6 +51,8 @@ export default function CasoPage() {
   const [input, setInput] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [escaladoOk, setEscaladoOk] = useState(false);
+  const [respostaLembrete, setRespostaLembrete] = useState(false);
+  const [atualizandoStatus, setAtualizandoStatus] = useState(false);
 
   // Auth + fetch caso + fetch mensagens
   useEffect(() => {
@@ -95,9 +97,9 @@ export default function CasoPage() {
     }
   }, [mensagens.length, enviando]);
 
-  async function enviar(e?: React.FormEvent) {
+  async function enviar(e?: React.FormEvent, override?: string) {
     e?.preventDefault();
-    const texto = input.trim();
+    const texto = (override ?? input).trim();
     if (!texto || enviando || !caso) return;
 
     setInput("");
@@ -155,9 +157,26 @@ export default function CasoPage() {
   }
 
   async function escalar() {
-    setInput("Preciso de ajuda humana");
-    // Dispara envio no próximo tick para o input aparecer atualizado
-    setTimeout(() => enviar(), 50);
+    // Envia direto passando o texto — não depende do state atualizar antes
+    await enviar(undefined, "Preciso de ajuda humana");
+  }
+
+  async function marcarEmailEnviado() {
+    if (!caso || atualizandoStatus) return;
+    setAtualizandoStatus(true);
+    try {
+      const { error } = await supabase
+        .from("user_casos")
+        .update({ status: "email_enviado" })
+        .eq("id", casoId);
+      if (error) {
+        console.error("update_status_error:", error);
+        return;
+      }
+      setCaso((prev) => (prev ? { ...prev, status: "email_enviado" } : prev));
+    } finally {
+      setAtualizandoStatus(false);
+    }
   }
 
   return (
@@ -203,6 +222,62 @@ export default function CasoPage() {
                   <span style={{ color: caso.status === "ativo" ? "#10b981" : "#6b7280", fontWeight: 600 }}>{caso.status}</span>
                 </div>
               </div>
+
+              {/* Card de status do envio do e-mail para a empresa */}
+              {caso.status === "email_enviado" ? (
+                <div style={{ background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 14, padding: "18px 20px", marginBottom: 20 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#065f46", marginBottom: 6 }}>
+                    ✅ E-mail enviado!
+                  </div>
+                  <p style={{ fontSize: 13, color: "#065f46", lineHeight: 1.65, marginBottom: 10 }}>
+                    A empresa tem até 5 dias úteis para responder. Se não responder, veja a Etapa 2 no seu guia.
+                  </p>
+                  <Link href="/guia#etapa-2" style={{ display: "inline-block", fontSize: 13, fontWeight: 600, color: "#065f46", textDecoration: "underline" }}>
+                    Ver Etapa 2 no guia →
+                  </Link>
+                </div>
+              ) : respostaLembrete ? (
+                <div style={{ background: "#FFF9ED", border: "1px solid #fcd34d", borderRadius: 14, padding: "18px 20px", marginBottom: 20 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#92400e", marginBottom: 6 }}>
+                    📧 Lembre de enviar o e-mail
+                  </div>
+                  <p style={{ fontSize: 13, color: "#92400e", lineHeight: 1.65, marginBottom: 10 }}>
+                    Envie o e-mail gerado para a empresa. Acesse sua caixa de saída ou volte para{" "}
+                    <Link href="/sucesso" style={{ color: "#92400e", fontWeight: 600, textDecoration: "underline" }}>/sucesso</Link>.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setRespostaLembrete(false)}
+                    style={{ background: "transparent", border: "none", fontSize: 12, color: "#92400e", textDecoration: "underline", cursor: "pointer", padding: 0 }}
+                  >
+                    ← Voltar
+                  </button>
+                </div>
+              ) : (
+                <div style={{ background: "#F0F4FF", border: "1px solid #C7D2FE", borderRadius: 14, padding: "18px 20px", marginBottom: 20 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2340", marginBottom: 12, lineHeight: 1.35 }}>
+                    Você já enviou o e-mail de notificação para a empresa?
+                  </div>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={marcarEmailEnviado}
+                      disabled={atualizandoStatus}
+                      style={{ background: atualizandoStatus ? "#9ca3af" : "#10b981", color: "#fff", fontSize: 13, fontWeight: 700, padding: "10px 18px", borderRadius: 22, border: "none", cursor: atualizandoStatus ? "not-allowed" : "pointer" }}
+                    >
+                      {atualizandoStatus ? "Salvando…" : "✅ Sim, já enviei"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRespostaLembrete(true)}
+                      disabled={atualizandoStatus}
+                      style={{ background: "#fff", color: "#92400e", fontSize: 13, fontWeight: 700, padding: "10px 18px", borderRadius: 22, border: "1px solid #fcd34d", cursor: "pointer" }}
+                    >
+                      ⏳ Ainda não enviei
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Chat container */}
               <div style={{ background: "#fff", border: "1px solid #E0DDD6", borderRadius: 14, display: "flex", flexDirection: "column", height: "min(66vh, 620px)", overflow: "hidden", boxShadow: "0 6px 20px rgba(26,35,64,0.04)" }}>

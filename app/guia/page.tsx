@@ -160,11 +160,13 @@ export default function GuiaPage() {
       {etapas.map((e, i) => (
         <section
           key={i}
+          id={`etapa-${i + 1}`}
           className="reveal"
           style={{
             background: i % 2 === 0 ? "#F8F7F4" : "#fff",
             borderBottom: "1px solid #ECEAE4",
             padding: "64px 24px",
+            scrollMarginTop: 80,
           }}
         >
           <div style={{ maxWidth: 760, margin: "0 auto" }}>

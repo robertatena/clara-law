@@ -75,11 +75,22 @@ type CasoRow = {
 
 type MsgRow = { role: string; conteudo: string };
 
-async function enviarEmailEscalada(caso: CasoRow, ultimaMensagem: string): Promise<void> {
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) return;
+async function enviarEmailEscalada(caso: CasoRow, ultimaMensagem: string, userEmail?: string): Promise<void> {
+  const replyTo = caso.email || userEmail || "";
+  console.log("escalada_email:", {
+    to: "claralaw.aviso@gmail.com",
+    from: process.env.GMAIL_USER,
+    hasPass: !!process.env.GMAIL_PASS,
+    casoId: caso.id,
+    replyTo,
+  });
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
+    console.warn("escalada_email_skipped: GMAIL_USER ou GMAIL_PASS ausente no ambiente");
+    return;
+  }
   const linhas = [
     `<p>Um usuário pediu ajuda humana no chat da Clara.</p>`,
-    `<p><strong>Email:</strong> ${caso.email}</p>`,
+    `<p><strong>Email:</strong> ${caso.email || userEmail || "(sem e-mail no caso)"}</p>`,
     `<p><strong>Caso ID:</strong> ${caso.id}</p>`,
     `<p><strong>Tipo:</strong> ${caso.tipo_caso}</p>`,
     `<p><strong>Descrição:</strong> ${caso.descricao || "(sem descrição)"}</p>`,
@@ -93,10 +104,11 @@ async function enviarEmailEscalada(caso: CasoRow, ultimaMensagem: string): Promi
   await transporter.sendMail({
     from: `"Clara Law" <${process.env.GMAIL_USER}>`,
     to: "claralaw.aviso@gmail.com",
-    replyTo: caso.email,
+    replyTo: replyTo || undefined,
     subject: `[ESCALADA] Ajuda humana solicitada — ${caso.tipo_caso}`,
     html: `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;">${linhas}</div>`,
   });
+  console.log("escalada_email_sent: ok");
 }
 
 type HistoricoMsg = { role: "user" | "assistant"; content: string };
@@ -193,7 +205,7 @@ export async function POST(req: Request) {
     // Escalada — se detectada, dispara e-mail em paralelo (não bloqueia resposta IA)
     const escalado = detectaEscalada(mensagem);
     if (escalado) {
-      enviarEmailEscalada(casoTyped, mensagem).catch((err) =>
+      enviarEmailEscalada(casoTyped, mensagem, user.email ?? undefined).catch((err) =>
         console.error("escalada_email_failed", err instanceof Error ? err.message : "unknown"),
       );
     }
