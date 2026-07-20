@@ -167,6 +167,26 @@ export default function SucessoPage() {
         </section>
       )}
 
+      {/* ACOMPANHE SEU CASO — CTA para área logada */}
+      <section className="reveal" style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "40px 24px" }}>
+        <div style={{ maxWidth: 640, margin: "0 auto" }}>
+          <div style={{ background: "#F0F4FF", border: "1px solid #C7D2FE", borderRadius: 12, padding: 20 }}>
+            <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 20, color: "#1a2340", marginBottom: 8, lineHeight: 1.3 }}>
+              Acompanhe seu caso
+            </h2>
+            <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.65, marginBottom: 16 }}>
+              Crie sua conta gratuita para acessar seu histórico, tirar dúvidas com a Clara e acompanhar cada etapa do processo.
+            </p>
+            <Link
+              href="/minha-conta"
+              style={{ display: "inline-block", background: "#1a2340", color: "#fff", fontSize: 14, fontWeight: 700, padding: "12px 24px", borderRadius: 40, textDecoration: "none" }}
+            >
+              Criar minha conta →
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* PRÓXIMOS PASSOS */}
       <section className="reveal" style={{ background: "#F8F7F4", borderBottom: "1px solid #ECEAE4", padding: "64px 24px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
