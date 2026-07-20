@@ -1985,7 +1985,7 @@ export default function Page() {
                           tipoCaso === "produto_defeito" ? "consulte o site da loja (SAC)" :
                           tipoCaso === "servico_nao_entregue" ? "consulte o site da empresa (SAC)" :
                           "consulte o site da empresa";
-                        sessionStorage.setItem("clara_email_gerado", JSON.stringify({
+                        localStorage.setItem("clara_email_gerado", JSON.stringify({
                           assunto: emailGerado.assunto,
                           corpo: emailGerado.corpo,
                           para: paraEmpresa,

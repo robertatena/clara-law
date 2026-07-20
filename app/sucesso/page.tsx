@@ -29,17 +29,20 @@ export default function SucessoPage() {
 
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem("clara_email_gerado");
-      console.log("sucesso: sessionStorage check", raw ? `${raw.length} chars` : "(vazio)");
+      const raw = localStorage.getItem("clara_email_gerado");
+      console.log("sucesso: localStorage check", raw ? `${raw.length} chars` : "(vazio)");
       if (raw) {
         const parsed = JSON.parse(raw) as EmailGerado;
-        if (parsed && parsed.corpo) {
+        // Ignora se foi gerado há mais de 2 horas (evita mostrar compra antiga)
+        const geradoEm = new Date(parsed.geradoEm).getTime();
+        const dentroDoPrazo = Number.isFinite(geradoEm) && (Date.now() - geradoEm) < 2 * 60 * 60 * 1000;
+        if (parsed && parsed.corpo && dentroDoPrazo) {
           setEmailGerado(parsed);
-          sessionStorage.removeItem("clara_email_gerado");
         }
+        localStorage.removeItem("clara_email_gerado");
       }
     } catch (err) {
-      console.warn("sucesso: falha ao ler sessionStorage", err);
+      console.warn("sucesso: falha ao ler localStorage", err);
     }
   }, []);
 
