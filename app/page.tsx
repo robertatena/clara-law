@@ -142,7 +142,7 @@ export default function Home() {
             <div style={{ display: "grid", gap: 2, background: "#E0DDD6", borderRadius: 18, overflow: "hidden" }} className="grid-steps">
               {[
                 { n: "1", t: "Conta o que aconteceu", d: "Voo atrasado, produto com defeito, cobrança indevida — escolha a situação e responda algumas perguntas." },
-                { n: "2", t: "Clara analisa e monta o caso", d: "Calcula o valor da indenização, identifica a lei aplicável e monta a notificação formal." },
+                { n: "2", t: "Clara analisa e monta o caso", d: "Identifica a lei aplicável e monta a notificação formal." },
                 { n: "3", t: "Sua notificação pronta para enviar", d: "Clara gera o e-mail com a lei certa. Você envia do seu próprio e-mail — no seu nome, com sua força." },
                 { n: "4", t: "Tudo pronto se precisar ir ao fórum", d: "Sem resposta? Clara gera sua petição e te mostra exatamente o que fazer no Juizado Especial." },
               ].map((s, i) => (
@@ -317,7 +317,7 @@ export default function Home() {
             <div style={{ background: "#1a2340", borderRadius: 20, padding: "36px 40px", position: "relative" }}>
               <div style={{ fontSize: 64, color: "#D4AF37", lineHeight: 1, marginBottom: 8, fontFamily: "Georgia, serif", opacity: 0.6 }}>&ldquo;</div>
               <p style={{ fontSize: 17, color: "#fff", lineHeight: 1.8, marginBottom: 28, maxWidth: 680 }}>
-                Meu avião atrasou 24 horas. A companhia me deu um voucher de R$12. Com a Clara consegui protocolar a ação no Juizado Especial e <strong style={{ color: "#D4AF37" }}>ganhei a causa sem sair de casa, sem advogado e sem pagar nada</strong> pela análise.
+                Meu avião atrasou 24 horas. A companhia me deu um voucher de R$12. Com a Clara consegui protocolar a ação no Juizado Especial e <strong style={{ color: "#D4AF37" }}>ganhei a causa sem sair de casa e sem advogado</strong>.
               </p>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#D4AF37", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#1a2340", fontSize: 16, flexShrink: 0 }}>M</div>
@@ -458,8 +458,12 @@ export default function Home() {
             <div style={{ fontSize: 11, color: "rgba(168,216,240,0.3)", marginTop: 3 }}>Inteligência para um mundo mais claro e justo.</div>
           </div>
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-            {["Como funciona", "Aprenda", "Privacidade"].map((l) => (
-              <a key={l} href="#" style={{ fontSize: 12, color: "rgba(168,216,240,0.4)", textDecoration: "none" }}>{l}</a>
+            {[
+              { label: "Como funciona", href: "#como-funciona" },
+              { label: "Aprenda", href: "#aprenda" },
+              { label: "Privacidade", href: "/privacidade" },
+            ].map((l) => (
+              <a key={l.label} href={l.href} style={{ fontSize: 12, color: "rgba(168,216,240,0.4)", textDecoration: "none" }}>{l.label}</a>
             ))}
           </div>
         </div>

@@ -24,6 +24,7 @@ export async function POST(req: Request) {
     const email = String(body.email || "").trim().toLowerCase();
     const origin = String(body.origin || process.env.NEXT_PUBLIC_APP_URL || "").trim();
     const produto = String(body.produto || "").trim() as Produto;
+    const cupom = String(body.cupom || "").trim();
 
     // Metadata adicional opcional (tipo_caso, descricao, dados do wizard).
     // Stripe aceita até 50 chaves, cada valor até 500 chars.
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
 
     const cfg = PRODUTOS[produto];
 
-    const session = await stripe.checkout.sessions.create({
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "payment",
       payment_method_types: ["card"],
       customer_email: email,
@@ -72,9 +73,16 @@ export async function POST(req: Request) {
         source: "clara_checkout",
         produto,
         email,
+        ...(cupom ? { cupom } : {}),
         ...extraMetadata,
       },
-    });
+    };
+
+    if (cupom) {
+      sessionParams.discounts = [{ coupon: cupom }];
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     return NextResponse.json({ url: session.url });
   } catch (error) {

@@ -246,6 +246,9 @@ export default function Page() {
   const [bagPir, setBagPir] = useState("");
   const [bagValor, setBagValor] = useState("");
 
+  // Cupom opcional no checkout
+  const [cupomDigitado, setCupomDigitado] = useState("");
+
   // Voo cancelado — campos específicos (reusa nomeCompleto, cpf, numVoo, dataVoo, ciaAerea)
   const [voocanOferecido, setVoocanOferecido] = useState("");
   const [voocanAviso, setVoocanAviso] = useState("");
@@ -1941,6 +1944,26 @@ export default function Page() {
                     ))}
                   </div>
 
+                  {/* Cupom opcional */}
+                  <input
+                    type="text"
+                    value={cupomDigitado}
+                    onChange={(e) => setCupomDigitado(e.target.value.toUpperCase())}
+                    placeholder="Tem um cupom? Ex: CLARAFREE"
+                    style={{
+                      width: "100%",
+                      padding: "10px 14px",
+                      borderRadius: 8,
+                      border: "1px solid #E0DDD6",
+                      background: "#fff",
+                      color: "#374151",
+                      fontSize: 13,
+                      fontFamily: "'Montserrat', sans-serif",
+                      marginBottom: 10,
+                      outline: "none",
+                    }}
+                  />
+
                   {/* Botão único de pagamento */}
                   <button
                     type="button"
@@ -2008,6 +2031,7 @@ export default function Page() {
                             email: emailUsuario,
                             origin: window.location.origin,
                             produto: "pacote",
+                            cupom: cupomDigitado.trim() || undefined,
                             metadata: {
                               tipo_caso: tipoCaso ?? "",
                               descricao: descricaoCurta,
