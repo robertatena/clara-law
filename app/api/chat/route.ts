@@ -92,7 +92,7 @@ async function enviarEmailEscalada(caso: CasoRow, ultimaMensagem: string): Promi
 
   await transporter.sendMail({
     from: `"Clara Law" <${process.env.GMAIL_USER}>`,
-    to: "contato@claralaw.com.br",
+    to: "claralaw.aviso@gmail.com",
     replyTo: caso.email,
     subject: `[ESCALADA] Ajuda humana solicitada — ${caso.tipo_caso}`,
     html: `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;">${linhas}</div>`,
