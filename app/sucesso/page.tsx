@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { createBrowserSupabase } from "@/lib/supabase-auth";
 
 type EmailGerado = {
   assunto: string;
@@ -26,6 +27,7 @@ const passos = [
 export default function SucessoPage() {
   const [emailGerado, setEmailGerado] = useState<EmailGerado | null>(null);
   const [copiado, setCopiado] = useState(false);
+  const [estaLogado, setEstaLogado] = useState(false);
 
   useEffect(() => {
     try {
@@ -44,6 +46,19 @@ export default function SucessoPage() {
     } catch (err) {
       console.warn("sucesso: falha ao ler localStorage", err);
     }
+
+    // Verifica se o usuário está autenticado (mostra CTA diferente)
+    let cancelado = false;
+    (async () => {
+      try {
+        const supabase = createBrowserSupabase();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!cancelado) setEstaLogado(!!session);
+      } catch (err) {
+        console.warn("sucesso: falha ao checar sessão", err);
+      }
+    })();
+    return () => { cancelado = true; };
   }, []);
 
   return (
@@ -185,7 +200,7 @@ export default function SucessoPage() {
         </section>
       )}
 
-      {/* ACOMPANHE SEU CASO — CTA para área logada */}
+      {/* ACOMPANHE SEU CASO — CTA para área logada (varia se usuário já está logado) */}
       <section className="reveal" style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "40px 24px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
           <div style={{ background: "#F0F4FF", border: "1px solid #C7D2FE", borderRadius: 12, padding: 20 }}>
@@ -193,13 +208,15 @@ export default function SucessoPage() {
               Acompanhe seu caso
             </h2>
             <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.65, marginBottom: 16 }}>
-              Crie sua conta gratuita para acessar seu histórico, tirar dúvidas com a Clara e acompanhar cada etapa do processo.
+              {estaLogado
+                ? "Seu caso foi registrado na sua área. Acesse para acompanhar cada etapa e tirar dúvidas com a Clara."
+                : "Crie sua conta gratuita para acessar seu histórico, tirar dúvidas com a Clara e acompanhar cada etapa do processo."}
             </p>
             <Link
               href="/minha-conta"
               style={{ display: "inline-block", background: "#1a2340", color: "#fff", fontSize: 14, fontWeight: 700, padding: "12px 24px", borderRadius: 40, textDecoration: "none" }}
             >
-              Criar minha conta →
+              {estaLogado ? "Acessar minha área →" : "Criar minha conta →"}
             </Link>
           </div>
         </div>
