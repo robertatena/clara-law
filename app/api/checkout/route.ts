@@ -24,7 +24,6 @@ export async function POST(req: Request) {
     const email = String(body.email || "").trim().toLowerCase();
     const origin = String(body.origin || process.env.NEXT_PUBLIC_APP_URL || "").trim();
     const produto = String(body.produto || "").trim() as Produto;
-    const cupom = String(body.cupom || "").trim();
 
     // Metadata adicional opcional (tipo_caso, descricao, dados do wizard).
     // Stripe aceita até 50 chaves, cada valor até 500 chars.
@@ -50,10 +49,11 @@ export async function POST(req: Request) {
 
     const cfg = PRODUTOS[produto];
 
-    const sessionParams: Stripe.Checkout.SessionCreateParams = {
+    const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
       customer_email: email,
+      allow_promotion_codes: true,
       line_items: [
         {
           price_data: {
@@ -73,25 +73,13 @@ export async function POST(req: Request) {
         source: "clara_checkout",
         produto,
         email,
-        ...(cupom ? { cupom } : {}),
         ...extraMetadata,
       },
-    };
-
-    if (cupom) {
-      sessionParams.discounts = [{ coupon: cupom }];
-    }
-
-    const session = await stripe.checkout.sessions.create(sessionParams);
+    });
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error("checkout_error", error);
-    const err = error as { code?: string; message?: string };
-    const msg = err.message?.toLowerCase() ?? "";
-    if (err.code === "resource_missing" || msg.includes("coupon") || msg.includes("promotion code")) {
-      return NextResponse.json({ error: "cupom_invalido" }, { status: 400 });
-    }
     return NextResponse.json(
       { error: "checkout_error" },
       { status: 500 }
