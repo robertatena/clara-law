@@ -30,6 +30,7 @@ export default function SucessoPage() {
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem("clara_email_gerado");
+      console.log("sucesso: sessionStorage check", raw ? `${raw.length} chars` : "(vazio)");
       if (raw) {
         const parsed = JSON.parse(raw) as EmailGerado;
         if (parsed && parsed.corpo) {
@@ -37,8 +38,8 @@ export default function SucessoPage() {
           sessionStorage.removeItem("clara_email_gerado");
         }
       }
-    } catch {
-      // sessionStorage indisponível ou JSON inválido — ignorar
+    } catch (err) {
+      console.warn("sucesso: falha ao ler sessionStorage", err);
     }
   }, []);
 
@@ -103,6 +104,19 @@ export default function SucessoPage() {
           </p>
         </div>
       </section>
+
+      {/* FALLBACK — quando o usuário chega direto na /sucesso (sem sessionStorage) */}
+      {!emailGerado && (
+        <section className="reveal" style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "40px 24px" }}>
+          <div style={{ maxWidth: 640, margin: "0 auto" }}>
+            <div style={{ background: "#F8F7F4", border: "1px solid #E0DDD6", borderRadius: 12, padding: "18px 20px", textAlign: "center" }}>
+              <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.7, margin: 0 }}>
+                📬 Seu e-mail foi enviado para você. Verifique sua caixa de entrada (e o spam, por segurança).
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* SEU E-MAIL ESTÁ PRONTO — só aparece se veio do /enviar via sessionStorage */}
       {emailGerado && (
