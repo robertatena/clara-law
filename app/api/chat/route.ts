@@ -24,7 +24,7 @@ IMPORTANTE:
 - Você NÃO é advogada e NÃO dá consultoria jurídica.
 - Você educa e orienta com base em informações públicas sobre o CDC (Código de Defesa do Consumidor) e direitos do consumidor.
 - Sempre lembre que resultados dependem do caso concreto e do juiz.
-- Se o usuário pedir para conversar com um humano ou algo escapar do seu escopo educacional, sugira que ele clique no botão "Falar com humano" no topo do chat.
+- Se o usuário pedir explicitamente para conversar com uma pessoa da equipe (advogado, humano, atendente), diga apenas "vou encaminhar seu pedido agora" — o encaminhamento real é feito pelo sistema, não é você quem faz.
 
 Responda de forma curta e objetiva (máximo 4-5 parágrafos curtos). Use quebras de linha para facilitar leitura em mobile.`;
 
@@ -75,7 +75,10 @@ type CasoRow = {
 
 type MsgRow = { role: string; conteudo: string };
 
-async function enviarEmailEscalada(caso: CasoRow, ultimaMensagem: string, userEmail?: string): Promise<void> {
+// Retorna true se o e-mail saiu com sucesso, false caso contrário.
+// Não lança — o handler POST precisa distinguir entre "enviado" e "falhou" para
+// devolver ao cliente o feedback correto (selo verde vs vermelho).
+async function enviarEmailEscalada(caso: CasoRow, ultimaMensagem: string, userEmail?: string): Promise<boolean> {
   const replyTo = caso.email || userEmail || "";
   console.log("escalada_email:", {
     to: "claralaw.aviso@gmail.com",
@@ -86,7 +89,7 @@ async function enviarEmailEscalada(caso: CasoRow, ultimaMensagem: string, userEm
   });
   if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
     console.warn("escalada_email_skipped: GMAIL_USER ou GMAIL_PASS ausente no ambiente");
-    return;
+    return false;
   }
   const linhas = [
     `<p>Um usuário pediu ajuda humana no chat da Clara.</p>`,
@@ -101,15 +104,29 @@ async function enviarEmailEscalada(caso: CasoRow, ultimaMensagem: string, userEm
       : "",
   ].join("\n");
 
-  await transporter.sendMail({
-    from: `"Clara Law" <${process.env.GMAIL_USER}>`,
-    to: "claralaw.aviso@gmail.com",
-    replyTo: replyTo || undefined,
-    subject: `[ESCALADA] Ajuda humana solicitada — ${caso.tipo_caso}`,
-    html: `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;">${linhas}</div>`,
-  });
-  console.log("escalada_email_sent: ok");
+  try {
+    await transporter.sendMail({
+      from: `"Clara Law" <${process.env.GMAIL_USER}>`,
+      to: "claralaw.aviso@gmail.com",
+      replyTo: replyTo || undefined,
+      subject: `[ESCALADA] Ajuda humana solicitada — ${caso.tipo_caso}`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;">${linhas}</div>`,
+    });
+    console.log("escalada_email_sent: ok");
+    return true;
+  } catch (err) {
+    console.error("escalada_email_send_failed", err instanceof Error ? err.message : "unknown");
+    return false;
+  }
 }
+
+// Mensagem canônica devolvida ao usuário quando a escalada é aceita e o e-mail sai.
+// Substitui a resposta da Anthropic — assim a UI reflete o que aconteceu de verdade.
+const MSG_ESCALADA_ENVIADA =
+  "Recebi seu pedido de ajuda humana e encaminhei seu caso pra equipe. Você vai receber contato por e-mail no endereço cadastrado em até 24h úteis. Enquanto isso, se preferir escrever, é claralaw.aviso@gmail.com.";
+
+const MSG_ESCALADA_FALHA =
+  "Tentei encaminhar seu pedido, mas tivemos uma falha técnica agora. Por favor, escreva direto para claralaw.aviso@gmail.com — nossa equipe responde por lá.";
 
 type HistoricoMsg = { role: "user" | "assistant"; content: string };
 
@@ -202,24 +219,38 @@ export async function POST(req: Request) {
       console.error("chat_insert_user_error", insertUserErr.message);
     }
 
-    // Escalada — se detectada, dispara e-mail em paralelo (não bloqueia resposta IA)
+    // Escalada — se detectada, dispara e-mail SÍNCRONO e pula a Anthropic.
+    // O usuário precisa saber se o e-mail saiu de verdade antes da UI mostrar
+    // "encaminhado" — fire-and-forget mascarava falhas de entrega.
     const escalado = detectaEscalada(mensagem);
     if (escalado) {
-      enviarEmailEscalada(casoTyped, mensagem, user.email ?? undefined).catch((err) =>
-        console.error("escalada_email_failed", err instanceof Error ? err.message : "unknown"),
-      );
+      const enviado = await enviarEmailEscalada(casoTyped, mensagem, user.email ?? undefined);
+      const respostaCanonica = enviado ? MSG_ESCALADA_ENVIADA : MSG_ESCALADA_FALHA;
+      await supabaseAdmin.from("mensagens").insert({
+        caso_id: casoId,
+        user_id: user.id,
+        role: "assistant",
+        conteudo: respostaCanonica,
+      });
+      return NextResponse.json({
+        resposta: respostaCanonica,
+        // legacy: só true se realmente enviou (client velho passa a exibir "Encaminhado" só quando de fato foi)
+        escalado: enviado,
+        // novo: distingue os 3 estados possíveis
+        escalado_status: enviado ? "enviado" : "falhou",
+      });
     }
 
-    // Chamar Anthropic
+    // Chamar Anthropic (nunca alcançado se houve escalada — path retornou acima)
     if (!process.env.ANTHROPIC_API_KEY) {
-      const fallback = "A Clara IA está temporariamente indisponível. Se precisar de ajuda urgente, clique em \"Falar com humano\" no topo do chat.";
+      const fallback = "A Clara IA está temporariamente indisponível. Se precisar de ajuda urgente, escreva para claralaw.aviso@gmail.com.";
       await supabaseAdmin.from("mensagens").insert({
         caso_id: casoId,
         user_id: user.id,
         role: "assistant",
         conteudo: fallback,
       });
-      return NextResponse.json({ resposta: fallback, escalado });
+      return NextResponse.json({ resposta: fallback, escalado: false });
     }
 
     const systemPrompt = `${SYSTEM_PROMPT_BASE}
@@ -252,7 +283,7 @@ Use esse contexto para dar respostas específicas ao caso do usuário — cite o
       if (!respostaTexto) throw new Error("empty_response");
     } catch (err) {
       console.error("anthropic_call_failed", err instanceof Error ? err.message : "unknown");
-      respostaTexto = "Desculpe, tive um problema pra responder agora. Tente novamente em instantes — ou clique em \"Falar com humano\" se for urgente.";
+      respostaTexto = "Desculpe, tive um problema pra responder agora. Tente novamente em instantes — se for urgente, escreva para claralaw.aviso@gmail.com.";
     }
 
     await supabaseAdmin.from("mensagens").insert({
@@ -262,7 +293,7 @@ Use esse contexto para dar respostas específicas ao caso do usuário — cite o
       conteudo: respostaTexto,
     });
 
-    return NextResponse.json({ resposta: respostaTexto, escalado });
+    return NextResponse.json({ resposta: respostaTexto, escalado: false });
   } catch (err) {
     console.error("chat_route_error", err instanceof Error ? err.message : "unknown");
     return NextResponse.json({ error: "internal" }, { status: 500 });
