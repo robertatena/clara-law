@@ -71,6 +71,7 @@ type CasoRow = {
   tipo_caso: string;
   descricao: string | null;
   dados_json: Record<string, unknown> | null;
+  escalado_em: string | null;
 };
 
 type MsgRow = { role: string; conteudo: string };
@@ -127,6 +128,17 @@ const MSG_ESCALADA_ENVIADA =
 
 const MSG_ESCALADA_FALHA =
   "Tentei encaminhar seu pedido, mas tivemos uma falha técnica agora. Por favor, escreva direto para claralaw.aviso@gmail.com — nossa equipe responde por lá.";
+
+function fmtDataBR(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+  } catch {
+    return "uma data anterior";
+  }
+}
+function msgEscaladaJaEncaminhado(iso: string): string {
+  return `Já encaminhei seu pedido de ajuda humana em ${fmtDataBR(iso)}. Nossa equipe recebeu — se quiser reforçar, escreva pra claralaw.aviso@gmail.com.`;
+}
 
 type HistoricoMsg = { role: "user" | "assistant"; content: string };
 
@@ -192,7 +204,7 @@ export async function POST(req: Request) {
     // Buscar caso (RLS garante que só retorna se for do usuário)
     const { data: caso, error: casoErr } = await supabase
       .from("user_casos")
-      .select("id, user_id, email, tipo_caso, descricao, dados_json")
+      .select("id, user_id, email, tipo_caso, descricao, dados_json, escalado_em")
       .eq("id", casoId)
       .maybeSingle();
     if (casoErr || !caso) {
@@ -222,9 +234,42 @@ export async function POST(req: Request) {
     // Escalada — se detectada, dispara e-mail SÍNCRONO e pula a Anthropic.
     // O usuário precisa saber se o e-mail saiu de verdade antes da UI mostrar
     // "encaminhado" — fire-and-forget mascarava falhas de entrega.
+    //
+    // Idempotência: se caso.escalado_em já existe, NÃO envia novo e-mail.
+    // Devolve mensagem canônica de "já encaminhado" para o usuário.
     const escalado = detectaEscalada(mensagem);
     if (escalado) {
+      // Fluxo A: escalada duplicada — já foi encaminhada antes
+      if (casoTyped.escalado_em) {
+        const respostaJa = msgEscaladaJaEncaminhado(casoTyped.escalado_em);
+        await supabaseAdmin.from("mensagens").insert({
+          caso_id: casoId,
+          user_id: user.id,
+          role: "assistant",
+          conteudo: respostaJa,
+        });
+        return NextResponse.json({
+          resposta: respostaJa,
+          escalado: true,
+          escalado_status: "ja_encaminhado",
+          escalado_em: casoTyped.escalado_em,
+        });
+      }
+
+      // Fluxo B: primeira escalada — envia e marca escalado_em se sucesso
       const enviado = await enviarEmailEscalada(casoTyped, mensagem, user.email ?? undefined);
+      if (enviado) {
+        const agora = new Date().toISOString();
+        const { error: updateErr } = await supabaseAdmin
+          .from("user_casos")
+          .update({ escalado_em: agora })
+          .eq("id", casoId);
+        if (updateErr) {
+          // O e-mail já saiu — só falhou o registro. Log e segue: no pior caso, próxima
+          // tentativa dispara outro e-mail (não corrompe nada, só perde idempotência daquela sessão).
+          console.error("escalado_em_update_failed", updateErr.message);
+        }
+      }
       const respostaCanonica = enviado ? MSG_ESCALADA_ENVIADA : MSG_ESCALADA_FALHA;
       await supabaseAdmin.from("mensagens").insert({
         caso_id: casoId,

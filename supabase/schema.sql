@@ -25,7 +25,10 @@ CREATE TABLE IF NOT EXISTS user_casos (
 -- a tabela sem essas colunas.
 ALTER TABLE user_casos
   ADD COLUMN IF NOT EXISTS email_enviado_em TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS resolvido_em     TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS resolvido_em     TIMESTAMPTZ,
+  -- Guarda de idempotência da escalação humana (chat "Falar com humano").
+  -- Se já preenchido, não dispara novo e-mail para claralaw.aviso@gmail.com.
+  ADD COLUMN IF NOT EXISTS escalado_em      TIMESTAMPTZ;
 
 -- ─── TABELA mensagens ────────────────────────────────────────────────────────
 -- Chat da Clara IA com o usuário sobre o caso.

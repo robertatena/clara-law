@@ -76,7 +76,7 @@ export default function CasoPage() {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [input, setInput] = useState("");
   const [enviando, setEnviando] = useState(false);
-  const [escaladoStatus, setEscaladoStatus] = useState<"" | "enviado" | "falhou">("");
+  const [escaladoStatus, setEscaladoStatus] = useState<"" | "enviado" | "ja_encaminhado" | "falhou">("");
   const [respostaLembrete, setRespostaLembrete] = useState(false);
   const [atualizandoStatus, setAtualizandoStatus] = useState(false);
 
@@ -203,7 +203,11 @@ export default function CasoPage() {
           .eq("caso_id", casoId)
           .order("created_at", { ascending: true });
         setMensagens((fresh as Mensagem[] | null) ?? []);
-        if (data.escalado_status === "enviado" || data.escalado_status === "falhou") {
+        if (
+          data.escalado_status === "enviado" ||
+          data.escalado_status === "ja_encaminhado" ||
+          data.escalado_status === "falhou"
+        ) {
           setEscaladoStatus(data.escalado_status);
         }
       }
@@ -537,7 +541,9 @@ export default function CasoPage() {
                     <span style={{ fontSize: 13, fontWeight: 600, color: "#1a2340" }}>Clara IA · orientação educacional</span>
                   </div>
                   {(() => {
-                    const enviadoOk = escaladoStatus === "enviado";
+                    // "enviado" e "ja_encaminhado" são visualmente iguais — a diferença
+                    // está só na mensagem do assistente na conversa (nova vs. relembrando).
+                    const enviadoOk = escaladoStatus === "enviado" || escaladoStatus === "ja_encaminhado";
                     const falhou = escaladoStatus === "falhou";
                     // enviadoOk trava (não permite duplicar encaminhamento).
                     // falhou libera retry — user pode clicar de novo pra tentar.
