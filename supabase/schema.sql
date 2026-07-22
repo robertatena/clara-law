@@ -15,10 +15,17 @@ CREATE TABLE IF NOT EXISTS user_casos (
   descricao TEXT,                     -- resumo curto do caso
   dados_json JSONB,                   -- dados completos do wizard (metadata da session Stripe)
   stripe_session_id TEXT UNIQUE,      -- idempotência: evita duplicar em retentativas do webhook
-  status TEXT DEFAULT 'ativo',        -- 'ativo' | 'resolvido' | 'encerrado'
+  status TEXT DEFAULT 'ativo',        -- 'ativo' | 'email_enviado' | 'resolvido' | 'encerrado'
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Marcos datados dos eventos do caso (timeline).
+-- ALTER separado para permitir re-rodar o schema sobre bancos que já tinham
+-- a tabela sem essas colunas.
+ALTER TABLE user_casos
+  ADD COLUMN IF NOT EXISTS email_enviado_em TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS resolvido_em     TIMESTAMPTZ;
 
 -- ─── TABELA mensagens ────────────────────────────────────────────────────────
 -- Chat da Clara IA com o usuário sobre o caso.
