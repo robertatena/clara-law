@@ -290,16 +290,16 @@ export default function SucessoPage() {
         <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
           <div>
             <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: "0.12em", color: "#A8D8F0" }}>CLARA LAW</div>
-            <div style={{ fontSize: 11, color: "rgba(168,216,240,0.3)", marginTop: 3 }}>Inteligência para um mundo mais claro e justo.</div>
+            <div style={{ fontSize: 11, color: "rgba(168,216,240,0.55)", marginTop: 3 }}>Inteligência para um mundo mais claro e justo.</div>
           </div>
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-            <Link href="/problema" style={{ fontSize: 12, color: "rgba(168,216,240,0.4)", textDecoration: "none" }}>Por que a Clara</Link>
-            <Link href="/#como-funciona" style={{ fontSize: 12, color: "rgba(168,216,240,0.4)", textDecoration: "none" }}>Como funciona</Link>
-            <Link href="/#aprenda" style={{ fontSize: 12, color: "rgba(168,216,240,0.4)", textDecoration: "none" }}>Aprenda</Link>
+            <Link href="/problema" style={{ fontSize: 12, color: "rgba(168,216,240,0.7)", textDecoration: "none" }}>Por que a Clara</Link>
+            <Link href="/#como-funciona" style={{ fontSize: 12, color: "rgba(168,216,240,0.7)", textDecoration: "none" }}>Como funciona</Link>
+            <Link href="/#aprenda" style={{ fontSize: 12, color: "rgba(168,216,240,0.7)", textDecoration: "none" }}>Aprenda</Link>
           </div>
         </div>
         <div style={{ maxWidth: 1100, margin: "12px auto 0", paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-          <p style={{ fontSize: 11, color: "rgba(168,216,240,0.25)", textAlign: "center", lineHeight: 1.7 }}>
+          <p style={{ fontSize: 11, color: "rgba(168,216,240,0.6)", textAlign: "center", lineHeight: 1.7 }}>
             ⚠️ A Clara não é um escritório de advocacia. As análises são orientativas e não substituem a consulta com um advogado. Todos os documentos gerados são para uso pelo próprio usuário.
           </p>
         </div>

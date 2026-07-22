@@ -222,11 +222,11 @@ export default function ForumPage() {
         <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
           <div>
             <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: "0.12em", color: "#A8D8F0" }}>CLARA LAW</div>
-            <div style={{ fontSize: 11, color: "rgba(168,216,240,0.35)", marginTop: 3 }}>Inteligência para um mundo mais claro.</div>
+            <div style={{ fontSize: 11, color: "rgba(168,216,240,0.55)", marginTop: 3 }}>Inteligência para um mundo mais claro.</div>
           </div>
           <div style={{ display: "flex", gap: 20 }}>
             {([["/" , "Início"], ["/forum", "Fórum"], ["/enviar", "Analisar caso"]] as [string, string][]).map(([href, label]) => (
-              <Link key={label} href={href} style={{ fontSize: 12, color: "rgba(168,216,240,0.4)", textDecoration: "none" }}>{label}</Link>
+              <Link key={label} href={href} style={{ fontSize: 12, color: "rgba(168,216,240,0.7)", textDecoration: "none" }}>{label}</Link>
             ))}
           </div>
         </div>
