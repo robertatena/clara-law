@@ -280,6 +280,9 @@ export default function Page() {
   const [pixData, setPixData] = useState<{ id: string; brCode: string; brCodeBase64: string; expiresAt: string } | null>(null);
   const [pixStatus, setPixStatus] = useState<"loading" | "aguardando" | "pago" | "expirado" | "erro">("loading");
   const [pixCopiado, setPixCopiado] = useState(false);
+  // Controle explícito de abertura do modal — evita que "loading" inicial
+  // apareça na tela e que o estado "erro" feche o modal silenciosamente.
+  const [pixModalAberto, setPixModalAberto] = useState(false);
   // Guarda de qual produto disparou o Pix — usado pelo polling pra decidir
   // pra onde redirecionar após PAID (/sucesso pra pacote, /enviar?unlocked pra análise).
   const [pixProduto, setPixProduto] = useState<"pacote" | "analise" | null>(null);
@@ -747,6 +750,7 @@ export default function Page() {
   async function iniciarCheckoutPix() {
     if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
     setError("");
+    setPixModalAberto(true);
     setPixStatus("loading");
     setPixData(null);
     setPixProduto("pacote");
@@ -786,6 +790,7 @@ export default function Page() {
   async function iniciarCheckoutAnalisePix() {
     if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
     setError("");
+    setPixModalAberto(true);
     setPixStatus("loading");
     setPixData(null);
     setPixProduto("analise");
@@ -2534,7 +2539,7 @@ export default function Page() {
         )}
 
         {/* MODAL PIX — QR + copia-e-cola + polling do status */}
-        {(pixData || pixStatus === "loading") && (
+        {pixModalAberto && (
           <div
             role="dialog"
             aria-modal="true"
@@ -2547,7 +2552,7 @@ export default function Page() {
             onClick={() => {
               // Fechar clicando fora só quando não está no meio do polling ativo — evita perder o QR por acidente
               if (pixStatus === "expirado" || pixStatus === "erro") {
-                setPixData(null); setPixStatus("loading");
+                setPixModalAberto(false); setPixData(null); setPixStatus("loading");
               }
             }}
           >
@@ -2618,7 +2623,7 @@ export default function Page() {
 
                   <button
                     type="button"
-                    onClick={() => { setPixData(null); setPixStatus("loading"); }}
+                    onClick={() => { setPixModalAberto(false); setPixData(null); setPixStatus("loading"); }}
                     style={{ width: "100%", marginTop: 10, padding: "10px", background: "transparent", border: "none", color: "#6b7280", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}
                   >
                     Cancelar e voltar
@@ -2641,14 +2646,20 @@ export default function Page() {
                   <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>Nenhuma cobrança foi feita. Gere um novo Pix pra tentar de novo.</div>
                   <button
                     type="button"
-                    onClick={() => { setPixData(null); setPixStatus("loading"); iniciarCheckoutPix(); }}
+                    onClick={() => {
+                      // Retry usa o mesmo produto que abriu esse modal (pacote ou análise)
+                      setPixData(null);
+                      setPixStatus("loading");
+                      if (pixProduto === "analise") iniciarCheckoutAnalisePix();
+                      else iniciarCheckoutPix();
+                    }}
                     style={{ background: "#1a2340", color: "#fff", padding: "12px 24px", borderRadius: 40, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer", marginRight: 8 }}
                   >
                     Gerar novo Pix
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setPixData(null); setPixStatus("loading"); }}
+                    onClick={() => { setPixModalAberto(false); setPixData(null); setPixStatus("loading"); }}
                     style={{ background: "transparent", color: "#6b7280", padding: "12px 16px", border: "none", fontSize: 13, cursor: "pointer" }}
                   >
                     Fechar
@@ -2660,11 +2671,25 @@ export default function Page() {
                 <div style={{ textAlign: "center", padding: "24px 16px" }}>
                   <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: "#0e2b50", marginBottom: 6 }}>Falha ao gerar Pix</div>
-                  <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>Tente Cartão de crédito ou tente de novo em instantes.</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>
+                    {error || "Tente Cartão de crédito ou tente de novo em instantes."}
+                  </div>
                   <button
                     type="button"
-                    onClick={() => { setPixData(null); setPixStatus("loading"); }}
-                    style={{ background: "#1a2340", color: "#fff", padding: "12px 24px", borderRadius: 40, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+                    onClick={() => {
+                      setPixData(null);
+                      setPixStatus("loading");
+                      if (pixProduto === "analise") iniciarCheckoutAnalisePix();
+                      else iniciarCheckoutPix();
+                    }}
+                    style={{ background: "#1a2340", color: "#fff", padding: "12px 24px", borderRadius: 40, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer", marginRight: 8 }}
+                  >
+                    Tentar de novo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setPixModalAberto(false); setPixData(null); setPixStatus("loading"); }}
+                    style={{ background: "transparent", color: "#6b7280", padding: "12px 16px", border: "none", fontSize: 13, cursor: "pointer" }}
                   >
                     Fechar
                   </button>
