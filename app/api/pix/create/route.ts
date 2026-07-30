@@ -17,12 +17,12 @@ type Produto = "analise" | "pacote";
 const PRODUTOS: Record<Produto, { amountCents: number; nome: string; productId: string }> = {
   analise: {
     amountCents: 990,
-    nome: "Análise de Contrato — Clara Law",
+    nome: "Análise de Contrato - Clara Law",
     productId: "prod_zaUYaAsJa5w0zNWhpYzDmK14",
   },
   pacote: {
     amountCents: 4990,
-    nome: "Pacote Ação — Clara Law",
+    nome: "Pacote Ação - Clara Law",
     productId: "prod_YDmSp3MkRdgrWNKsaDq2A11H",
   },
 };
