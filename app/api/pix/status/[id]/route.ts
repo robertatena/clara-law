@@ -1,16 +1,17 @@
 // Consulta o status atual de uma cobrança Pix na AbacatePay.
 // Chamado por polling do client (a cada ~4s) enquanto o usuário aguarda o
-// pagamento. Opção A do plano: user_casos só nasce no webhook — polling
-// consulta o gateway diretamente pra saber se pagou.
+// pagamento.
+//
+// Endpoint AbacatePay correto: GET /v2/transparents/check?id=<id> (query, não path).
+// O que retorna: { success, data: { id, status, expiresAt } }. Não devolve
+// metadata (email/produto) — quem faz o fulfillment é o webhook.
 
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
-
-// Evita cache do Next entre polls
 export const dynamic = "force-dynamic";
 
-const ABACATE_BASE = "https://api.abacatepay.com/v2/transparents";
+const ABACATE_CHECK = "https://api.abacatepay.com/v2/transparents/check";
 
 export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -24,11 +25,9 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
       return NextResponse.json({ error: "missing_id" }, { status: 400 });
     }
 
-    const resp = await fetch(`${ABACATE_BASE}/${encodeURIComponent(id)}`, {
+    const resp = await fetch(`${ABACATE_CHECK}?id=${encodeURIComponent(id)}`, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: { Authorization: `Bearer ${apiKey}` },
       cache: "no-store",
     });
 
@@ -45,7 +44,6 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
       return NextResponse.json({ error: "gateway_error", detail: data }, { status: 502 });
     }
 
-    // AbacatePay envelopa às vezes em `data`. Normaliza.
     const d = (data as { data?: Record<string, unknown> }).data ?? (data as Record<string, unknown>);
     const status = String(d.status || "PENDING").toUpperCase();
     const expiresAt = d.expiresAt ? String(d.expiresAt) : undefined;
