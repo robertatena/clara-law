@@ -10,14 +10,20 @@ const ABACATE_API = "https://api.abacatepay.com/v2/transparents/create";
 
 type Produto = "analise" | "pacote";
 
-const PRODUTOS: Record<Produto, { amountCents: number; nome: string }> = {
+// productId é o ID do produto cadastrado no dashboard AbacatePay. Enviado
+// no metadata pra facilitar reconciliação nos relatórios da AbacatePay —
+// o checkout transparente aceita valores livres, então não é obrigatório
+// pro pagamento em si.
+const PRODUTOS: Record<Produto, { amountCents: number; nome: string; productId: string }> = {
   analise: {
     amountCents: 990,
     nome: "Análise de Contrato — Clara Law",
+    productId: "prod_zaUYaAsJa5w0zNWhpYzDmK14",
   },
   pacote: {
     amountCents: 4990,
     nome: "Pacote Ação — Clara Law",
+    productId: "prod_YDmSp3MkRdgrWNKsaDq2A11H",
   },
 };
 
@@ -71,10 +77,12 @@ export async function POST(req: Request) {
         expiresIn: expiresInSec,
         description: cfg.nome,
         externalId,
-        // Toda info que o webhook precisa pra chamar fulfillCheckout
+        // Toda info que o webhook precisa pra chamar fulfillCheckout,
+        // + productId pra reconciliação nos relatórios AbacatePay.
         metadata: {
           produto,
           email,
+          productId: cfg.productId,
           ...extraMetadata,
         },
       },

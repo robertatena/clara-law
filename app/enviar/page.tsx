@@ -274,12 +274,15 @@ export default function Page() {
   const [servComprovante, setServComprovante] = useState("");
   const [servResposta, setServResposta] = useState("");
 
-  // Método de pagamento no card de checkout (isCasoAtivo).
-  // "cartao" mantém o fluxo Stripe atual (redirect); "pix" abre modal com QR AbacatePay.
+  // Método de pagamento nos cards de checkout (pacote e análise).
+  // "cartao" mantém o fluxo Stripe atual; "pix" abre modal com QR AbacatePay.
   const [metodoPagamento, setMetodoPagamento] = useState<"cartao" | "pix">("cartao");
   const [pixData, setPixData] = useState<{ id: string; brCode: string; brCodeBase64: string; expiresAt: string } | null>(null);
   const [pixStatus, setPixStatus] = useState<"loading" | "aguardando" | "pago" | "expirado" | "erro">("loading");
   const [pixCopiado, setPixCopiado] = useState(false);
+  // Guarda de qual produto disparou o Pix — usado pelo polling pra decidir
+  // pra onde redirecionar após PAID (/sucesso pra pacote, /enviar?unlocked pra análise).
+  const [pixProduto, setPixProduto] = useState<"pacote" | "analise" | null>(null);
 
   // Novos estados
   const [telefone, setTelefone] = useState("");
@@ -746,6 +749,7 @@ export default function Page() {
     setError("");
     setPixStatus("loading");
     setPixData(null);
+    setPixProduto("pacote");
     const descricaoCurta = prepararCheckoutMetadata();
     try {
       const res = await fetch("/api/pix/create", {
@@ -755,6 +759,49 @@ export default function Page() {
           email: emailUsuario,
           produto: "pacote",
           metadata: { tipo_caso: tipoCaso ?? "", descricao: descricaoCurta },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.brCodeBase64) {
+        setError("Não foi possível gerar o Pix agora. Tente Cartão de crédito ou tente de novo em instantes.");
+        setPixStatus("erro");
+        return;
+      }
+      setPixData({ id: data.id, brCode: data.brCode, brCodeBase64: data.brCodeBase64, expiresAt: data.expiresAt });
+      setPixStatus("aguardando");
+    } catch {
+      setError("Erro ao gerar Pix. Tente Cartão de crédito ou tente de novo.");
+      setPixStatus("erro");
+    }
+  }
+
+  // ─── Handlers de checkout da Análise de Contrato ────────────────────────
+  // Cartão: mantém o Payment Link Stripe estático (fluxo testado e aprovado).
+  // Pix: usa a mesma infra /api/pix/create + modal do pacote.
+  function iniciarCheckoutAnaliseStripe() {
+    // Preserva o comportamento original do botão da análise
+    window.location.href = process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK || "";
+  }
+
+  async function iniciarCheckoutAnalisePix() {
+    if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
+    setError("");
+    setPixStatus("loading");
+    setPixData(null);
+    setPixProduto("analise");
+    // Salva o resultado da análise no localStorage pra sobreviver ao redirect
+    // pós-PAID (o Page usa isso pra restaurar o unlocked em /enviar?unlocked=true).
+    try {
+      localStorage.setItem("clara_resultado", JSON.stringify({ resultado, contractType, modo }));
+    } catch { /* segue mesmo se falhar */ }
+    try {
+      const res = await fetch("/api/pix/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: emailUsuario,
+          produto: "analise",
+          metadata: { contractType: contractType || "" },
         }),
       });
       const data = await res.json();
@@ -783,8 +830,13 @@ export default function Page() {
         const status = String(data.status || "").toUpperCase();
         if (status === "PAID") {
           setPixStatus("pago");
-          // Aguarda 1.5s pra usuário ver o checkmark, depois redireciona
-          setTimeout(() => { window.location.href = "/sucesso?src=pix&id=" + encodeURIComponent(pixData.id); }, 1500);
+          // Redirect varia por produto:
+          //  - pacote: /sucesso (bloco email pronto + acompanhar caso)
+          //  - análise: /enviar?unlocked=true (recupera resultado do localStorage e mostra unlocked)
+          const target = pixProduto === "analise"
+            ? "/enviar?unlocked=true"
+            : "/sucesso?src=pix&id=" + encodeURIComponent(pixData.id);
+          setTimeout(() => { window.location.href = target; }, 1500);
         } else if (status === "EXPIRED" || status === "CANCELLED" || status === "FAILED") {
           setPixStatus("expirado");
         }
@@ -2469,7 +2521,16 @@ export default function Page() {
 
         {/* RESULTADO CONTRATO */}
         {step === 99 && modo === "contrato" && resultado && (
-          <ResultadoContrato resultado={resultado} contractType={contractType} unlockedAnalysis={unlockedAnalysis} />
+          <ResultadoContrato
+            resultado={resultado}
+            contractType={contractType}
+            unlockedAnalysis={unlockedAnalysis}
+            emailUsuario={emailUsuario}
+            metodoPagamento={metodoPagamento}
+            setMetodoPagamento={setMetodoPagamento}
+            iniciarCheckoutAnaliseStripe={iniciarCheckoutAnaliseStripe}
+            iniciarCheckoutAnalisePix={iniciarCheckoutAnalisePix}
+          />
         )}
 
         {/* MODAL PIX — QR + copia-e-cola + polling do status */}
@@ -2708,9 +2769,23 @@ function Nav({ nextLabel = "Continuar", onNext, onBack, disabled = false }: {
 
 // ─── RESULTADO CONTRATO ───────────────────────────────────────────────────────
 
-function ResultadoContrato({ resultado, contractType, unlockedAnalysis }: {
-  resultado: ResultData; contractType: string; unlockedAnalysis: boolean;
+function ResultadoContrato({
+  resultado, contractType, unlockedAnalysis,
+  emailUsuario, metodoPagamento, setMetodoPagamento,
+  iniciarCheckoutAnaliseStripe, iniciarCheckoutAnalisePix,
+}: {
+  resultado: ResultData;
+  contractType: string;
+  unlockedAnalysis: boolean;
+  emailUsuario: string;
+  metodoPagamento: "cartao" | "pix";
+  setMetodoPagamento: (m: "cartao" | "pix") => void;
+  iniciarCheckoutAnaliseStripe: () => void;
+  iniciarCheckoutAnalisePix: () => Promise<void>;
 }) {
+  // emailUsuario recebido como prop pra futuras exibições/valicação inline;
+  // hoje só os handlers do pai o consomem via closure.
+  void emailUsuario;
   return (
     <div className="space-y-5">
       {(() => {
@@ -2837,11 +2912,47 @@ function ResultadoContrato({ resultado, contractType, unlockedAnalysis }: {
           <li>• E-mail pronto com cada ponto do contrato</li>
           <li>• Perguntas para revisar com advogado ou com a outra parte</li>
         </ul>
-        <button type="button" onClick={() => window.location.href = process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK || ""}
-          className="mt-6 w-full rounded-full bg-[#0e2b50] py-3 text-sm font-semibold text-white">
+
+        {/* Tabs Cartão / Pix — mesma UX do card do pacote, cores adaptadas ao fundo branco */}
+        <div className="mt-5 flex gap-2" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={metodoPagamento === "cartao"}
+            onClick={() => setMetodoPagamento("cartao")}
+            className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all ${
+              metodoPagamento === "cartao"
+                ? "bg-[#0e2b50]/10 text-[#0e2b50] border border-[#0e2b50]/40"
+                : "bg-transparent text-slate-500 border border-slate-200 hover:border-slate-300"
+            }`}
+          >
+            💳 Cartão
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={metodoPagamento === "pix"}
+            onClick={() => setMetodoPagamento("pix")}
+            className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all ${
+              metodoPagamento === "pix"
+                ? "bg-[#0e2b50]/10 text-[#0e2b50] border border-[#0e2b50]/40"
+                : "bg-transparent text-slate-500 border border-slate-200 hover:border-slate-300"
+            }`}
+          >
+            ⚡ Pix
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={metodoPagamento === "cartao" ? iniciarCheckoutAnaliseStripe : iniciarCheckoutAnalisePix}
+          className="mt-3 w-full rounded-full bg-[#0e2b50] py-3 text-sm font-semibold text-white">
           Desbloquear análise completa →
         </button>
-        <p className="mt-3 text-center text-xs text-slate-400">Acesso imediato · Pagamento único</p>
+        <p className="mt-3 text-center text-xs text-slate-400">
+          Acesso imediato · Pagamento único
+          {metodoPagamento === "pix" && <span> · confirmação em segundos</span>}
+        </p>
       </div>
 
       {unlockedAnalysis && resultado.email_pronto && (
