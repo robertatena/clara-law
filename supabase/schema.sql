@@ -28,7 +28,24 @@ ALTER TABLE user_casos
   ADD COLUMN IF NOT EXISTS resolvido_em     TIMESTAMPTZ,
   -- Guarda de idempotência da escalação humana (chat "Falar com humano").
   -- Se já preenchido, não dispara novo e-mail para claralaw.aviso@gmail.com.
-  ADD COLUMN IF NOT EXISTS escalado_em      TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS escalado_em      TIMESTAMPTZ,
+  -- Suporte a Pix via AbacatePay (paralelo ao Stripe).
+  -- payment_method: 'stripe' | 'pix' — de qual gateway veio o pagamento.
+  -- abacate_transaction_id: id da cobrança no AbacatePay; UNIQUE garante
+  -- idempotência do webhook (mesmo padrão do stripe_session_id).
+  ADD COLUMN IF NOT EXISTS payment_method         TEXT,
+  ADD COLUMN IF NOT EXISTS abacate_transaction_id TEXT;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'user_casos_abacate_transaction_id_key'
+  ) THEN
+    ALTER TABLE user_casos
+      ADD CONSTRAINT user_casos_abacate_transaction_id_key
+      UNIQUE (abacate_transaction_id);
+  END IF;
+END $$;
 
 -- ─── TABELA mensagens ────────────────────────────────────────────────────────
 -- Chat da Clara IA com o usuário sobre o caso.

@@ -274,6 +274,13 @@ export default function Page() {
   const [servComprovante, setServComprovante] = useState("");
   const [servResposta, setServResposta] = useState("");
 
+  // Método de pagamento no card de checkout (isCasoAtivo).
+  // "cartao" mantém o fluxo Stripe atual (redirect); "pix" abre modal com QR AbacatePay.
+  const [metodoPagamento, setMetodoPagamento] = useState<"cartao" | "pix">("cartao");
+  const [pixData, setPixData] = useState<{ id: string; brCode: string; brCodeBase64: string; expiresAt: string } | null>(null);
+  const [pixStatus, setPixStatus] = useState<"loading" | "aguardando" | "pago" | "expirado" | "erro">("loading");
+  const [pixCopiado, setPixCopiado] = useState(false);
+
   // Novos estados
   const [telefone, setTelefone] = useState("");
   const [mostrarContrato, setMostrarContrato] = useState(false);
@@ -658,6 +665,135 @@ export default function Page() {
   const isResultado = step === 99;
   const progressStep = isResultado ? totalSteps : step;
   const showProgress = step > 0;
+
+  // ─── Helpers de checkout (usados tanto pelo fluxo Cartão quanto Pix) ────
+  // Gera o e-mail pra empresa, grava no localStorage e devolve a "descricaoCurta"
+  // usada no metadata do provider de pagamento.
+  function prepararCheckoutMetadata(): string {
+    const cia = CIAS_AEREAS.find((c) => c.id === ciaAerea);
+    const dataFmt = dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : "";
+    let descricao = "";
+    if (isVoo) {
+      const tipoLabel: Record<string, string> = { voo_atrasado: "atraso do voo", voo_cancelado: "cancelamento do voo", bagagem: "problema com bagagem" };
+      descricao = `Passageiro ${nomeCompleto}${cpf ? ", CPF " + cpf : ""}. Voo ${numVoo}${dataFmt ? " em " + dataFmt : ""}. ${SITUACOES_CASO.find((s) => s.id === tipoCaso)?.titulo || tipoLabel[tipoCaso!] || ""}.`;
+    } else if (tipoCaso === "cobranca_indevida") {
+      descricao = `Empresa: ${cobrancaEmpresa}. Valor cobrado: R$ ${cobrancaValor}. Negativação (Serasa/SPC): ${cobrancaSerasa === "sim" ? "sim" : cobrancaSerasa === "nao" ? "não" : "não sabe ainda"}.`;
+    } else if (tipoCaso === "produto_defeito") {
+      descricao = `Produto: ${prodNome}. Empresa: ${prodEmpresa}. Valor: R$ ${prodValor}.`;
+    } else if (tipoCaso === "servico_nao_entregue") {
+      descricao = `Serviço: ${servNome}. Empresa: ${servEmpresa}. Valor pago: R$ ${servValor}.`;
+    }
+
+    // Salva o e-mail gerado no localStorage pra /sucesso mostrar
+    try {
+      const emailGerado = gerarEmailEmpresa(tipoCaso!, descricao, cia);
+      const paraEmpresa =
+        isVoo ? (cia && cia.id !== "outra" && cia.email ? cia.email : "consulte o site da companhia") :
+        tipoCaso === "cobranca_indevida" ? "consulte o site da empresa (SAC)" :
+        tipoCaso === "produto_defeito" ? "consulte o site da loja (SAC)" :
+        tipoCaso === "servico_nao_entregue" ? "consulte o site da empresa (SAC)" :
+        "consulte o site da empresa";
+      localStorage.setItem("clara_email_gerado", JSON.stringify({
+        assunto: emailGerado.assunto,
+        corpo: emailGerado.corpo,
+        para: paraEmpresa,
+        geradoEm: new Date().toISOString(),
+      }));
+    } catch { /* segue mesmo se falhar */ }
+
+    // Descrição curta pro webhook salvar em user_casos
+    const situacaoTitulo = SITUACOES_CASO.find((s) => s.id === tipoCaso)?.titulo ?? tipoCaso ?? "";
+    let descricaoCurta = situacaoTitulo;
+    if (isVoo && nomeCompleto) {
+      descricaoCurta = `${situacaoTitulo} — ${nomeCompleto}${numVoo ? ` · Voo ${numVoo}` : ""}`;
+    } else if (tipoCaso === "cobranca_indevida" && cobrancaEmpresa) {
+      descricaoCurta = `Cobrança indevida — ${cobrancaEmpresa} · R$ ${cobrancaValor}`;
+    } else if (tipoCaso === "produto_defeito" && prodNome) {
+      descricaoCurta = `Produto defeituoso — ${prodNome}${prodEmpresa ? ` · ${prodEmpresa}` : ""}`;
+    } else if (tipoCaso === "servico_nao_entregue" && servNome) {
+      descricaoCurta = `Serviço não entregue — ${servNome}${servEmpresa ? ` · ${servEmpresa}` : ""}`;
+    } else if (tipoCaso === "bagagem" && nomeCompleto) {
+      descricaoCurta = `${situacaoTitulo} — ${nomeCompleto}${numVoo ? ` · Voo ${numVoo}` : ""}`;
+    }
+    return descricaoCurta;
+  }
+
+  async function iniciarCheckoutStripe() {
+    if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
+    setError("");
+    const descricaoCurta = prepararCheckoutMetadata();
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: emailUsuario,
+          origin: window.location.origin,
+          produto: "pacote",
+          metadata: { tipo_caso: tipoCaso ?? "", descricao: descricaoCurta },
+        }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else setError("Não foi possível iniciar o pagamento. Tente novamente.");
+    } catch {
+      setError("Erro ao iniciar o pagamento. Tente novamente.");
+    }
+  }
+
+  async function iniciarCheckoutPix() {
+    if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
+    setError("");
+    setPixStatus("loading");
+    setPixData(null);
+    const descricaoCurta = prepararCheckoutMetadata();
+    try {
+      const res = await fetch("/api/pix/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: emailUsuario,
+          produto: "pacote",
+          metadata: { tipo_caso: tipoCaso ?? "", descricao: descricaoCurta },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.brCodeBase64) {
+        setError("Não foi possível gerar o Pix agora. Tente Cartão de crédito ou tente de novo em instantes.");
+        setPixStatus("erro");
+        return;
+      }
+      setPixData({ id: data.id, brCode: data.brCode, brCodeBase64: data.brCodeBase64, expiresAt: data.expiresAt });
+      setPixStatus("aguardando");
+    } catch {
+      setError("Erro ao gerar Pix. Tente Cartão de crédito ou tente de novo.");
+      setPixStatus("erro");
+    }
+  }
+
+  // Polling do status do Pix a cada 4s, enquanto o modal está aberto e status = aguardando.
+  useEffect(() => {
+    if (!pixData || pixStatus !== "aguardando") return;
+    let cancelado = false;
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/pix/status/${encodeURIComponent(pixData.id)}`, { cache: "no-store" });
+        const data = await res.json();
+        if (cancelado) return;
+        const status = String(data.status || "").toUpperCase();
+        if (status === "PAID") {
+          setPixStatus("pago");
+          // Aguarda 1.5s pra usuário ver o checkmark, depois redireciona
+          setTimeout(() => { window.location.href = "/sucesso?src=pix&id=" + encodeURIComponent(pixData.id); }, 1500);
+        } else if (status === "EXPIRED" || status === "CANCELLED" || status === "FAILED") {
+          setPixStatus("expirado");
+        }
+      } catch { /* silencia falhas transientes */ }
+    };
+    const interval = setInterval(tick, 4000);
+    tick();
+    return () => { cancelado = true; clearInterval(interval); };
+  }, [pixData, pixStatus]);
 
   return (
     <main className="clara-mobile-fix min-h-screen bg-[#f6f8fc] px-4 py-8 md:px-6 md:py-10">
@@ -1941,91 +2077,48 @@ export default function Page() {
                     ))}
                   </div>
 
-                  {/* Botão único de pagamento */}
+                  {/* Tabs Cartão / Pix — acima do botão dourado, discreto */}
+                  <div className="flex gap-2 mb-3" role="tablist">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={metodoPagamento === "cartao"}
+                      onClick={() => setMetodoPagamento("cartao")}
+                      className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all ${
+                        metodoPagamento === "cartao"
+                          ? "bg-white/15 text-white border border-white/30"
+                          : "bg-transparent text-[#93b4d4] border border-white/10 hover:border-white/20"
+                      }`}
+                    >
+                      💳 Cartão
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={metodoPagamento === "pix"}
+                      onClick={() => setMetodoPagamento("pix")}
+                      className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all ${
+                        metodoPagamento === "pix"
+                          ? "bg-white/15 text-white border border-white/30"
+                          : "bg-transparent text-[#93b4d4] border border-white/10 hover:border-white/20"
+                      }`}
+                    >
+                      ⚡ Pix
+                    </button>
+                  </div>
+
+                  {/* Botão único de pagamento — label e handler variam por método */}
                   <button
                     type="button"
-                    onClick={async () => {
-                      if (!emailValido(emailUsuario)) {
-                        setError("Informe seu e-mail para receber os documentos");
-                        return;
-                      }
-                      setError("");
-
-                      // Gerar e salvar o e-mail no sessionStorage ANTES do redirect Stripe.
-                      // Assim /sucesso pode mostrar o e-mail pronto para copiar.
-                      try {
-                        const cia = CIAS_AEREAS.find((c) => c.id === ciaAerea);
-                        // Reconstrói a descrição estruturada (mesma que analisarCaso monta)
-                        const dataFmt = dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : "";
-                        let descricao = "";
-                        if (isVoo) {
-                          const tipoLabel: Record<string, string> = { voo_atrasado: "atraso do voo", voo_cancelado: "cancelamento do voo", bagagem: "problema com bagagem" };
-                          descricao = `Passageiro ${nomeCompleto}${cpf ? ", CPF " + cpf : ""}. Voo ${numVoo}${dataFmt ? " em " + dataFmt : ""}. ${SITUACOES_CASO.find((s) => s.id === tipoCaso)?.titulo || tipoLabel[tipoCaso!] || ""}.`;
-                        } else if (tipoCaso === "cobranca_indevida") {
-                          descricao = `Empresa: ${cobrancaEmpresa}. Valor cobrado: R$ ${cobrancaValor}. Negativação (Serasa/SPC): ${cobrancaSerasa === "sim" ? "sim" : cobrancaSerasa === "nao" ? "não" : "não sabe ainda"}.`;
-                        } else if (tipoCaso === "produto_defeito") {
-                          descricao = `Produto: ${prodNome}. Empresa: ${prodEmpresa}. Valor: R$ ${prodValor}.`;
-                        } else if (tipoCaso === "servico_nao_entregue") {
-                          descricao = `Serviço: ${servNome}. Empresa: ${servEmpresa}. Valor pago: R$ ${servValor}.`;
-                        }
-                        const emailGerado = gerarEmailEmpresa(tipoCaso!, descricao, cia);
-                        const paraEmpresa =
-                          isVoo ? (cia && cia.id !== "outra" && cia.email ? cia.email : "consulte o site da companhia") :
-                          tipoCaso === "cobranca_indevida" ? "consulte o site da empresa (SAC)" :
-                          tipoCaso === "produto_defeito" ? "consulte o site da loja (SAC)" :
-                          tipoCaso === "servico_nao_entregue" ? "consulte o site da empresa (SAC)" :
-                          "consulte o site da empresa";
-                        localStorage.setItem("clara_email_gerado", JSON.stringify({
-                          assunto: emailGerado.assunto,
-                          corpo: emailGerado.corpo,
-                          para: paraEmpresa,
-                          geradoEm: new Date().toISOString(),
-                        }));
-                      } catch {
-                        // Se a geração falhar, seguimos com o checkout sem quebrar o fluxo.
-                        // A /sucesso simplesmente não mostrará o bloco do e-mail.
-                      }
-
-                      try {
-                        // Descrição curta para o webhook salvar em user_casos
-                        const situacaoTitulo = SITUACOES_CASO.find((s) => s.id === tipoCaso)?.titulo ?? tipoCaso ?? "";
-                        let descricaoCurta = situacaoTitulo;
-                        if (isVoo && nomeCompleto) {
-                          descricaoCurta = `${situacaoTitulo} — ${nomeCompleto}${numVoo ? ` · Voo ${numVoo}` : ""}`;
-                        } else if (tipoCaso === "cobranca_indevida" && cobrancaEmpresa) {
-                          descricaoCurta = `Cobrança indevida — ${cobrancaEmpresa} · R$ ${cobrancaValor}`;
-                        } else if (tipoCaso === "produto_defeito" && prodNome) {
-                          descricaoCurta = `Produto defeituoso — ${prodNome}${prodEmpresa ? ` · ${prodEmpresa}` : ""}`;
-                        } else if (tipoCaso === "servico_nao_entregue" && servNome) {
-                          descricaoCurta = `Serviço não entregue — ${servNome}${servEmpresa ? ` · ${servEmpresa}` : ""}`;
-                        } else if (tipoCaso === "bagagem" && nomeCompleto) {
-                          descricaoCurta = `${situacaoTitulo} — ${nomeCompleto}${numVoo ? ` · Voo ${numVoo}` : ""}`;
-                        }
-                        const res = await fetch("/api/checkout", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            email: emailUsuario,
-                            origin: window.location.origin,
-                            produto: "pacote",
-                            metadata: {
-                              tipo_caso: tipoCaso ?? "",
-                              descricao: descricaoCurta,
-                            },
-                          }),
-                        });
-                        const data = await res.json();
-                        if (data.url) window.location.href = data.url;
-                        else setError("Não foi possível iniciar o pagamento. Tente novamente.");
-                      } catch {
-                        setError("Erro ao iniciar o pagamento. Tente novamente.");
-                      }
-                    }}
+                    onClick={metodoPagamento === "cartao" ? iniciarCheckoutStripe : iniciarCheckoutPix}
                     className="w-full rounded-full bg-[#D4AF37] text-[#0e2b50] font-black text-base py-4"
                   >
-                    Quero resolver meu caso →
+                    {metodoPagamento === "cartao" ? "Quero resolver meu caso →" : "Gerar meu Pix agora →"}
                   </button>
-                  <p className="text-xs text-[#93b4d4] mt-2 text-center">R$49,90 · pagamento único · você recebe tudo por e-mail</p>
+                  <p className="text-xs text-[#93b4d4] mt-2 text-center">
+                    R$49,90 · pagamento único · você recebe tudo por e-mail
+                    {metodoPagamento === "pix" && <span> · confirmação em segundos</span>}
+                  </p>
                 </div>
 
                 {/* Roadmap — títulos, textos e documentos variam por tipoCaso */}
@@ -2377,6 +2470,147 @@ export default function Page() {
         {/* RESULTADO CONTRATO */}
         {step === 99 && modo === "contrato" && resultado && (
           <ResultadoContrato resultado={resultado} contractType={contractType} unlockedAnalysis={unlockedAnalysis} />
+        )}
+
+        {/* MODAL PIX — QR + copia-e-cola + polling do status */}
+        {(pixData || pixStatus === "loading") && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Pagamento via Pix"
+            style={{
+              position: "fixed", inset: 0, background: "rgba(14,43,80,0.72)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              zIndex: 100, padding: 16,
+            }}
+            onClick={() => {
+              // Fechar clicando fora só quando não está no meio do polling ativo — evita perder o QR por acidente
+              if (pixStatus === "expirado" || pixStatus === "erro") {
+                setPixData(null); setPixStatus("loading");
+              }
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: "#fff", borderRadius: 20, padding: 24, maxWidth: 420, width: "100%",
+                boxShadow: "0 20px 60px rgba(14,43,80,0.4)",
+              }}
+            >
+              {pixStatus === "loading" && (
+                <div style={{ textAlign: "center", padding: "40px 16px" }}>
+                  <div style={{ fontSize: 16, color: "#0e2b50", fontWeight: 700 }}>Gerando seu Pix…</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginTop: 8 }}>Só um instante.</div>
+                </div>
+              )}
+
+              {pixData && pixStatus === "aguardando" && (
+                <>
+                  <div style={{ textAlign: "center", marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 6 }}>Pagamento via Pix</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: "#0e2b50" }}>Escaneie o QR ou copie o código</div>
+                    <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6 }}>R$ 49,90 · confirmação automática em segundos</div>
+                  </div>
+
+                  {/* QR image */}
+                  <div style={{ display: "flex", justifyContent: "center", margin: "16px 0", padding: 12, background: "#F8F7F4", borderRadius: 12 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={pixData.brCodeBase64.startsWith("data:") ? pixData.brCodeBase64 : `data:image/png;base64,${pixData.brCodeBase64}`}
+                      alt="QR Code Pix"
+                      style={{ width: 200, height: 200, imageRendering: "pixelated" }}
+                    />
+                  </div>
+
+                  {/* Copia e cola */}
+                  <div style={{ background: "#F8F7F4", border: "1px solid #E0DDD6", borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Código Pix (copia e cola)</div>
+                    <div style={{ fontSize: 11, fontFamily: "ui-monospace, Menlo, Consolas, monospace", color: "#374151", wordBreak: "break-all", lineHeight: 1.5, maxHeight: 60, overflow: "auto" }}>
+                      {pixData.brCode}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(pixData.brCode);
+                        setPixCopiado(true);
+                        setTimeout(() => setPixCopiado(false), 2000);
+                      } catch {
+                        setError("Não foi possível copiar. Selecione o código e copie manualmente.");
+                      }
+                    }}
+                    style={{
+                      width: "100%", padding: "12px 16px", borderRadius: 40, border: "none",
+                      background: pixCopiado ? "#10b981" : "#1a2340", color: "#fff",
+                      fontSize: 14, fontWeight: 700, cursor: "pointer",
+                    }}
+                  >
+                    {pixCopiado ? "✓ Copiado!" : "📋 Copiar código Pix"}
+                  </button>
+
+                  <div style={{ marginTop: 14, padding: "10px 12px", background: "#F0F4FF", border: "1px solid #C7D2FE", borderRadius: 8, fontSize: 12, color: "#3730a3", textAlign: "center", lineHeight: 1.5 }}>
+                    ⏳ Aguardando confirmação do pagamento…<br />
+                    <span style={{ fontSize: 11, color: "#6b7280" }}>Assim que o banco confirmar, você é redirecionado automaticamente.</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => { setPixData(null); setPixStatus("loading"); }}
+                    style={{ width: "100%", marginTop: 10, padding: "10px", background: "transparent", border: "none", color: "#6b7280", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}
+                  >
+                    Cancelar e voltar
+                  </button>
+                </>
+              )}
+
+              {pixStatus === "pago" && (
+                <div style={{ textAlign: "center", padding: "40px 16px" }}>
+                  <div style={{ fontSize: 56, marginBottom: 12 }}>✅</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: "#065f46", marginBottom: 6 }}>Pagamento confirmado!</div>
+                  <div style={{ fontSize: 13, color: "#6b7280" }}>Preparando seu kit…</div>
+                </div>
+              )}
+
+              {pixStatus === "expirado" && (
+                <div style={{ textAlign: "center", padding: "24px 16px" }}>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}>⏰</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#0e2b50", marginBottom: 6 }}>Pix expirado</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>Nenhuma cobrança foi feita. Gere um novo Pix pra tentar de novo.</div>
+                  <button
+                    type="button"
+                    onClick={() => { setPixData(null); setPixStatus("loading"); iniciarCheckoutPix(); }}
+                    style={{ background: "#1a2340", color: "#fff", padding: "12px 24px", borderRadius: 40, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer", marginRight: 8 }}
+                  >
+                    Gerar novo Pix
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setPixData(null); setPixStatus("loading"); }}
+                    style={{ background: "transparent", color: "#6b7280", padding: "12px 16px", border: "none", fontSize: 13, cursor: "pointer" }}
+                  >
+                    Fechar
+                  </button>
+                </div>
+              )}
+
+              {pixStatus === "erro" && (
+                <div style={{ textAlign: "center", padding: "24px 16px" }}>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#0e2b50", marginBottom: 6 }}>Falha ao gerar Pix</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>Tente Cartão de crédito ou tente de novo em instantes.</div>
+                  <button
+                    type="button"
+                    onClick={() => { setPixData(null); setPixStatus("loading"); }}
+                    style={{ background: "#1a2340", color: "#fff", padding: "12px 24px", borderRadius: 40, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    Fechar
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
       </div>
