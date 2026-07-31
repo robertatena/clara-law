@@ -69,6 +69,39 @@ export async function POST(req: Request) {
 
   // 2) HMAC no header — precisa do body RAW
   const rawBody = await req.text();
+
+  // ─── LOG DEBUG TEMPORÁRIO (remover após diagnóstico) ─────────────────────
+  // Logs pra investigar por que a AbacatePay v2 rejeita assinatura mesmo com
+  // ABACATEPAY_PUBLIC_KEY correta. Captura todos os headers + assinatura em
+  // várias formas pra facilitar comparação visual nos Vercel logs.
+  const allHeaders: Record<string, string> = {};
+  req.headers.forEach((v, k) => { allHeaders[k] = v; });
+  // Header em variantes de nome (v2 pode ter mudado)
+  const sigCandidates = {
+    "x-webhook-signature": req.headers.get("x-webhook-signature") || "",
+    "x-abacate-signature": req.headers.get("x-abacate-signature") || "",
+    "x-signature": req.headers.get("x-signature") || "",
+    "webhook-signature": req.headers.get("webhook-signature") || "",
+    "signature": req.headers.get("signature") || "",
+  };
+  // Calcula HMAC em vários formatos e prefixos pra ela conferir manualmente
+  const hmacBase64 = crypto.createHmac("sha256", ABACATE_PUBLIC_KEY).update(Buffer.from(rawBody, "utf8")).digest("base64");
+  const hmacHex = crypto.createHmac("sha256", ABACATE_PUBLIC_KEY).update(Buffer.from(rawBody, "utf8")).digest("hex");
+  console.log("pix_webhook_debug", {
+    url: req.url,
+    method: req.method,
+    body_length: rawBody.length,
+    body_preview: rawBody.slice(0, 300),
+    all_headers: allHeaders,
+    sig_candidates: sigCandidates,
+    public_key_len: ABACATE_PUBLIC_KEY.length,
+    public_key_first6: ABACATE_PUBLIC_KEY.slice(0, 6),
+    public_key_last4: ABACATE_PUBLIC_KEY.slice(-4),
+    computed_hmac_base64: hmacBase64,
+    computed_hmac_hex: hmacHex,
+  });
+  // ─── FIM DO LOG DEBUG ────────────────────────────────────────────────────
+
   const sigHeader = req.headers.get(SIG_HEADER_NAME) || "";
   if (!sigHeader) {
     const headerList: string[] = [];
@@ -80,7 +113,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "missing_signature" }, { status: 401 });
   }
   if (!verifyAbacateSignature(rawBody, sigHeader)) {
-    console.warn("pix_webhook_bad_hmac", { header: SIG_HEADER_NAME });
+    // Log detalhado do que não bateu — helps user diagnose
+    console.warn("pix_webhook_bad_hmac", {
+      header_name: SIG_HEADER_NAME,
+      received_sig: sigHeader,
+      received_sig_len: sigHeader.length,
+      expected_base64: hmacBase64,
+      expected_base64_len: hmacBase64.length,
+      match_ignoring_prefix: sigHeader.replace(/^sha256=/, "") === hmacBase64,
+    });
     return NextResponse.json({ error: "invalid_signature" }, { status: 401 });
   }
 
