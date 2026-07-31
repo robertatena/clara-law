@@ -215,7 +215,26 @@ export async function salvarCasoNoSupabase(params: {
   }
 }
 
+// Checa se um caso já foi fulfilled pra esse provider+providerId. Usado como
+// guarda de idempotência antes de rodar o pipeline — permite chamar
+// fulfillCheckout múltiplas vezes (polling, webhook, endpoint admin) sem
+// duplicar user_casos ou mandar email múltiplos.
+export async function jaFoiFulfilled(params: {
+  provider: "stripe" | "pix";
+  providerId: string;
+}): Promise<boolean> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return false;
+  const col = params.provider === "stripe" ? "stripe_session_id" : "abacate_transaction_id";
+  const { data } = await supabaseAdmin
+    .from("user_casos")
+    .select("id")
+    .eq(col, params.providerId)
+    .maybeSingle();
+  return !!data;
+}
+
 // Pipeline completo: provisiona → salva caso → gera magic link → envia e-mail.
+// Idempotente: se já existe user_casos com esse provider+providerId, no-op.
 // Loga cada etapa. Nunca lança — cada camada tem seu try/catch.
 export async function fulfillCheckout(params: {
   email: string;
@@ -223,12 +242,18 @@ export async function fulfillCheckout(params: {
   provider: "stripe" | "pix";
   providerId: string;
   metadata: Record<string, string>;
-}): Promise<void> {
+}): Promise<{ status: "ok" | "already_fulfilled" | "skipped_invalid_input" }> {
   const { email, produto, provider, providerId, metadata } = params;
 
   if (!email || produto === "desconhecido") {
     console.warn("fulfillment_skipped_invalid_input", { provider, providerId, hasEmail: !!email, produto });
-    return;
+    return { status: "skipped_invalid_input" };
+  }
+
+  // Guarda de idempotência — polling do client pode chamar a cada 4s.
+  if (await jaFoiFulfilled({ provider, providerId })) {
+    console.log("fulfillment_already_done", { provider, providerId });
+    return { status: "already_fulfilled" };
   }
 
   const userId = await provisionarUsuario(email);
@@ -248,4 +273,5 @@ export async function fulfillCheckout(params: {
   } catch (err) {
     console.error("fulfillment_email_failed", { provider, providerId, email, produto, error: err instanceof Error ? err.message : "unknown" });
   }
+  return { status: "ok" };
 }

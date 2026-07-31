@@ -283,6 +283,10 @@ export default function Page() {
   // Controle explícito de abertura do modal — evita que "loading" inicial
   // apareça na tela e que o estado "erro" feche o modal silenciosamente.
   const [pixModalAberto, setPixModalAberto] = useState(false);
+  // Metadata do Pix ativo — usada pelo polling pra passar email/produto/etc
+  // pra o /api/pix/status/[id] executar fulfill server-side (workaround do
+  // webhook AbacatePay que hoje não dispara).
+  const [pixMetadata, setPixMetadata] = useState<Record<string, string>>({});
   // Guarda de qual produto disparou o Pix — usado pelo polling pra decidir
   // pra onde redirecionar após PAID (/sucesso pra pacote, /enviar?unlocked pra análise).
   const [pixProduto, setPixProduto] = useState<"pacote" | "analise" | null>(null);
@@ -755,6 +759,13 @@ export default function Page() {
     setPixData(null);
     setPixProduto("pacote");
     const descricaoCurta = prepararCheckoutMetadata();
+    // Guarda a metadata pra o polling passar pro /api/pix/status quando detectar PAID.
+    setPixMetadata({
+      email: emailUsuario,
+      produto: "pacote",
+      tipo_caso: tipoCaso ?? "",
+      descricao: descricaoCurta,
+    });
     try {
       const res = await fetch("/api/pix/create", {
         method: "POST",
@@ -799,6 +810,12 @@ export default function Page() {
     try {
       localStorage.setItem("clara_resultado", JSON.stringify({ resultado, contractType, modo }));
     } catch { /* segue mesmo se falhar */ }
+    // Guarda a metadata pra o polling passar pro /api/pix/status quando detectar PAID.
+    setPixMetadata({
+      email: emailUsuario,
+      produto: "analise",
+      contractType: contractType || "",
+    });
     try {
       const res = await fetch("/api/pix/create", {
         method: "POST",
@@ -829,7 +846,11 @@ export default function Page() {
     let cancelado = false;
     const tick = async () => {
       try {
-        const res = await fetch(`/api/pix/status/${encodeURIComponent(pixData.id)}`, { cache: "no-store" });
+        // Passa metadata na URL — quando o backend detectar PAID, executa fulfillCheckout
+        // server-side (workaround do webhook AbacatePay). Idempotente do lado do backend.
+        const qs = new URLSearchParams(pixMetadata).toString();
+        const url = `/api/pix/status/${encodeURIComponent(pixData.id)}${qs ? `?${qs}` : ""}`;
+        const res = await fetch(url, { cache: "no-store" });
         const data = await res.json();
         if (cancelado) return;
         const status = String(data.status || "").toUpperCase();
@@ -850,7 +871,7 @@ export default function Page() {
     const interval = setInterval(tick, 4000);
     tick();
     return () => { cancelado = true; clearInterval(interval); };
-  }, [pixData, pixStatus]);
+  }, [pixData, pixStatus, pixProduto, pixMetadata]);
 
   return (
     <main className="clara-mobile-fix min-h-screen bg-[#f6f8fc] px-4 py-8 md:px-6 md:py-10">
