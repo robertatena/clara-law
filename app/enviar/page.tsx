@@ -283,7 +283,7 @@ export default function Page() {
   // Método de pagamento nos cards de checkout (pacote e análise).
   // "cartao" mantém o fluxo Stripe atual; "pix" abre modal com QR AbacatePay.
   const [metodoPagamento, setMetodoPagamento] = useState<"cartao" | "pix">("cartao");
-  const [pixData, setPixData] = useState<{ id: string; brCode: string; brCodeBase64: string; expiresAt: string } | null>(null);
+  const [pixData, setPixData] = useState<{ id: string; brCode: string; brCodeBase64: string; expiresAt: string; amount: number } | null>(null);
   const [pixStatus, setPixStatus] = useState<"loading" | "aguardando" | "pago" | "expirado" | "erro">("loading");
   const [pixCopiado, setPixCopiado] = useState(false);
   // Controle explícito de abertura do modal — evita que "loading" inicial
@@ -824,7 +824,7 @@ export default function Page() {
         setPixStatus("erro");
         return;
       }
-      setPixData({ id: data.id, brCode: data.brCode, brCodeBase64: data.brCodeBase64, expiresAt: data.expiresAt });
+      setPixData({ id: data.id, brCode: data.brCode, brCodeBase64: data.brCodeBase64, expiresAt: data.expiresAt, amount: data.amount });
       setPixStatus("aguardando");
     } catch {
       setError("Erro ao gerar Pix. Tente Cartão de crédito ou tente de novo.");
@@ -874,7 +874,7 @@ export default function Page() {
         setPixStatus("erro");
         return;
       }
-      setPixData({ id: data.id, brCode: data.brCode, brCodeBase64: data.brCodeBase64, expiresAt: data.expiresAt });
+      setPixData({ id: data.id, brCode: data.brCode, brCodeBase64: data.brCodeBase64, expiresAt: data.expiresAt, amount: data.amount });
       setPixStatus("aguardando");
     } catch {
       setError("Erro ao gerar Pix. Tente Cartão de crédito ou tente de novo.");
@@ -2651,7 +2651,7 @@ export default function Page() {
                   <div style={{ textAlign: "center", marginBottom: 16 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 6 }}>Pagamento via Pix</div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: "#0e2b50" }}>Escaneie o QR ou copie o código</div>
-                    <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6 }}>R$ 49,90 · confirmação automática em segundos</div>
+                    <div style={{ fontSize: 13, color: "#6b7280", marginTop: 6 }}>R$ {(pixData.amount / 100).toFixed(2).replace(".", ",")} · confirmação automática em segundos</div>
                   </div>
 
                   {/* QR image */}
