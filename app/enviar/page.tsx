@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 // Flag temporária — Pix fora do ar por problema na API key AbacatePay.
 // Reverter (true → false) quando a chave for reativada/trocada e o /api/pix/create
 // voltar a retornar QR code em vez de "Invalid or inactive API key".
-const PIX_TEMPORARIAMENTE_INDISPONIVEL = true;
+const PIX_TEMPORARIAMENTE_INDISPONIVEL = false;
 
 function emailValido(email: string): boolean {
   const e = (email || "").trim();
