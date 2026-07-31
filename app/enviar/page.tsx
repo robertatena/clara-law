@@ -230,6 +230,9 @@ export default function Page() {
   const [file, setFile] = useState<File | null>(null);
   const [papelNoContrato, setPapelNoContrato] = useState("");
   const contractTextRef = useRef<HTMLTextAreaElement | null>(null);
+  // Ref no container do ResultadoContrato pra rolar automaticamente até o card
+  // quando a análise for desbloqueada (?unlocked=true ou reanaliseDe).
+  const resultadoContainerRef = useRef<HTMLDivElement | null>(null);
 
   const [tipoCaso, setTipoCaso] = useState<TipoCaso | null>(null);
   const descricaoCasoRef = useRef<HTMLTextAreaElement | null>(null);
@@ -384,6 +387,18 @@ export default function Page() {
     })();
     return () => { cancelado = true; };
   }, []);
+
+  // Scroll até o card de resultado quando a análise for desbloqueada.
+  // Cobre os dois caminhos: (a) volta do pagamento (?unlocked=true), (b) reanálise
+  // grátis (?reanalise=<id> após analisar()). Sem isso, a página reload preserva
+  // scroll no topo e o usuário não vê imediatamente que o conteúdo apareceu embaixo.
+  useEffect(() => {
+    if (!unlockedAnalysis || !resultado || modo !== "contrato") return;
+    // rAF garante que o DOM já renderizou o novo layout antes do scroll
+    requestAnimationFrame(() => {
+      resultadoContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [unlockedAnalysis, resultado, modo]);
 
   async function registrarLead(payload: any) {
     try {
@@ -2601,17 +2616,19 @@ export default function Page() {
 
         {/* RESULTADO CONTRATO */}
         {step === 99 && modo === "contrato" && resultado && (
-          <ResultadoContrato
-            resultado={resultado}
-            contractType={contractType}
-            unlockedAnalysis={unlockedAnalysis}
-            emailUsuario={emailUsuario}
-            metodoPagamento={metodoPagamento}
-            setMetodoPagamento={setMetodoPagamento}
-            iniciarCheckoutAnaliseStripe={iniciarCheckoutAnaliseStripe}
-            iniciarCheckoutAnalisePix={iniciarCheckoutAnalisePix}
-            reanaliseDe={reanaliseDe}
-          />
+          <div ref={resultadoContainerRef}>
+            <ResultadoContrato
+              resultado={resultado}
+              contractType={contractType}
+              unlockedAnalysis={unlockedAnalysis}
+              emailUsuario={emailUsuario}
+              metodoPagamento={metodoPagamento}
+              setMetodoPagamento={setMetodoPagamento}
+              iniciarCheckoutAnaliseStripe={iniciarCheckoutAnaliseStripe}
+              iniciarCheckoutAnalisePix={iniciarCheckoutAnalisePix}
+              reanaliseDe={reanaliseDe}
+            />
+          </div>
         )}
 
         {/* MODAL PIX — QR + copia-e-cola + polling do status */}
