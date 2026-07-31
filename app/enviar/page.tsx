@@ -1061,9 +1061,6 @@ export default function Page() {
                     {!ativo && (
                       <span className="absolute top-2 right-2 text-[10px] font-bold bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">Em breve</span>
                     )}
-                    {ativo && (
-                      <span className="absolute top-2 right-2 text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Disponível</span>
-                    )}
                     <div className="flex items-start gap-3">
                       <span className="text-2xl flex-shrink-0 mt-0.5">{s.icon}</span>
                       <div>
