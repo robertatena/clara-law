@@ -8,6 +8,11 @@ import { useEffect, useRef, useState } from "react";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
+// Flag temporária — Pix fora do ar por problema na API key AbacatePay.
+// Reverter (true → false) quando a chave for reativada/trocada e o /api/pix/create
+// voltar a retornar QR code em vez de "Invalid or inactive API key".
+const PIX_TEMPORARIAMENTE_INDISPONIVEL = true;
+
 function emailValido(email: string): boolean {
   const e = (email || "").trim();
   // Formato mínimo: algo + @ + algo + . + algo (sem espaços)
@@ -2219,18 +2224,33 @@ export default function Page() {
                     </button>
                   </div>
 
-                  {/* Botão único de pagamento — label e handler variam por método */}
-                  <button
-                    type="button"
-                    onClick={metodoPagamento === "cartao" ? iniciarCheckoutStripe : iniciarCheckoutPix}
-                    className="w-full rounded-full bg-[#D4AF37] text-[#0e2b50] font-black text-base py-4"
-                  >
-                    {metodoPagamento === "cartao" ? "Quero resolver meu caso →" : "Gerar meu Pix agora →"}
-                  </button>
-                  <p className="text-xs text-[#93b4d4] mt-2 text-center">
-                    R$49,90 · pagamento único · você recebe tudo por e-mail
-                    {metodoPagamento === "pix" && <span> · confirmação em segundos</span>}
-                  </p>
+                  {/* Aviso Pix indisponível OU botão de pagamento */}
+                  {PIX_TEMPORARIAMENTE_INDISPONIVEL && metodoPagamento === "pix" ? (
+                    <>
+                      <div className="rounded-[14px] bg-[#FFF9ED] border border-[#fcd34d] p-4 text-center">
+                        <div className="text-sm font-bold text-[#92400e] mb-1">⚠ Pix temporariamente indisponível</div>
+                        <div className="text-xs text-[#92400e] leading-relaxed">
+                          Estamos ajustando com o provedor. Enquanto isso, use <strong>Cartão de crédito</strong> na aba ao lado — funcionando normalmente.
+                        </div>
+                      </div>
+                      <p className="text-xs text-[#93b4d4] mt-2 text-center">R$49,90 · pagamento único</p>
+                    </>
+                  ) : (
+                    <>
+                      {/* Botão único de pagamento — label e handler variam por método */}
+                      <button
+                        type="button"
+                        onClick={metodoPagamento === "cartao" ? iniciarCheckoutStripe : iniciarCheckoutPix}
+                        className="w-full rounded-full bg-[#D4AF37] text-[#0e2b50] font-black text-base py-4"
+                      >
+                        {metodoPagamento === "cartao" ? "Quero resolver meu caso →" : "Gerar meu Pix agora →"}
+                      </button>
+                      <p className="text-xs text-[#93b4d4] mt-2 text-center">
+                        R$49,90 · pagamento único · você recebe tudo por e-mail
+                        {metodoPagamento === "pix" && <span> · confirmação em segundos</span>}
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 {/* Roadmap — títulos, textos e documentos variam por tipoCaso */}
@@ -3038,16 +3058,30 @@ function ResultadoContrato({
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={metodoPagamento === "cartao" ? iniciarCheckoutAnaliseStripe : iniciarCheckoutAnalisePix}
-            className="mt-3 w-full rounded-full bg-[#0e2b50] py-3 text-sm font-semibold text-white">
-            Desbloquear análise completa →
-          </button>
-          <p className="mt-3 text-center text-xs text-slate-400">
-            Acesso imediato · Pagamento único
-            {metodoPagamento === "pix" && <span> · confirmação em segundos</span>}
-          </p>
+          {PIX_TEMPORARIAMENTE_INDISPONIVEL && metodoPagamento === "pix" ? (
+            <>
+              <div className="mt-3 rounded-[14px] bg-[#FFF9ED] border border-[#fcd34d] p-4 text-center">
+                <div className="text-sm font-bold text-[#92400e] mb-1">⚠ Pix temporariamente indisponível</div>
+                <div className="text-xs text-[#92400e] leading-relaxed">
+                  Estamos ajustando com o provedor. Enquanto isso, use <strong>Cartão de crédito</strong> na aba ao lado — funcionando normalmente.
+                </div>
+              </div>
+              <p className="mt-3 text-center text-xs text-slate-400">Acesso imediato · Pagamento único</p>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={metodoPagamento === "cartao" ? iniciarCheckoutAnaliseStripe : iniciarCheckoutAnalisePix}
+                className="mt-3 w-full rounded-full bg-[#0e2b50] py-3 text-sm font-semibold text-white">
+                Desbloquear análise completa →
+              </button>
+              <p className="mt-3 text-center text-xs text-slate-400">
+                Acesso imediato · Pagamento único
+                {metodoPagamento === "pix" && <span> · confirmação em segundos</span>}
+              </p>
+            </>
+          )}
         </div>
       )}
 
