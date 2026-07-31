@@ -298,12 +298,20 @@ export default function CasoPage() {
               {(() => {
                 const fmt = (iso: string | null) =>
                   iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : null;
-                type Etapa = { titulo: string; subtitulo?: string; concluido: boolean; data?: string | null };
+                type Etapa = { titulo: string; subtitulo?: string; concluido: boolean; data?: string | null; cta?: { href: string; label: string } };
+                const isAnaliseContrato = caso.tipo_caso === "analise_contrato";
                 const etapas: Etapa[] = [
                   { titulo: "Caso registrado", concluido: true, data: fmt(caso.created_at) },
                   { titulo: "E-mail de notificação enviado", subtitulo: "Você envia direto do seu e-mail — a Clara só prepara o texto.", concluido: !!caso.email_enviado_em || caso.status === "email_enviado", data: fmt(caso.email_enviado_em) },
                   { titulo: "Aguardando resposta da empresa", subtitulo: "A empresa costuma responder em até 5 dias úteis.", concluido: false },
-                  { titulo: "Caso resolvido", subtitulo: "Quando a empresa devolver o valor, cumprir o combinado ou o JEC decidir.", concluido: !!caso.resolvido_em, data: fmt(caso.resolvido_em) },
+                  isAnaliseContrato
+                    ? {
+                        titulo: "Recebeu um contrato revisado?",
+                        subtitulo: "Envie o novo contrato e a Clara reanalisa de graça, pra você conferir se as mudanças realmente te protegem.",
+                        concluido: false,
+                        cta: { href: `/enviar?reanalise=${caso.id}`, label: "Enviar contrato revisado →" },
+                      }
+                    : { titulo: "Caso resolvido", subtitulo: "Quando a empresa devolver o valor, cumprir o combinado ou o JEC decidir.", concluido: !!caso.resolvido_em, data: fmt(caso.resolvido_em) },
                 ];
                 return (
                   <div style={{ background: "#fff", border: "1px solid #E0DDD6", borderRadius: 14, padding: "22px 24px", marginBottom: 20, boxShadow: "0 6px 20px rgba(26,35,64,0.04)" }}>
@@ -359,6 +367,14 @@ export default function CasoPage() {
                               <div style={{ fontSize: 12, color: e.concluido ? "#6b7280" : "#9ca3af", lineHeight: 1.55, marginTop: 3 }}>
                                 {e.subtitulo}
                               </div>
+                            )}
+                            {e.cta && (
+                              <Link
+                                href={e.cta.href}
+                                style={{ display: "inline-block", marginTop: 10, background: "#1a2340", color: "#fff", fontSize: 12, fontWeight: 700, padding: "8px 16px", borderRadius: 20, textDecoration: "none" }}
+                              >
+                                {e.cta.label}
+                              </Link>
                             )}
                           </div>
                         </li>

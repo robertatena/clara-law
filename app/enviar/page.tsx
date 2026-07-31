@@ -3,6 +3,7 @@
 import LegalInsightsCard from "@/components/LegalInsightsCard";
 import ContratoModal from "@/components/ContratoModal";
 import { salvarCaso, uploadDocumento, uploadContrato, salvarLead } from "@/lib/supabase";
+import { createBrowserSupabase } from "@/lib/supabase-auth";
 import { useEffect, useRef, useState } from "react";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -315,6 +316,10 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<ResultData | null>(null);
   const [unlockedAnalysis, setUnlockedAnalysis] = useState(false);
+  // Reanálise grátis: quando /enviar recebe ?reanalise=<caso_id> e o user
+  // autenticado é dono do caso original de análise, `reanaliseDe` guarda o id
+  // e pula o paywall. Verificação de ownership feita via Supabase RLS.
+  const [reanaliseDe, setReanaliseDe] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const isVoo = tipoCaso === "voo_atrasado" || tipoCaso === "voo_cancelado" || tipoCaso === "bagagem";
@@ -342,6 +347,37 @@ export default function Page() {
         } catch { /* ignora */ }
       }
     }
+  }, []);
+
+  // Reanálise grátis via /enviar?reanalise=<caso_id>
+  // Valida via Supabase (RLS): só entra em modo reanálise se user autenticado
+  // for dono do caso E o caso for tipo "analise_contrato". Falha silenciosa
+  // (segue fluxo normal, cobra) se qualquer verificação falhar.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("reanalise");
+    if (!id) return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const supabase = createBrowserSupabase();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (cancelado || !user) return;
+        const { data: caso } = await supabase
+          .from("user_casos")
+          .select("id, tipo_caso, dados_json")
+          .eq("id", id)
+          .eq("tipo_caso", "analise_contrato")
+          .maybeSingle();
+        if (cancelado || !caso) return;
+        setModo("contrato");
+        setReanaliseDe(id);
+        const ct = (caso.dados_json as Record<string, unknown> | null)?.contractType;
+        if (typeof ct === "string" && ct) setContractType(ct);
+        // Limpa a URL — evita revisitas re-triggerarem o modo reanálise
+        window.history.replaceState({}, "", "/enviar");
+      } catch { /* ignora — fluxo normal segue */ }
+    })();
+    return () => { cancelado = true; };
   }, []);
 
   async function registrarLead(payload: any) {
@@ -509,7 +545,8 @@ export default function Page() {
       let data: any;
       try { data = JSON.parse(raw); } catch { throw new Error("Resposta inválida da análise."); }
       if (!res.ok) throw new Error(data?.error || "Não foi possível analisar.");
-      setUnlockedAnalysis(false);
+      // Reanálise vinculada a caso pago pula o paywall automaticamente.
+      setUnlockedAnalysis(!!reanaliseDe);
       setResultado(data);
       registrarLead({
         email: emailUsuario, modo: "contrato",
@@ -2553,6 +2590,7 @@ export default function Page() {
             setMetodoPagamento={setMetodoPagamento}
             iniciarCheckoutAnaliseStripe={iniciarCheckoutAnaliseStripe}
             iniciarCheckoutAnalisePix={iniciarCheckoutAnalisePix}
+            reanaliseDe={reanaliseDe}
           />
         )}
 
@@ -2816,6 +2854,7 @@ function ResultadoContrato({
   resultado, contractType, unlockedAnalysis,
   emailUsuario, metodoPagamento, setMetodoPagamento,
   iniciarCheckoutAnaliseStripe, iniciarCheckoutAnalisePix,
+  reanaliseDe,
 }: {
   resultado: ResultData;
   contractType: string;
@@ -2825,6 +2864,7 @@ function ResultadoContrato({
   setMetodoPagamento: (m: "cartao" | "pix") => void;
   iniciarCheckoutAnaliseStripe: () => void;
   iniciarCheckoutAnalisePix: () => Promise<void>;
+  reanaliseDe: string | null;
 }) {
   // emailUsuario recebido como prop pra futuras exibições/valicação inline;
   // hoje só os handlers do pai o consomem via closure.
@@ -2946,57 +2986,70 @@ function ResultadoContrato({
 
       <LegalInsightsCard contractType={contractType} pontos={resultado.pontos_atencao} />
 
-      <div className="rounded-[18px] border-2 border-[#0e2b50] bg-white p-8">
-        <h3 className="text-xl font-bold text-[#0e2b50]">Você está a um clique de evitar um problema no seu contrato</h3>
-        <p className="mt-1 text-sm text-slate-600">{resultado.paywall?.subtexto || "Desbloqueie a análise completa e proteja-se antes de assinar."}</p>
-        <ul className="mt-4 space-y-2 text-sm text-slate-600">
-          <li>• Leitura detalhada cláusula por cláusula</li>
-          <li>• Recomendações práticas para negociar</li>
-          <li>• E-mail pronto com cada ponto do contrato</li>
-          <li>• Perguntas para revisar com advogado ou com a outra parte</li>
-        </ul>
-
-        {/* Tabs Cartão / Pix — mesma UX do card do pacote, cores adaptadas ao fundo branco */}
-        <div className="mt-5 flex gap-2" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={metodoPagamento === "cartao"}
-            onClick={() => setMetodoPagamento("cartao")}
-            className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all ${
-              metodoPagamento === "cartao"
-                ? "bg-[#0e2b50]/10 text-[#0e2b50] border border-[#0e2b50]/40"
-                : "bg-transparent text-slate-500 border border-slate-200 hover:border-slate-300"
-            }`}
-          >
-            💳 Cartão
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={metodoPagamento === "pix"}
-            onClick={() => setMetodoPagamento("pix")}
-            className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all ${
-              metodoPagamento === "pix"
-                ? "bg-[#0e2b50]/10 text-[#0e2b50] border border-[#0e2b50]/40"
-                : "bg-transparent text-slate-500 border border-slate-200 hover:border-slate-300"
-            }`}
-          >
-            ⚡ Pix
-          </button>
+      {reanaliseDe ? (
+        // Reanálise grátis — vinculada ao caso original pago
+        <div className="rounded-[18px] border-2 border-[#6EE7B7] bg-[#F0FDF9] p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xl">✓</span>
+            <h3 className="text-lg font-bold text-[#065f46]">Reanálise grátis</h3>
+          </div>
+          <p className="text-sm text-[#065f46] leading-relaxed">
+            Essa análise está vinculada ao seu caso original — nenhuma cobrança será feita.
+          </p>
         </div>
+      ) : (
+        <div className="rounded-[18px] border-2 border-[#0e2b50] bg-white p-8">
+          <h3 className="text-xl font-bold text-[#0e2b50]">Você está a um clique de evitar um problema no seu contrato</h3>
+          <p className="mt-1 text-sm text-slate-600">{resultado.paywall?.subtexto || "Desbloqueie a análise completa e proteja-se antes de assinar."}</p>
+          <ul className="mt-4 space-y-2 text-sm text-slate-600">
+            <li>• Leitura detalhada cláusula por cláusula</li>
+            <li>• Recomendações práticas para negociar</li>
+            <li>• E-mail pronto com cada ponto do contrato</li>
+            <li>• Perguntas para revisar com advogado ou com a outra parte</li>
+          </ul>
 
-        <button
-          type="button"
-          onClick={metodoPagamento === "cartao" ? iniciarCheckoutAnaliseStripe : iniciarCheckoutAnalisePix}
-          className="mt-3 w-full rounded-full bg-[#0e2b50] py-3 text-sm font-semibold text-white">
-          Desbloquear análise completa →
-        </button>
-        <p className="mt-3 text-center text-xs text-slate-400">
-          Acesso imediato · Pagamento único
-          {metodoPagamento === "pix" && <span> · confirmação em segundos</span>}
-        </p>
-      </div>
+          {/* Tabs Cartão / Pix — mesma UX do card do pacote, cores adaptadas ao fundo branco */}
+          <div className="mt-5 flex gap-2" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={metodoPagamento === "cartao"}
+              onClick={() => setMetodoPagamento("cartao")}
+              className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all ${
+                metodoPagamento === "cartao"
+                  ? "bg-[#0e2b50]/10 text-[#0e2b50] border border-[#0e2b50]/40"
+                  : "bg-transparent text-slate-500 border border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              💳 Cartão
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={metodoPagamento === "pix"}
+              onClick={() => setMetodoPagamento("pix")}
+              className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all ${
+                metodoPagamento === "pix"
+                  ? "bg-[#0e2b50]/10 text-[#0e2b50] border border-[#0e2b50]/40"
+                  : "bg-transparent text-slate-500 border border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              ⚡ Pix
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={metodoPagamento === "cartao" ? iniciarCheckoutAnaliseStripe : iniciarCheckoutAnalisePix}
+            className="mt-3 w-full rounded-full bg-[#0e2b50] py-3 text-sm font-semibold text-white">
+            Desbloquear análise completa →
+          </button>
+          <p className="mt-3 text-center text-xs text-slate-400">
+            Acesso imediato · Pagamento único
+            {metodoPagamento === "pix" && <span> · confirmação em segundos</span>}
+          </p>
+        </div>
+      )}
 
       {unlockedAnalysis && resultado.email_pronto && (
         <div className="rounded-[14px] bg-slate-50 p-4">
