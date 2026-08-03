@@ -388,15 +388,24 @@ export default function Page() {
     return () => { cancelado = true; };
   }, []);
 
-  // Scroll até o card de resultado quando a análise for desbloqueada.
+  // Scroll até o card verde de confirmação quando a análise for desbloqueada.
   // Cobre os dois caminhos: (a) volta do pagamento (?unlocked=true), (b) reanálise
-  // grátis (?reanalise=<id> após analisar()). Sem isso, a página reload preserva
-  // scroll no topo e o usuário não vê imediatamente que o conteúdo apareceu embaixo.
+  // grátis (?reanalise=<id> após analisar()). Prioriza o âncora do card verde
+  // ("análise desbloqueada" ou "reanálise grátis") pra o usuário ver imediatamente
+  // o feedback do sucesso; fallback pro topo do wrapper se por algum motivo o
+  // âncora ainda não renderizou.
   useEffect(() => {
     if (!unlockedAnalysis || !resultado || modo !== "contrato") return;
-    // rAF garante que o DOM já renderizou o novo layout antes do scroll
+    // Espera 2 frames: um pra React montar o DOM novo, outro pro browser calcular layout
     requestAnimationFrame(() => {
-      resultadoContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      requestAnimationFrame(() => {
+        const anchor = document.getElementById("analise-unlocked-anchor");
+        if (anchor) {
+          anchor.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else {
+          resultadoContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
     });
   }, [unlockedAnalysis, resultado, modo]);
 
@@ -3023,15 +3032,29 @@ function ResultadoContrato({
 
       <LegalInsightsCard contractType={contractType} pontos={resultado.pontos_atencao} />
 
-      {reanaliseDe ? (
+      {unlockedAnalysis && reanaliseDe ? (
         // Reanálise grátis — vinculada ao caso original pago
-        <div className="rounded-[18px] border-2 border-[#6EE7B7] bg-[#F0FDF9] p-6">
+        <div id="analise-unlocked-anchor" className="rounded-[18px] border-2 border-[#6EE7B7] bg-[#F0FDF9] p-6">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xl">✓</span>
             <h3 className="text-lg font-bold text-[#065f46]">Reanálise grátis</h3>
           </div>
           <p className="text-sm text-[#065f46] leading-relaxed">
             Essa análise está vinculada ao seu caso original — nenhuma cobrança será feita.
+          </p>
+        </div>
+      ) : unlockedAnalysis ? (
+        // Análise desbloqueada após pagamento — substitui o paywall
+        <div id="analise-unlocked-anchor" className="rounded-[18px] border-2 border-[#6EE7B7] bg-[#F0FDF9] p-6">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-2xl">✅</span>
+            <h3 className="text-lg font-bold text-[#065f46]">Análise desbloqueada</h3>
+          </div>
+          <p className="text-sm text-[#065f46] leading-relaxed mb-1">
+            Pagamento confirmado — sua análise completa está liberada abaixo, junto com o e-mail pronto pra você negociar.
+          </p>
+          <p className="text-xs text-[#065f46]/80">
+            Você também recebeu um e-mail com o link pra sua área ("Minha conta").
           </p>
         </div>
       ) : (
