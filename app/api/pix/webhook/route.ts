@@ -128,50 +128,67 @@ export async function POST(req: Request) {
   try { if (/^[0-9a-f]+$/i.test(ABACATE_PUBLIC_KEY) && ABACATE_PUBLIC_KEY.length % 2 === 0) keyHex = Buffer.from(ABACATE_PUBLIC_KEY, "hex"); } catch { /* skip */ }
   try { if (/^[A-Za-z0-9+/]+=*$/.test(ABACATE_PUBLIC_KEY)) keyB64 = Buffer.from(ABACATE_PUBLIC_KEY, "base64"); } catch { /* skip */ }
 
-  // Variantes de body — testa se AbacatePay canonicalizou antes de assinar
-  const bodyVariants: Array<{ label: string; body: Buffer }> = [
+  // Descoberta: AbacatePay envia o secret no header x-webhook-secret.
+  // Testa se ele entra no cálculo (como parte do payload assinado).
+  const xWebhookSecret = req.headers.get("x-webhook-secret") || "";
+
+  // Variantes de PAYLOAD (não só body — inclui possíveis prefixos/sufixos)
+  const payloadVariants: Array<{ label: string; body: Buffer }> = [
     { label: "raw", body: Buffer.from(rawBody, "utf8") },
   ];
-  // Tenta re-serializar JSON (sem espaços, chaves na ordem que JSON.stringify dá)
+  // Se body é JSON: re-serializar sem espaços + pretty-printed
   try {
     const parsed = JSON.parse(rawBody);
     const restringified = JSON.stringify(parsed);
     if (restringified !== rawBody) {
-      bodyVariants.push({ label: "json_restringified_min", body: Buffer.from(restringified, "utf8") });
+      payloadVariants.push({ label: "json_restringified_min", body: Buffer.from(restringified, "utf8") });
     }
-    // Pretty-printed com 2 spaces (algumas libs assinam assim)
     const pretty2 = JSON.stringify(parsed, null, 2);
     if (pretty2 !== rawBody) {
-      bodyVariants.push({ label: "json_pretty_2sp", body: Buffer.from(pretty2, "utf8") });
+      payloadVariants.push({ label: "json_pretty_2sp", body: Buffer.from(pretty2, "utf8") });
     }
   } catch { /* body não é JSON válido */ }
   // Trim
   const trimmed = rawBody.trim();
   if (trimmed !== rawBody) {
-    bodyVariants.push({ label: "trimmed", body: Buffer.from(trimmed, "utf8") });
+    payloadVariants.push({ label: "trimmed", body: Buffer.from(trimmed, "utf8") });
+  }
+  // Variantes com x-webhook-secret concatenado (padrão comum em signature-covers-headers)
+  if (xWebhookSecret) {
+    payloadVariants.push({ label: "secret+body", body: Buffer.from(xWebhookSecret + rawBody, "utf8") });
+    payloadVariants.push({ label: "body+secret", body: Buffer.from(rawBody + xWebhookSecret, "utf8") });
+    payloadVariants.push({ label: "secret.body", body: Buffer.from(xWebhookSecret + "." + rawBody, "utf8") });
+    payloadVariants.push({ label: "secret_only", body: Buffer.from(xWebhookSecret, "utf8") });
   }
 
-  console.log("pix_webhook_debug_body_variants", {
-    count: bodyVariants.length,
-    lengths: bodyVariants.map((b) => `${b.label}:${b.body.length}`),
+  console.log("pix_webhook_debug_payload_variants", {
+    count: payloadVariants.length,
+    lengths: payloadVariants.map((b) => `${b.label}:${b.body.length}`),
   });
+
+  // Hipótese α: x-webhook-secret é usado COMO key do HMAC (em vez do configured)
+  const xSecretHex: Buffer | null = /^[0-9a-f]+$/i.test(xWebhookSecret) && xWebhookSecret.length % 2 === 0
+    ? Buffer.from(xWebhookSecret, "hex") : null;
 
   const algos: Array<"sha256" | "sha512" | "sha1"> = ["sha256", "sha512", "sha1"];
   const keyForms: Array<{ label: string; key: Buffer | string }> = [
-    { label: "string_literal", key: keyString },
-    ...(keyHex ? [{ label: "hex_decoded_bytes", key: keyHex }] : []),
-    ...(keyB64 ? [{ label: "base64_decoded_bytes", key: keyB64 }] : []),
+    { label: "cfg_string", key: keyString },
+    ...(keyHex ? [{ label: "cfg_hex_bytes", key: keyHex }] : []),
+    ...(keyB64 ? [{ label: "cfg_b64_bytes", key: keyB64 }] : []),
+    // Hipótese α: header x-webhook-secret como key
+    ...(xWebhookSecret ? [{ label: "hdr_string", key: xWebhookSecret }] : []),
+    ...(xSecretHex ? [{ label: "hdr_hex_bytes", key: xSecretHex }] : []),
   ];
 
   const computed: Array<{ variant: string; base64: string; hex: string; matches_normalized: boolean; matches_raw: boolean }> = [];
   for (const algo of algos) {
     for (const kf of keyForms) {
-      for (const bv of bodyVariants) {
+      for (const bv of payloadVariants) {
         try {
           const h = crypto.createHmac(algo, kf.key).update(bv.body).digest();
           const b64 = h.toString("base64");
           const hex = h.toString("hex");
-          const variant = `${algo}_${kf.label}_body:${bv.label}`;
+          const variant = `${algo}_${kf.label}_${bv.label}`;
           computed.push({
             variant,
             base64: b64,
