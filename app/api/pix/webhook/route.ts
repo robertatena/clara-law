@@ -70,36 +70,104 @@ export async function POST(req: Request) {
   // 2) HMAC no header — precisa do body RAW
   const rawBody = await req.text();
 
-  // ─── LOG DEBUG TEMPORÁRIO (remover após diagnóstico) ─────────────────────
-  // Logs pra investigar por que a AbacatePay v2 rejeita assinatura mesmo com
-  // ABACATEPAY_PUBLIC_KEY correta. Captura todos os headers + assinatura em
-  // várias formas pra facilitar comparação visual nos Vercel logs.
-  const allHeaders: Record<string, string> = {};
-  req.headers.forEach((v, k) => { allHeaders[k] = v; });
-  // Header em variantes de nome (v2 pode ter mudado)
-  const sigCandidates = {
+  // ─── LOG DEBUG v2 (remover após diagnóstico) ─────────────────────────────
+  // Testa 3 algoritmos × 3 encodings de key × 2 outputs = 18 variantes,
+  // procura qual bate com received_sig. Logs em várias linhas curtas
+  // pra não truncar no dashboard Vercel.
+
+  // Header candidates (multi-nome)
+  const sigVariants = {
     "x-webhook-signature": req.headers.get("x-webhook-signature") || "",
     "x-abacate-signature": req.headers.get("x-abacate-signature") || "",
     "x-signature": req.headers.get("x-signature") || "",
     "webhook-signature": req.headers.get("webhook-signature") || "",
     "signature": req.headers.get("signature") || "",
   };
-  // Calcula HMAC em vários formatos e prefixos pra ela conferir manualmente
-  const hmacBase64 = crypto.createHmac("sha256", ABACATE_PUBLIC_KEY).update(Buffer.from(rawBody, "utf8")).digest("base64");
-  const hmacHex = crypto.createHmac("sha256", ABACATE_PUBLIC_KEY).update(Buffer.from(rawBody, "utf8")).digest("hex");
-  console.log("pix_webhook_debug", {
+  const receivedSig = sigVariants[SIG_HEADER_NAME as keyof typeof sigVariants] || "";
+  const receivedNormalized = receivedSig.replace(/^sha256=/, "").replace(/^sha1=/, "").replace(/^sha512=/, "").trim();
+
+  // Metadata do body
+  console.log("pix_webhook_debug_meta", {
     url: req.url,
-    method: req.method,
     body_length: rawBody.length,
-    body_preview: rawBody.slice(0, 300),
-    all_headers: allHeaders,
-    sig_candidates: sigCandidates,
+    body_first_80: rawBody.slice(0, 80),
+    body_last_40: rawBody.slice(-40),
+  });
+
+  // Metadata da chave
+  console.log("pix_webhook_debug_key", {
     public_key_len: ABACATE_PUBLIC_KEY.length,
     public_key_first6: ABACATE_PUBLIC_KEY.slice(0, 6),
     public_key_last4: ABACATE_PUBLIC_KEY.slice(-4),
-    computed_hmac_base64: hmacBase64,
-    computed_hmac_hex: hmacHex,
+    looks_like_hex_48b: /^[0-9a-f]{96}$/i.test(ABACATE_PUBLIC_KEY),
+    looks_like_hex_32b: /^[0-9a-f]{64}$/i.test(ABACATE_PUBLIC_KEY),
+    looks_like_base64: /^[A-Za-z0-9+/]+=*$/.test(ABACATE_PUBLIC_KEY),
   });
+
+  // Assinatura recebida
+  console.log("pix_webhook_debug_sig", {
+    header_using: SIG_HEADER_NAME,
+    all_sig_headers: sigVariants,
+    received_raw: receivedSig,
+    received_len: receivedSig.length,
+    received_normalized: receivedNormalized,
+    normalized_len: receivedNormalized.length,
+    looks_hex: /^[0-9a-f]+$/i.test(receivedNormalized),
+    looks_base64: /^[A-Za-z0-9+/]+=*$/.test(receivedNormalized),
+  });
+
+  // Todos os headers pra descartar outros nomes
+  const allHeaders: Record<string, string> = {};
+  req.headers.forEach((v, k) => { allHeaders[k] = v; });
+  console.log("pix_webhook_debug_headers", allHeaders);
+
+  // Constrói variantes de key
+  const keyString = ABACATE_PUBLIC_KEY;
+  let keyHex: Buffer | null = null;
+  let keyB64: Buffer | null = null;
+  try { if (/^[0-9a-f]+$/i.test(ABACATE_PUBLIC_KEY) && ABACATE_PUBLIC_KEY.length % 2 === 0) keyHex = Buffer.from(ABACATE_PUBLIC_KEY, "hex"); } catch { /* skip */ }
+  try { if (/^[A-Za-z0-9+/]+=*$/.test(ABACATE_PUBLIC_KEY)) keyB64 = Buffer.from(ABACATE_PUBLIC_KEY, "base64"); } catch { /* skip */ }
+
+  const algos: Array<"sha256" | "sha512" | "sha1"> = ["sha256", "sha512", "sha1"];
+  const keyForms: Array<{ label: string; key: Buffer | string }> = [
+    { label: "string_literal", key: keyString },
+    ...(keyHex ? [{ label: "hex_decoded_bytes", key: keyHex }] : []),
+    ...(keyB64 ? [{ label: "base64_decoded_bytes", key: keyB64 }] : []),
+  ];
+
+  const computed: Array<{ variant: string; base64: string; hex: string; matches_normalized: boolean; matches_raw: boolean }> = [];
+  for (const algo of algos) {
+    for (const kf of keyForms) {
+      try {
+        const h = crypto.createHmac(algo, kf.key).update(Buffer.from(rawBody, "utf8")).digest();
+        const b64 = h.toString("base64");
+        const hex = h.toString("hex");
+        const variant = `${algo}_${kf.label}`;
+        computed.push({
+          variant,
+          base64: b64,
+          hex: hex,
+          matches_normalized: b64 === receivedNormalized || hex === receivedNormalized,
+          matches_raw: b64 === receivedSig || hex === receivedSig,
+        });
+      } catch { /* skip */ }
+    }
+  }
+
+  // Loga em batches pequenos
+  for (const c of computed) {
+    console.log("pix_webhook_debug_hmac", {
+      variant: c.variant,
+      base64: c.base64,
+      hex_first_32: c.hex.slice(0, 32),
+      matches_normalized: c.matches_normalized,
+      matches_raw: c.matches_raw,
+    });
+  }
+
+  // Resumo
+  const winners = computed.filter((c) => c.matches_normalized || c.matches_raw).map((c) => c.variant);
+  console.log("pix_webhook_debug_winners", { winners, total_variants_tested: computed.length });
   // ─── FIM DO LOG DEBUG ────────────────────────────────────────────────────
 
   const sigHeader = req.headers.get(SIG_HEADER_NAME) || "";
@@ -113,14 +181,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "missing_signature" }, { status: 401 });
   }
   if (!verifyAbacateSignature(rawBody, sigHeader)) {
-    // Log detalhado do que não bateu — helps user diagnose
     console.warn("pix_webhook_bad_hmac", {
       header_name: SIG_HEADER_NAME,
-      received_sig: sigHeader,
       received_sig_len: sigHeader.length,
-      expected_base64: hmacBase64,
-      expected_base64_len: hmacBase64.length,
-      match_ignoring_prefix: sigHeader.replace(/^sha256=/, "") === hmacBase64,
+      // Diagnóstico detalhado (variantes de algoritmo/encoding) já foi
+      // logado acima em pix_webhook_debug_hmac + pix_webhook_debug_winners.
     });
     return NextResponse.json({ error: "invalid_signature" }, { status: 401 });
   }
