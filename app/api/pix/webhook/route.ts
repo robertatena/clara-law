@@ -128,6 +128,34 @@ export async function POST(req: Request) {
   try { if (/^[0-9a-f]+$/i.test(ABACATE_PUBLIC_KEY) && ABACATE_PUBLIC_KEY.length % 2 === 0) keyHex = Buffer.from(ABACATE_PUBLIC_KEY, "hex"); } catch { /* skip */ }
   try { if (/^[A-Za-z0-9+/]+=*$/.test(ABACATE_PUBLIC_KEY)) keyB64 = Buffer.from(ABACATE_PUBLIC_KEY, "base64"); } catch { /* skip */ }
 
+  // Variantes de body — testa se AbacatePay canonicalizou antes de assinar
+  const bodyVariants: Array<{ label: string; body: Buffer }> = [
+    { label: "raw", body: Buffer.from(rawBody, "utf8") },
+  ];
+  // Tenta re-serializar JSON (sem espaços, chaves na ordem que JSON.stringify dá)
+  try {
+    const parsed = JSON.parse(rawBody);
+    const restringified = JSON.stringify(parsed);
+    if (restringified !== rawBody) {
+      bodyVariants.push({ label: "json_restringified_min", body: Buffer.from(restringified, "utf8") });
+    }
+    // Pretty-printed com 2 spaces (algumas libs assinam assim)
+    const pretty2 = JSON.stringify(parsed, null, 2);
+    if (pretty2 !== rawBody) {
+      bodyVariants.push({ label: "json_pretty_2sp", body: Buffer.from(pretty2, "utf8") });
+    }
+  } catch { /* body não é JSON válido */ }
+  // Trim
+  const trimmed = rawBody.trim();
+  if (trimmed !== rawBody) {
+    bodyVariants.push({ label: "trimmed", body: Buffer.from(trimmed, "utf8") });
+  }
+
+  console.log("pix_webhook_debug_body_variants", {
+    count: bodyVariants.length,
+    lengths: bodyVariants.map((b) => `${b.label}:${b.body.length}`),
+  });
+
   const algos: Array<"sha256" | "sha512" | "sha1"> = ["sha256", "sha512", "sha1"];
   const keyForms: Array<{ label: string; key: Buffer | string }> = [
     { label: "string_literal", key: keyString },
@@ -138,36 +166,46 @@ export async function POST(req: Request) {
   const computed: Array<{ variant: string; base64: string; hex: string; matches_normalized: boolean; matches_raw: boolean }> = [];
   for (const algo of algos) {
     for (const kf of keyForms) {
-      try {
-        const h = crypto.createHmac(algo, kf.key).update(Buffer.from(rawBody, "utf8")).digest();
-        const b64 = h.toString("base64");
-        const hex = h.toString("hex");
-        const variant = `${algo}_${kf.label}`;
-        computed.push({
-          variant,
-          base64: b64,
-          hex: hex,
-          matches_normalized: b64 === receivedNormalized || hex === receivedNormalized,
-          matches_raw: b64 === receivedSig || hex === receivedSig,
-        });
-      } catch { /* skip */ }
+      for (const bv of bodyVariants) {
+        try {
+          const h = crypto.createHmac(algo, kf.key).update(bv.body).digest();
+          const b64 = h.toString("base64");
+          const hex = h.toString("hex");
+          const variant = `${algo}_${kf.label}_body:${bv.label}`;
+          computed.push({
+            variant,
+            base64: b64,
+            hex: hex,
+            matches_normalized: b64 === receivedNormalized || hex === receivedNormalized,
+            matches_raw: b64 === receivedSig || hex === receivedSig,
+          });
+        } catch { /* skip */ }
+      }
     }
   }
 
-  // Loga em batches pequenos
-  for (const c of computed) {
-    console.log("pix_webhook_debug_hmac", {
-      variant: c.variant,
-      base64: c.base64,
-      hex_first_32: c.hex.slice(0, 32),
-      matches_normalized: c.matches_normalized,
-      matches_raw: c.matches_raw,
-    });
+  // Auto-detecta winners
+  const winners = computed.filter((c) => c.matches_normalized || c.matches_raw);
+
+  // Loga todas as variantes de forma COMPACTA (só first-12 do base64 + flag).
+  // Fatia em batches pra evitar truncar no dashboard.
+  const compactList = computed.map((c) => `${c.variant}=${c.base64.slice(0, 12)}${c.matches_normalized ? "✓N" : ""}${c.matches_raw ? "✓R" : ""}`);
+  const CHUNK = 8;
+  for (let i = 0; i < compactList.length; i += CHUNK) {
+    console.log("pix_webhook_debug_hmac_batch", { i, batch: compactList.slice(i, i + CHUNK) });
   }
 
-  // Resumo
-  const winners = computed.filter((c) => c.matches_normalized || c.matches_raw).map((c) => c.variant);
-  console.log("pix_webhook_debug_winners", { winners, total_variants_tested: computed.length });
+  // Se algum winner, loga ele por extenso pra fix imediato
+  for (const w of winners) {
+    console.log("pix_webhook_debug_WINNER", {
+      variant: w.variant,
+      base64: w.base64,
+      hex: w.hex,
+      matches_normalized: w.matches_normalized,
+      matches_raw: w.matches_raw,
+    });
+  }
+  console.log("pix_webhook_debug_summary", { winners_count: winners.length, total_variants_tested: computed.length });
   // ─── FIM DO LOG DEBUG ────────────────────────────────────────────────────
 
   const sigHeader = req.headers.get(SIG_HEADER_NAME) || "";
