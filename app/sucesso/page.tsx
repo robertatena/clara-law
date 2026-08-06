@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase-auth";
+import { SpamAvisoBox } from "@/app/components/SpamAvisoBox";
 
 type EmailGerado = {
   assunto: string;
@@ -139,16 +140,22 @@ export default function SucessoPage() {
           <p style={{ fontSize: "clamp(16px, 2vw, 19px)", lineHeight: 1.75, color: "#4b5563", maxWidth: 540, margin: "0 auto" }}>
             Seus documentos foram gerados. Você recebe tudo por e-mail em instantes.
           </p>
+
+          {/* Aviso de spam — mesmo padrão visual do e-mail de confirmação */}
+          <div style={{ maxWidth: 540, margin: "24px auto 0", textAlign: "left" }}>
+            <SpamAvisoBox />
+          </div>
         </div>
       </section>
 
-      {/* FALLBACK — quando o usuário chega direto na /sucesso (sem sessionStorage) */}
+      {/* FALLBACK — quando o usuário chega direto na /sucesso (sem sessionStorage).
+          Texto simplificado (menção de spam saiu — já cobertos pelo SpamAvisoBox acima) */}
       {!emailGerado && (
         <section className="reveal" style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "40px 24px" }}>
           <div style={{ maxWidth: 640, margin: "0 auto" }}>
             <div style={{ background: "#F8F7F4", border: "1px solid #E0DDD6", borderRadius: 12, padding: "18px 20px", textAlign: "center" }}>
               <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.7, margin: 0 }}>
-                📬 Seus documentos foram enviados para o e-mail informado no checkout. Verifique sua caixa de entrada e a pasta de spam.
+                Seus documentos foram enviados para o e-mail informado no checkout. Verifique sua caixa de entrada.
               </p>
             </div>
           </div>

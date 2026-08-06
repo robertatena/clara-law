@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase-auth";
+import { SpamAvisoBox } from "@/app/components/SpamAvisoBox";
 
 const ClaraIcon = ({ size = 32 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
@@ -370,6 +371,9 @@ export default function MinhaContaPage() {
                 </h1>
                 <p style={{ fontSize: 14, color: "#6b7280" }}>{email}</p>
               </div>
+
+              {/* Aviso de spam — mesmo componente do e-mail e da /sucesso */}
+              <SpamAvisoBox style={{ marginBottom: 20 }} />
 
               <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 20, color: "#1a2340", marginBottom: 16 }}>
                 Seus casos
