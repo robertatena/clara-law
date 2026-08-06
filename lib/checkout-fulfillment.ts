@@ -52,14 +52,20 @@ function montarHtml(produto: Produto, magicLinkUrl?: string): string {
   // problema aconteceu, não se aplica.
   const mostrarGuia = produto === "pacote";
 
-  const blocoMinhaConta = magicLinkUrl
-    ? `<div style="text-align:center;margin:12px 0 28px;">
-        <a href="${magicLinkUrl}" style="display:inline-block;background:#1a2340;color:#fff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:40px;text-decoration:none;">
+  // "Acessar minha área" sempre aparece — faz sentido pros dois produtos.
+  // Se o magic link estiver disponível, botão usa ele (login sem senha,
+  // válido 1h). Se não (ex: gerarMagicLink falhou), cai pra /minha-conta
+  // que pede login normal — usuário não fica sem entrada.
+  const linkAcesso = magicLinkUrl || `${APP_URL}/minha-conta`;
+  const legendaAcesso = magicLinkUrl
+    ? "Login sem senha · válido por 1 hora"
+    : "Faça login com o seu e-mail";
+  const blocoMinhaConta = `<div style="text-align:center;margin:12px 0 28px;">
+        <a href="${linkAcesso}" style="display:inline-block;background:#1a2340;color:#fff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:40px;text-decoration:none;">
           Acessar minha área →
         </a>
-        <p style="color:#9ca3af;font-size:11px;margin:8px 0 0;">Login sem senha · válido por 1 hora</p>
-      </div>`
-    : "";
+        <p style="color:#9ca3af;font-size:11px;margin:8px 0 0;">${legendaAcesso}</p>
+      </div>`;
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -93,6 +99,14 @@ function montarHtml(produto: Produto, magicLinkUrl?: string): string {
       </div>` : ""}
 
       ${blocoMinhaConta}
+
+      <div style="background:#F8F7F4;border:1px solid #E0DDD6;border-radius:10px;padding:12px 16px;margin:16px 0 0;">
+        <p style="color:#6b7280;font-size:12px;line-height:1.65;margin:0;">
+          📬 <strong style="color:#374151;">Não encontrou algum e-mail nosso?</strong>
+          Confira também sua caixa de <strong>spam</strong> ou <strong>lixo eletrônico</strong> —
+          às vezes o primeiro contato cai lá.
+        </p>
+      </div>
 
       <p style="color:#6b7280;font-size:14px;line-height:1.7;margin:20px 0 0;">
         Dúvidas? Responda este e-mail ou escreva para
