@@ -112,7 +112,7 @@ export default function ContratoModal({
     doc.setTextColor(60, 65, 80);
     const itens = [
       "E-mail de notificacao formatado com a legislacao aplicavel",
-      "Peticao para o Juizado Especial Civel pronta para protocolar",
+      "Modelo de peticao para o Juizado Especial Civel (revise antes de protocolar)",
       "Guia de acompanhamento com as etapas do processo",
     ];
     for (const item of itens) {
@@ -253,7 +253,7 @@ export default function ContratoModal({
           <p style={{ marginTop: 14 }}><strong style={{ color: "#1a2340" }}>O que você recebe:</strong></p>
           <ul style={{ paddingLeft: 20, margin: 0 }}>
             <li>E-mail de notificação formatado com a legislação aplicável</li>
-            <li>Petição para o Juizado Especial Cível pronta para protocolar</li>
+            <li>Modelo de petição para o Juizado Especial Cível (revise antes de protocolar)</li>
             <li>Guia de acompanhamento com as etapas do processo</li>
           </ul>
 

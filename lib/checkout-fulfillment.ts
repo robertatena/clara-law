@@ -41,7 +41,7 @@ function itensPorProduto(produto: Produto, tipoCaso?: string): string[] {
     return [
       "E-mail de notificação com a lei certa",
       orientacaoOrgaos(tipoCaso),
-      "Petição para o JEC pronta para protocolar",
+      "Modelo de petição JEC — revise e protocole",
       "Guia completo das etapas do processo",
     ];
   }

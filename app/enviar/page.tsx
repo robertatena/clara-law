@@ -2106,7 +2106,7 @@ export default function Page() {
               <div className="text-2xl mb-2">⚖️</div>
               <h3 className="text-lg font-bold text-[#0e2b50] mb-2">R$49,90 — pagamento único</h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Você paga uma única vez pelo pacote completo: notificação, orientações e petição prontas para você agir.
+                Você paga uma única vez pelo pacote completo: notificação, orientações e modelos prontos para você revisar e agir.
               </p>
             </div>
           </div>
@@ -2236,7 +2236,7 @@ export default function Page() {
                       return [
                         { icon: "📧", texto: "E-mail de notificação com a lei certa" },
                         { icon: "📋", texto: orientItem },
-                        { icon: "⚖️", texto: "Petição para o JEC pronta para protocolar" },
+                        { icon: "⚖️", texto: "Modelo de petição JEC pronto para revisar e protocolar" },
                         { icon: "🗺️", texto: "Guia completo das etapas do processo" },
                         { icon: "💬", texto: "O que fazer quando chegar a intimação" },
                       ];
@@ -2247,6 +2247,10 @@ export default function Page() {
                       </div>
                     ))}
                   </div>
+
+                  <p className="text-[11px] text-[#93b4d4] italic mt-2 mb-3 leading-relaxed">
+                    Modelos orientativos — sempre revise antes de enviar ou protocolar.
+                  </p>
 
                   {/* Tabs Cartão / Pix — acima do botão dourado, discreto */}
                   <div className="flex gap-2 mb-3" role="tablist">
