@@ -110,7 +110,7 @@ export default function PrecoLanding() {
               {/* Dores */}
               <div className="space-y-3">
                 <div className="text-sm font-semibold" style={{ color: COLORS.ink }}>
-                  O tipo de problema que a Clara resolve
+                  O tipo de problema que a Clara ajuda a resolver
                 </div>
                 <div className="grid gap-3">
                   <div className="rounded-2xl p-4" style={{ background: COLORS.gray, border: "1px solid rgba(10,37,64,.06)" }}>

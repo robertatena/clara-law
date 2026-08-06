@@ -12,12 +12,12 @@ const ClaraIcon = ({ size = 36 }: { size?: number }) => (
 );
 
 const situations = [
-  { icon: "📦", bg: "#FBF5E6", title: "Comprei algo com defeito e a loja não quer resolver", desc: "Direito à troca, conserto ou devolução. A loja é obrigada por lei.", badges: ["Clara resolve", "sem advogado"] },
-  { icon: "💳", bg: "#EBF6FD", title: "Cobraram algo que eu não devo ou meu nome foi ao Serasa", desc: "Cobrança errada dá direito a indenização — sem precisar ir ao fórum.", badges: ["Clara resolve", "sem advogado"] },
-  { icon: "✈️", bg: "#FBF5E6", title: "Meu voo atrasou ou foi cancelado", desc: "A companhia é obrigada a dar assistência e reembolso.", badges: ["Clara resolve", "JEC disponível"] },
-  { icon: "🔧", bg: "#EBF6FD", title: "Paguei por um serviço que não foi entregue", desc: "Direito ao dinheiro de volta e, dependendo do caso, a uma indenização.", badges: ["Clara resolve", "sem advogado"] },
-  { icon: "🏠", bg: "#FBF5E6", title: "Meu aluguel tem cláusula abusiva", desc: "Algumas cláusulas são ilegais — mesmo que você já tenha assinado.", badges: ["Clara resolve", "JEC disponível"] },
-  { icon: "📱", bg: "#EBF6FD", title: "Meu plano de internet não funciona como prometido", desc: "Velocidade menor que a contratada é descumprimento. Pode cancelar sem multa.", badges: ["Clara resolve", "sem advogado"] },
+  { icon: "📦", bg: "#FBF5E6", title: "Comprei algo com defeito e a loja não quer resolver", desc: "Direito à troca, conserto ou devolução. A loja é obrigada por lei.", badges: ["Clara orienta", "sem advogado"] },
+  { icon: "💳", bg: "#EBF6FD", title: "Cobraram algo que eu não devo ou meu nome foi ao Serasa", desc: "Cobrança errada dá direito a indenização — sem precisar ir ao fórum.", badges: ["Clara orienta", "sem advogado"] },
+  { icon: "✈️", bg: "#FBF5E6", title: "Meu voo atrasou ou foi cancelado", desc: "A companhia é obrigada a dar assistência e reembolso.", badges: ["Clara orienta", "JEC disponível"] },
+  { icon: "🔧", bg: "#EBF6FD", title: "Paguei por um serviço que não foi entregue", desc: "Direito ao dinheiro de volta e, dependendo do caso, a uma indenização.", badges: ["Clara orienta", "sem advogado"] },
+  { icon: "🏠", bg: "#FBF5E6", title: "Meu aluguel tem cláusula abusiva", desc: "Algumas cláusulas são ilegais — mesmo que você já tenha assinado.", badges: ["Clara orienta", "JEC disponível"] },
+  { icon: "📱", bg: "#EBF6FD", title: "Meu plano de internet não funciona como prometido", desc: "Velocidade menor que a contratada é descumprimento. Pode cancelar sem multa.", badges: ["Clara orienta", "sem advogado"] },
 ];
 
 export default function Home() {
@@ -122,7 +122,7 @@ export default function Home() {
             <div style={{ display: "grid", gap: 2, background: "#E0DDD6", borderRadius: 18, overflow: "hidden" }} className="grid-steps">
               {[
                 { n: "1", t: "Envie seu contrato", d: "Upload do PDF ou cole o texto. Sem formulário complicado." },
-                { n: "2", t: "Clara lê e analisa", d: "Identifica cláusulas abusivas, riscos e pontos de atenção." },
+                { n: "2", t: "Clara lê e aponta pontos", d: "Aponta possíveis pontos de atenção e riscos pra você avaliar." },
                 { n: "3", t: "Resumo em segundos", d: "Pontos de risco destacados, em linguagem clara — sem juridiquês." },
                 { n: "4", t: "Perguntas para negociar", d: "Clara sugere o que pedir para mudar antes de assinar." },
               ].map((s, i) => (
@@ -145,7 +145,7 @@ export default function Home() {
             <div style={{ display: "grid", gap: 2, background: "#E0DDD6", borderRadius: 18, overflow: "hidden" }} className="grid-steps">
               {[
                 { n: "1", t: "Conta o que aconteceu", d: "Voo atrasado, produto com defeito, cobrança indevida — escolha a situação e responda algumas perguntas." },
-                { n: "2", t: "Clara analisa e monta o caso", d: "Identifica a lei aplicável e monta a notificação formal." },
+                { n: "2", t: "Clara ajuda a preparar", d: "Aponta a lei aplicável e monta um modelo de notificação formal pra você revisar." },
                 { n: "3", t: "Sua notificação pronta para enviar", d: "Clara gera o e-mail com a lei certa. Você envia do seu próprio e-mail — no seu nome, com sua força." },
                 { n: "4", t: "Tudo pronto se precisar ir ao fórum", d: "Sem resposta? Clara gera sua petição e te mostra exatamente o que fazer no Juizado Especial." },
               ].map((s, i) => (
@@ -295,7 +295,7 @@ export default function Home() {
             Vai assinar algo? Deixa a Clara ler primeiro.
           </h2>
           <p style={{ fontSize: 16, color: "#4b5563", lineHeight: 1.75, marginBottom: 30, maxWidth: 560 }}>
-            Envie o PDF e a Clara destaca cláusulas abusivas, riscos reais e o que você deve negociar antes de assinar.
+            Envie o PDF e a Clara aponta pontos de atenção e sugere o que você pode negociar antes de assinar.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 36 }}>
             {["Multas e fidelidade", "Prazos e vigência", "Renovação automática", "Rescisão e aviso prévio", "Reajustes e valores", "Responsabilidades", "LGPD e dados pessoais", "Cláusulas abusivas"].map((item) => (
@@ -368,7 +368,7 @@ export default function Home() {
             <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(24px, 3vw, 34px)", color: "#1a2340", lineHeight: 1.2, marginBottom: 12 }}>
               Dois produtos. Um objetivo.
             </h2>
-            <p style={{ fontSize: 15, color: "#6b7280", lineHeight: 1.7 }}>Entenda seu contrato antes de assinar — ou deixe a Clara resolver seu problema por você.</p>
+            <p style={{ fontSize: 15, color: "#6b7280", lineHeight: 1.7 }}>Entenda seu contrato antes de assinar — ou deixe a Clara te guiar em cada etapa do seu problema.</p>
           </div>
 
           <div style={{ display: "grid", gap: 20 }} className="grid-pricing">
@@ -379,7 +379,7 @@ export default function Home() {
                 <div style={{ display: "inline-block", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#92400e" }}>Relatório completo pago</div>
               </div>
               <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 800, fontSize: 28, color: "#1a2340", marginBottom: 8 }}>Analise seu contrato</div>
-              <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 24, lineHeight: 1.6 }}>A Clara lê seu contrato, identifica cláusulas abusivas e riscos — antes de você assinar. Resumo gratuito, relatório completo sob demanda.</div>
+              <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 24, lineHeight: 1.6 }}>A Clara lê seu contrato e aponta pontos de atenção e riscos — antes de você assinar. Resumo gratuito, relatório completo sob demanda.</div>
               <div style={{ borderTop: "1px solid #F0EDE8", paddingTop: 24, display: "flex", flexDirection: "column", gap: 14, marginBottom: 32 }}>
                 {[
                   "Resumo do contrato",
