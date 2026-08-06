@@ -2,10 +2,12 @@
 // Retorna text/html direto pro browser renderizar.
 //
 // Uso:
-//   /api/dev/preview-email                        → default: pacote com magic link fake
-//   /api/dev/preview-email?produto=analise         → variante análise (sem botão "Guia")
-//   /api/dev/preview-email?produto=pacote          → variante pacote (com botão "Guia")
-//   /api/dev/preview-email?magiclink=false         → cai no fallback (legenda "Faça login com o seu e-mail")
+//   /api/dev/preview-email                                              → default: pacote (voo)
+//   /api/dev/preview-email?produto=analise                              → variante análise (sem botão "Guia")
+//   /api/dev/preview-email?produto=pacote&tipo_caso=cobranca_indevida   → pacote com item "Procon e Banco Central"
+//   /api/dev/preview-email?produto=pacote&tipo_caso=produto_defeito     → pacote com item "Procon e Reclame Aqui"
+//   /api/dev/preview-email?produto=pacote&tipo_caso=servico_nao_entregue → pacote com item "Procon e consumidor.gov.br"
+//   /api/dev/preview-email?magiclink=false                              → fallback ("Faça login com o seu e-mail")
 //
 // Pública (sem auth): o HTML aqui é idêntico ao que qualquer cliente pagante
 // recebe — nada sensível vaza. Útil pra iterar visualmente sem gastar
@@ -32,7 +34,10 @@ export async function GET(req: Request) {
     ? undefined
     : "https://example.com/fake-magic-link?token=preview-token-nao-funciona";
 
-  const html = montarHtml(produto, magicLinkUrl);
+  // ?tipo_caso=voo_atrasado|voo_cancelado|bagagem|cobranca_indevida|produto_defeito|servico_nao_entregue
+  const tipoCaso = url.searchParams.get("tipo_caso") || undefined;
+
+  const html = montarHtml(produto, magicLinkUrl, tipoCaso);
 
   return new NextResponse(html, {
     status: 200,

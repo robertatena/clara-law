@@ -19,11 +19,28 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-function itensPorProduto(produto: Produto): string[] {
+// Mapa de "onde reclamar" por tipo de caso. Espelha a lógica do orientItem
+// no card kit do /enviar (result screen) — mantém consistência entre o que
+// o cliente vê no site e o que chega no e-mail.
+function orientacaoOrgaos(tipoCaso?: string): string {
+  switch (tipoCaso) {
+    case "cobranca_indevida":
+      return "Orientação para Procon e Banco Central";
+    case "produto_defeito":
+      return "Orientação para Procon e Reclame Aqui";
+    case "servico_nao_entregue":
+      return "Orientação para Procon e consumidor.gov.br";
+    // voo_atrasado, voo_cancelado, bagagem, desconhecido, undefined:
+    default:
+      return "Orientação para ANAC e consumidor.gov.br";
+  }
+}
+
+function itensPorProduto(produto: Produto, tipoCaso?: string): string[] {
   if (produto === "pacote") {
     return [
       "E-mail de notificação com a lei certa",
-      "Orientação para ANAC e consumidor.gov.br",
+      orientacaoOrgaos(tipoCaso),
       "Petição para o JEC pronta para protocolar",
       "Guia completo das etapas do processo",
     ];
@@ -40,8 +57,8 @@ function itensPorProduto(produto: Produto): string[] {
 
 // Exportada pra rota de preview /api/dev/preview-email. Não usar em outro
 // contexto além de renderizar o HTML do email de confirmação.
-export function montarHtml(produto: Produto, magicLinkUrl?: string): string {
-  const itens = itensPorProduto(produto);
+export function montarHtml(produto: Produto, magicLinkUrl?: string, tipoCaso?: string): string {
+  const itens = itensPorProduto(produto, tipoCaso);
   const listaItens = itens
     .map(
       (i) =>
@@ -104,7 +121,8 @@ export function montarHtml(produto: Produto, magicLinkUrl?: string): string {
 
       <div style="background:#F8F7F4;border:1px solid #E0DDD6;border-radius:10px;padding:12px 16px;margin:16px 0 0;">
         <p style="color:#6b7280;font-size:12px;line-height:1.65;margin:0;">
-          📬 <strong style="color:#374151;">Não encontrou algum e-mail nosso?</strong>
+          <img src="${APP_URL}/icons/inbox.svg" alt="" width="16" height="16" style="vertical-align:middle;margin-right:6px;" />
+          <strong style="color:#374151;">Não encontrou algum e-mail nosso?</strong>
           Confira também sua caixa de <strong>spam</strong> ou <strong>lixo eletrônico</strong> —
           às vezes o primeiro contato cai lá.
         </p>
@@ -127,7 +145,7 @@ export function montarHtml(produto: Produto, magicLinkUrl?: string): string {
 </html>`;
 }
 
-export async function enviarConfirmacaoCompra(email: string, produto: Produto, magicLinkUrl?: string): Promise<void> {
+export async function enviarConfirmacaoCompra(email: string, produto: Produto, magicLinkUrl?: string, tipoCaso?: string): Promise<void> {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
     console.warn("fulfillment_email_skipped_missing_credentials", {
       hasUser: !!process.env.GMAIL_USER,
@@ -136,7 +154,7 @@ export async function enviarConfirmacaoCompra(email: string, produto: Produto, m
     return;
   }
 
-  const html = montarHtml(produto, magicLinkUrl);
+  const html = montarHtml(produto, magicLinkUrl, tipoCaso);
 
   await transporter.sendMail({
     from: `"Clara Law" <${process.env.GMAIL_USER}>`,
@@ -289,7 +307,10 @@ export async function fulfillCheckout(params: {
   if (magicLink) console.log("fulfillment_magic_link_ok", { provider, providerId });
 
   try {
-    await enviarConfirmacaoCompra(email, produto, magicLink ?? undefined);
+    // Passa tipo_caso pro montarHtml — condiciona o item "orientação para X"
+    // do kit conforme voo/cobrança/produto/serviço/analise.
+    const tipoCaso = metadata.tipo_caso || undefined;
+    await enviarConfirmacaoCompra(email, produto, magicLink ?? undefined, tipoCaso);
     console.log("fulfillment_email_sent", { provider, providerId, email, produto, hasMagicLink: !!magicLink });
   } catch (err) {
     console.error("fulfillment_email_failed", { provider, providerId, email, produto, error: err instanceof Error ? err.message : "unknown" });
