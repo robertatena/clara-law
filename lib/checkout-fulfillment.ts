@@ -38,7 +38,9 @@ function itensPorProduto(produto: Produto): string[] {
   return [];
 }
 
-function montarHtml(produto: Produto, magicLinkUrl?: string): string {
+// Exportada pra rota de preview /api/dev/preview-email. Não usar em outro
+// contexto além de renderizar o HTML do email de confirmação.
+export function montarHtml(produto: Produto, magicLinkUrl?: string): string {
   const itens = itensPorProduto(produto);
   const listaItens = itens
     .map(
