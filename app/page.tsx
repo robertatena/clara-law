@@ -312,9 +312,9 @@ export default function Home() {
       {/* DEPOIMENTO */}
       <section style={{ background: "#F8F7F4", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>resultados reais</p>
+          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>experiências de usuários</p>
           <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(24px, 3vw, 34px)", color: "#1a2340", lineHeight: 1.2, marginBottom: 16 }}>
-            Quem usou a Clara resolveu de casa.
+            Como outras pessoas usaram a Clara.
           </h2>
           <DisclaimerBox variant="depoimentos" style={{ textAlign: "left", marginBottom: 32 }} />
 
@@ -323,7 +323,7 @@ export default function Home() {
             <div style={{ background: "#1a2340", borderRadius: 20, padding: "36px 40px", position: "relative" }}>
               <div style={{ fontSize: 64, color: "#D4AF37", lineHeight: 1, marginBottom: 8, fontFamily: "Georgia, serif", opacity: 0.6 }}>&ldquo;</div>
               <p style={{ fontSize: 17, color: "#fff", lineHeight: 1.8, marginBottom: 28, maxWidth: 680 }}>
-                Meu avião atrasou 24 horas. A companhia me deu um voucher de R$12. Com a Clara consegui protocolar a ação no Juizado Especial e <strong style={{ color: "#D4AF37" }}>ganhei a causa sem sair de casa e sem advogado</strong>.
+                Meu avião atrasou 24 horas. A companhia me deu um voucher de R$12. Com a Clara consegui protocolar a ação no Juizado Especial <strong style={{ color: "#D4AF37" }}>sem sair de casa e sem advogado</strong>.
               </p>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#D4AF37", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#1a2340", fontSize: 16, flexShrink: 0 }}>M</div>
@@ -332,8 +332,8 @@ export default function Home() {
                   <div style={{ color: "rgba(168,216,240,0.5)", fontSize: 12 }}>Voo atrasado 24h · São Paulo · JEC</div>
                 </div>
                 <div style={{ marginLeft: "auto", background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.3)", borderRadius: 10, padding: "6px 14px" }}>
-                  <div style={{ fontSize: 11, color: "#D4AF37", fontWeight: 600 }}>Resultado</div>
-                  <div style={{ fontSize: 13, color: "#fff", fontWeight: 700 }}>Causa ganha ✓</div>
+                  <div style={{ fontSize: 11, color: "#D4AF37", fontWeight: 600 }}>Relato</div>
+                  <div style={{ fontSize: 13, color: "#fff", fontWeight: 700 }}>de usuário</div>
                 </div>
               </div>
             </div>
@@ -341,8 +341,8 @@ export default function Home() {
             {/* Dois mini depoimentos */}
             <div style={{ display: "grid", gap: 16 }} className="grid-mini-testimonials">
               {[
-                { inicial: "A", nome: "Ana Paula", contexto: "Cobrança indevida · Serasa", texto: "Em 3 dias o meu nome foi retirado do Serasa. O e-mail que a Clara gerou foi suficiente.", cor: "#5BA8D4" },
-                { inicial: "R", nome: "Ricardo", contexto: "Produto com defeito · e-mail", texto: "A loja respondeu em 48h após o e-mail. Nem precisei ir ao fórum — só usei a análise gratuita.", cor: "#6EE7B7" },
+                { inicial: "A", nome: "Ana Paula", contexto: "Cobrança indevida · Serasa", texto: "Usei o e-mail que a Clara gerou pra pedir a retirada do Serasa. Não sabia por onde começar antes.", cor: "#5BA8D4" },
+                { inicial: "R", nome: "Ricardo", contexto: "Produto com defeito · e-mail", texto: "Não sabia como reclamar da loja. Usei a análise gratuita e mandei o e-mail que a Clara gerou.", cor: "#6EE7B7" },
               ].map((t) => (
                 <div key={t.nome} style={{ background: "#fff", border: "1px solid #E0DDD6", borderRadius: 16, padding: "24px 26px" }}>
                   <p style={{ fontSize: 14, color: "#4b5563", lineHeight: 1.75, marginBottom: 20 }}>&ldquo;{t.texto}&rdquo;</p>
