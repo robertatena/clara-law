@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ForumBuscador } from "@/components/ForumBuscador";
+import { DisclaimerBox } from "@/app/components/DisclaimerBox";
 
 const ClaraIcon = ({ size = 36 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
@@ -85,6 +86,8 @@ export default function Home() {
           </div>
 
           <p style={{ fontSize: 12, color: "#bbb" }}>Sem cartão · Sem cadastro · Resultado em minutos</p>
+
+          <DisclaimerBox variant="curto" style={{ marginTop: 14 }} />
 
           {/* 3 stats */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, maxWidth: 520, margin: "40px auto 0" }}>
@@ -302,6 +305,7 @@ export default function Home() {
           <Link href="/enviar" style={{ background: "#1a2340", color: "#fff", fontSize: 15, fontWeight: 700, padding: "16px 36px", borderRadius: 40, textDecoration: "none", display: "inline-block" }}>
             Reivindicar meus direitos
           </Link>
+          <DisclaimerBox variant="curto" style={{ marginTop: 14 }} />
         </div>
       </section>
 
@@ -309,9 +313,11 @@ export default function Home() {
       <section style={{ background: "#F8F7F4", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>resultados reais</p>
-          <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(24px, 3vw, 34px)", color: "#1a2340", lineHeight: 1.2, marginBottom: 40 }}>
+          <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(24px, 3vw, 34px)", color: "#1a2340", lineHeight: 1.2, marginBottom: 16 }}>
             Quem usou a Clara resolveu de casa.
           </h2>
+          <DisclaimerBox variant="depoimentos" style={{ textAlign: "left", marginBottom: 32 }} />
+
           <div style={{ display: "grid", gap: 20 }} className="grid-testimonials">
             {/* Depoimento principal */}
             <div style={{ background: "#1a2340", borderRadius: 20, padding: "36px 40px", position: "relative" }}>
@@ -399,6 +405,7 @@ export default function Home() {
               <Link href="/enviar" style={{ display: "block", textAlign: "center", border: "1.5px solid #1a2340", color: "#1a2340", fontSize: 14, fontWeight: 700, padding: "14px 24px", borderRadius: 40, textDecoration: "none" }}>
                 Analisar meu contrato
               </Link>
+              <DisclaimerBox variant="curto" style={{ marginTop: 12 }} />
             </div>
 
             {/* Produto 2 — Clara prepara */}
