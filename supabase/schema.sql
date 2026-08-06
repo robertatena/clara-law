@@ -34,7 +34,17 @@ ALTER TABLE user_casos
   -- abacate_transaction_id: id da cobrança no AbacatePay; UNIQUE garante
   -- idempotência do webhook (mesmo padrão do stripe_session_id).
   ADD COLUMN IF NOT EXISTS payment_method         TEXT,
-  ADD COLUMN IF NOT EXISTS abacate_transaction_id TEXT;
+  ADD COLUMN IF NOT EXISTS abacate_transaction_id TEXT,
+  -- Reanálise grátis: quando o usuário envia um contrato revisado, gera
+  -- novo user_casos apontando pro caso pago original. Coluna NULL por
+  -- padrão — casos originais (paga E disputa) nunca preenchem. Só o fluxo
+  -- de análise/reanálise lê e escreve. Fluxo "resolver problema" (voo,
+  -- cobrança, produto, bagagem, serviço) segue intocado.
+  -- ON DELETE SET NULL: se caso pai for removido, filhas ficam como órfãs
+  -- (não se auto-deletam), preservando histórico do dados_json.resultado.
+  ADD COLUMN IF NOT EXISTS reanalise_de           UUID REFERENCES user_casos(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_user_casos_reanalise_de ON user_casos(reanalise_de);
 
 DO $$ BEGIN
   IF NOT EXISTS (

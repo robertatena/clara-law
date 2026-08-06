@@ -47,6 +47,11 @@ function montarHtml(produto: Produto, magicLinkUrl?: string): string {
     )
     .join("");
 
+  // "Acesse seu guia" só faz sentido para o pacote (disputa/JEC). Análise
+  // de contrato é revisão pré-assinatura — o guia é sobre depois que o
+  // problema aconteceu, não se aplica.
+  const mostrarGuia = produto === "pacote";
+
   const blocoMinhaConta = magicLinkUrl
     ? `<div style="text-align:center;margin:12px 0 28px;">
         <a href="${magicLinkUrl}" style="display:inline-block;background:#1a2340;color:#fff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:40px;text-decoration:none;">
@@ -81,11 +86,11 @@ function montarHtml(produto: Produto, magicLinkUrl?: string): string {
           : ""
       }
 
-      <div style="text-align:center;margin:28px 0 12px;">
+      ${mostrarGuia ? `<div style="text-align:center;margin:28px 0 12px;">
         <a href="${APP_URL}/guia" style="display:inline-block;background:#D4AF37;color:#1a2340;font-weight:800;font-size:15px;padding:14px 28px;border-radius:40px;text-decoration:none;">
           Acesse seu guia do processo →
         </a>
-      </div>
+      </div>` : ""}
 
       ${blocoMinhaConta}
 

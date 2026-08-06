@@ -67,7 +67,7 @@ export async function POST(req: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${origin}/sucesso?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${origin}/sucesso?session_id={CHECKOUT_SESSION_ID}&produto=${produto}`,
       cancel_url: `${origin}/enviar?pagamento=cancelado`,
       metadata: {
         source: "clara_checkout",

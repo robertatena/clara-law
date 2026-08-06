@@ -351,6 +351,19 @@ export default function Page() {
             setModo(parsed.modo || "contrato");
             setStep(99);
             window.history.replaceState({}, "", "/enviar");
+
+            // Persiste o resultado da primeira análise paga no user_casos
+            // criado pelo webhook. Rota busca o caso mais recente do user
+            // que ainda não tem resultado — idempotente. Falha silenciosa
+            // não bloqueia a UX (unlock já rolou no client).
+            fetch("/api/analise/salvar-resultado", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contractType: parsed.contractType || "",
+                resultado: parsed.resultado,
+              }),
+            }).catch((err) => console.warn("salvar_resultado_primeira_fail", err));
           }
         } catch { /* ignora */ }
       }
@@ -575,7 +588,8 @@ export default function Page() {
       try { data = JSON.parse(raw); } catch { throw new Error("Resposta inválida da análise."); }
       if (!res.ok) throw new Error(data?.error || "Não foi possível analisar.");
       // Reanálise vinculada a caso pago pula o paywall automaticamente.
-      setUnlockedAnalysis(!!reanaliseDe);
+      const jaDesbloqueado = !!reanaliseDe;
+      setUnlockedAnalysis(jaDesbloqueado);
       setResultado(data);
       registrarLead({
         email: emailUsuario, modo: "contrato",
@@ -584,6 +598,22 @@ export default function Page() {
         nota: data?.nota_geral || "", evento: "analise_gerada",
       });
       setStep(99);
+
+      // Persiste o resultado no banco em 2 cenários:
+      //  - Reanálise (jaDesbloqueado=true, reanaliseDe presente) → cria user_casos filho
+      //  - Primeira análise paga: será chamado no useEffect de ?unlocked=true abaixo
+      // Aqui só disparamos o path da reanálise; primeira paga tem hook próprio.
+      if (jaDesbloqueado && reanaliseDe) {
+        fetch("/api/analise/salvar-resultado", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            parent_caso_id: reanaliseDe,
+            contractType,
+            resultado: data,
+          }),
+        }).catch((err) => console.warn("salvar_resultado_reanalise_fail", err));
+      }
     } catch (err: any) {
       setError(err?.message || "Erro ao analisar.");
     } finally { setLoading(false); }

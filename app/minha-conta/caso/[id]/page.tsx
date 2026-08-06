@@ -23,6 +23,13 @@ type Caso = {
   dados_json: Record<string, unknown> | null;
 };
 
+// Reanálises = user_casos filhos de um caso original de análise de contrato
+type Reanalise = {
+  id: string;
+  created_at: string;
+  descricao: string | null;
+};
+
 type ForumInfo = {
   encontrado: boolean;
   fonte?: "mapa_local_sp" | "mapa_nacional" | "tribunal_uf";
@@ -78,6 +85,8 @@ export default function CasoPage() {
   const [enviando, setEnviando] = useState(false);
   const [escaladoStatus, setEscaladoStatus] = useState<"" | "enviado" | "ja_encaminhado" | "falhou">("");
   const [respostaLembrete, setRespostaLembrete] = useState(false);
+  // Reanálises deste caso (só populado quando tipo_caso === "analise_contrato")
+  const [reanalises, setReanalises] = useState<Reanalise[]>([]);
   const [atualizandoStatus, setAtualizandoStatus] = useState(false);
 
   // Busca de fórum por CEP
@@ -117,6 +126,18 @@ export default function CasoPage() {
         .order("created_at", { ascending: true });
       if (cancelado) return;
       setMensagens((msgData as Mensagem[] | null) ?? []);
+
+      // Se é análise de contrato, busca reanálises (user_casos filhos).
+      // Query no-op pra outros tipos — RLS filtra por user_id automaticamente,
+      // e outros tipos nunca têm reanalise_de setado.
+      if ((casoData as Caso).tipo_caso === "analise_contrato") {
+        const { data: filhos } = await supabase
+          .from("user_casos")
+          .select("id, created_at, descricao")
+          .eq("reanalise_de", casoId)
+          .order("created_at", { ascending: false });
+        if (!cancelado) setReanalises((filhos as Reanalise[] | null) ?? []);
+      }
       setCarregando(false);
     })();
     return () => { cancelado = true; };
@@ -294,25 +315,73 @@ export default function CasoPage() {
                 </div>
               </div>
 
-              {/* Timeline do caso — visão de "onde estou" */}
+              {/* Timeline do caso — visão de "onde estou"
+                  Dois formatos:
+                   - análise de contrato: 5 steps (revisão pré-assinatura)
+                   - resolver problema (voo/cobrança/etc): 4 steps (disputa) */}
               {(() => {
                 const fmt = (iso: string | null) =>
                   iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : null;
-                type Etapa = { titulo: string; subtitulo?: string; concluido: boolean; data?: string | null; cta?: { href: string; label: string } };
+                type Etapa = {
+                  titulo: string;
+                  subtitulo?: string;
+                  concluido: boolean;
+                  data?: string | null;
+                  cta?: { href: string; label: string };
+                  extra?: React.ReactNode;
+                };
                 const isAnaliseContrato = caso.tipo_caso === "analise_contrato";
-                const etapas: Etapa[] = [
-                  { titulo: "Caso registrado", concluido: true, data: fmt(caso.created_at) },
-                  { titulo: "E-mail de notificação enviado", subtitulo: "Você envia direto do seu e-mail — a Clara só prepara o texto.", concluido: !!caso.email_enviado_em || caso.status === "email_enviado", data: fmt(caso.email_enviado_em) },
-                  { titulo: "Aguardando resposta da empresa", subtitulo: "A empresa costuma responder em até 5 dias úteis.", concluido: false },
-                  isAnaliseContrato
-                    ? {
+                const enviouNegociar = !!caso.email_enviado_em || caso.status === "email_enviado";
+
+                const etapas: Etapa[] = isAnaliseContrato
+                  ? [
+                      // Análise: 5 steps de revisão pré-assinatura
+                      { titulo: "Análise concluída", subtitulo: "A Clara leu seu contrato e identificou os pontos de risco.", concluido: true, data: fmt(caso.created_at) },
+                      { titulo: "Relatório e e-mail de negociação prontos", subtitulo: "Chegaram no seu e-mail assim que o pagamento foi confirmado — resumo, pontos de atenção e texto pronto pra pedir ajustes.", concluido: true },
+                      { titulo: "Enviou pra negociar?", subtitulo: "Marcação opcional pra você acompanhar. Se ainda não enviou o e-mail pra outra parte, sem pressa.", concluido: enviouNegociar, data: fmt(caso.email_enviado_em) },
+                      {
                         titulo: "Recebeu um contrato revisado?",
-                        subtitulo: "Envie o novo contrato e a Clara reanalisa de graça, pra você conferir se as mudanças realmente te protegem.",
-                        concluido: false,
-                        cta: { href: `/enviar?reanalise=${caso.id}`, label: "Enviar contrato revisado →" },
-                      }
-                    : { titulo: "Caso resolvido", subtitulo: "Quando a empresa devolver o valor, cumprir o combinado ou o JEC decidir.", concluido: !!caso.resolvido_em, data: fmt(caso.resolvido_em) },
-                ];
+                        subtitulo: "Envie a nova versão e a Clara reanalisa de graça, pra você conferir se as mudanças realmente te protegem.",
+                        concluido: reanalises.length > 0,
+                        cta: { href: `/enviar?reanalise=${caso.id}`, label: reanalises.length > 0 ? "Reanalisar nova versão →" : "Enviar contrato revisado →" },
+                      },
+                      {
+                        titulo: "Histórico de versões",
+                        subtitulo: reanalises.length === 0
+                          ? "Assim que você reanalisar um contrato revisado, ele aparece aqui — todas as versões ficam salvas."
+                          : `${reanalises.length} ${reanalises.length === 1 ? "reanálise salva" : "reanálises salvas"}. Clique pra revisitar.`,
+                        concluido: reanalises.length > 0,
+                        extra: reanalises.length > 0 ? (
+                          <ul style={{ listStyle: "none", padding: 0, margin: "10px 0 0", display: "flex", flexDirection: "column", gap: 6 }}>
+                            <li>
+                              <Link
+                                href={`/minha-conta/analise/${caso.id}`}
+                                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#185FA5", textDecoration: "none", fontWeight: 500 }}
+                              >
+                                📄 Versão original · {fmt(caso.created_at)}
+                              </Link>
+                            </li>
+                            {reanalises.map((r, i) => (
+                              <li key={r.id}>
+                                <Link
+                                  href={`/minha-conta/analise/${r.id}`}
+                                  style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#185FA5", textDecoration: "none", fontWeight: 500 }}
+                                >
+                                  📄 Reanálise {reanalises.length - i} · {fmt(r.created_at)}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : undefined,
+                      },
+                    ]
+                  : [
+                      // Resolver problema: fluxo de disputa (comportamento atual, intocado)
+                      { titulo: "Caso registrado", concluido: true, data: fmt(caso.created_at) },
+                      { titulo: "E-mail de notificação enviado", subtitulo: "Você envia direto do seu e-mail — a Clara só prepara o texto.", concluido: enviouNegociar, data: fmt(caso.email_enviado_em) },
+                      { titulo: "Aguardando resposta da empresa", subtitulo: "A empresa costuma responder em até 5 dias úteis.", concluido: false },
+                      { titulo: "Caso resolvido", subtitulo: "Quando a empresa devolver o valor, cumprir o combinado ou o JEC decidir.", concluido: !!caso.resolvido_em, data: fmt(caso.resolvido_em) },
+                    ];
                 return (
                   <div style={{ background: "#fff", border: "1px solid #E0DDD6", borderRadius: 14, padding: "22px 24px", marginBottom: 20, boxShadow: "0 6px 20px rgba(26,35,64,0.04)" }}>
                     <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 14 }}>
@@ -376,6 +445,7 @@ export default function CasoPage() {
                                 {e.cta.label}
                               </Link>
                             )}
+                            {e.extra}
                           </div>
                         </li>
                       ))}
@@ -491,61 +561,79 @@ export default function CasoPage() {
                 )}
               </div>
 
-              {/* Card de status do envio do e-mail para a empresa */}
-              {caso.status === "email_enviado" ? (
-                <div style={{ background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 14, padding: "18px 20px", marginBottom: 20 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#065f46", marginBottom: 6 }}>
-                    ✅ E-mail enviado!
+              {/* Card de status do envio do e-mail
+                  Textos condicionais por tipo_caso:
+                   - análise: pergunta sobre envio pra "outra parte" (negociação)
+                   - disputa: pergunta sobre envio pra "empresa" (notificação)
+                  Mesmo mecanismo (coluna email_enviado_em, mesmo handler) */}
+              {(() => {
+                const isAnalise = caso.tipo_caso === "analise_contrato";
+                const txtPergunta = isAnalise
+                  ? "Você já enviou o contrato pra revisão da outra parte?"
+                  : "Você já enviou o e-mail de notificação para a empresa?";
+                const txtSucessoTitulo = isAnalise ? "✅ Contrato enviado pra negociação!" : "✅ E-mail enviado!";
+                const txtSucessoCorpo = isAnalise
+                  ? "Se receberem uma versão revisada, você pode reanalisar de graça (passo 4 da timeline)."
+                  : "A empresa tem até 5 dias úteis para responder. Se não responder, veja a Etapa 2 no seu guia.";
+                const txtLembreteTitulo = isAnalise ? "📧 Lembre de enviar o contrato" : "📧 Lembre de enviar o e-mail";
+                const txtLembreteCorpo = isAnalise
+                  ? "Envie o e-mail de negociação gerado pra outra parte. Você recebeu o texto pronto no seu inbox."
+                  : "Envie o e-mail gerado para a empresa. Acesse sua caixa de saída ou volte para /sucesso.";
+
+                if (caso.status === "email_enviado") {
+                  return (
+                    <div style={{ background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 14, padding: "18px 20px", marginBottom: 20 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#065f46", marginBottom: 6 }}>{txtSucessoTitulo}</div>
+                      <p style={{ fontSize: 13, color: "#065f46", lineHeight: 1.65, marginBottom: isAnalise ? 0 : 10 }}>
+                        {txtSucessoCorpo}
+                      </p>
+                      {!isAnalise && (
+                        <Link href="/guia#etapa-2" style={{ display: "inline-block", fontSize: 13, fontWeight: 600, color: "#065f46", textDecoration: "underline" }}>
+                          Ver Etapa 2 no guia →
+                        </Link>
+                      )}
+                    </div>
+                  );
+                }
+                if (respostaLembrete) {
+                  return (
+                    <div style={{ background: "#FFF9ED", border: "1px solid #fcd34d", borderRadius: 14, padding: "18px 20px", marginBottom: 20 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#92400e", marginBottom: 6 }}>{txtLembreteTitulo}</div>
+                      <p style={{ fontSize: 13, color: "#92400e", lineHeight: 1.65, marginBottom: 10 }}>{txtLembreteCorpo}</p>
+                      <button
+                        type="button"
+                        onClick={() => setRespostaLembrete(false)}
+                        style={{ background: "transparent", border: "none", fontSize: 12, color: "#92400e", textDecoration: "underline", cursor: "pointer", padding: 0 }}
+                      >
+                        ← Voltar
+                      </button>
+                    </div>
+                  );
+                }
+                return (
+                  <div style={{ background: "#F0F4FF", border: "1px solid #C7D2FE", borderRadius: 14, padding: "18px 20px", marginBottom: 20 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2340", marginBottom: 12, lineHeight: 1.35 }}>{txtPergunta}</div>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={marcarEmailEnviado}
+                        disabled={atualizandoStatus}
+                        style={{ background: atualizandoStatus ? "#9ca3af" : "#10b981", color: "#fff", fontSize: 13, fontWeight: 700, padding: "10px 18px", borderRadius: 22, border: "none", cursor: atualizandoStatus ? "not-allowed" : "pointer" }}
+                      >
+                        {atualizandoStatus ? "Salvando…" : (isAnalise ? "✅ Sim, já enviei pra negociar" : "✅ Sim, já enviei")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRespostaLembrete(true)}
+                        disabled={atualizandoStatus}
+                        style={{ background: "#fff", color: "#92400e", fontSize: 13, fontWeight: 700, padding: "10px 18px", borderRadius: 22, border: "1px solid #fcd34d", cursor: "pointer" }}
+                      >
+                        ⏳ Ainda não enviei
+                      </button>
+                    </div>
                   </div>
-                  <p style={{ fontSize: 13, color: "#065f46", lineHeight: 1.65, marginBottom: 10 }}>
-                    A empresa tem até 5 dias úteis para responder. Se não responder, veja a Etapa 2 no seu guia.
-                  </p>
-                  <Link href="/guia#etapa-2" style={{ display: "inline-block", fontSize: 13, fontWeight: 600, color: "#065f46", textDecoration: "underline" }}>
-                    Ver Etapa 2 no guia →
-                  </Link>
-                </div>
-              ) : respostaLembrete ? (
-                <div style={{ background: "#FFF9ED", border: "1px solid #fcd34d", borderRadius: 14, padding: "18px 20px", marginBottom: 20 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#92400e", marginBottom: 6 }}>
-                    📧 Lembre de enviar o e-mail
-                  </div>
-                  <p style={{ fontSize: 13, color: "#92400e", lineHeight: 1.65, marginBottom: 10 }}>
-                    Envie o e-mail gerado para a empresa. Acesse sua caixa de saída ou volte para{" "}
-                    <Link href="/sucesso" style={{ color: "#92400e", fontWeight: 600, textDecoration: "underline" }}>/sucesso</Link>.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setRespostaLembrete(false)}
-                    style={{ background: "transparent", border: "none", fontSize: 12, color: "#92400e", textDecoration: "underline", cursor: "pointer", padding: 0 }}
-                  >
-                    ← Voltar
-                  </button>
-                </div>
-              ) : (
-                <div style={{ background: "#F0F4FF", border: "1px solid #C7D2FE", borderRadius: 14, padding: "18px 20px", marginBottom: 20 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1a2340", marginBottom: 12, lineHeight: 1.35 }}>
-                    Você já enviou o e-mail de notificação para a empresa?
-                  </div>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    <button
-                      type="button"
-                      onClick={marcarEmailEnviado}
-                      disabled={atualizandoStatus}
-                      style={{ background: atualizandoStatus ? "#9ca3af" : "#10b981", color: "#fff", fontSize: 13, fontWeight: 700, padding: "10px 18px", borderRadius: 22, border: "none", cursor: atualizandoStatus ? "not-allowed" : "pointer" }}
-                    >
-                      {atualizandoStatus ? "Salvando…" : "✅ Sim, já enviei"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRespostaLembrete(true)}
-                      disabled={atualizandoStatus}
-                      style={{ background: "#fff", color: "#92400e", fontSize: 13, fontWeight: 700, padding: "10px 18px", borderRadius: 22, border: "1px solid #fcd34d", cursor: "pointer" }}
-                    >
-                      ⏳ Ainda não enviei
-                    </button>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Chat container */}
               <div style={{ background: "#fff", border: "1px solid #E0DDD6", borderRadius: 14, display: "flex", flexDirection: "column", height: "min(66vh, 620px)", overflow: "hidden", boxShadow: "0 6px 20px rgba(26,35,64,0.04)" }}>

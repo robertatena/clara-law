@@ -18,18 +18,36 @@ const ClaraIcon = ({ size = 36 }: { size?: number }) => (
   </svg>
 );
 
-const passos = [
+// Passos condicionais por produto: análise de contrato não usa o guia
+// (guia é sobre processo de disputa/JEC — só relevante pra pacote).
+const passosPacote = [
   "Verifique seu e-mail — os documentos chegam em até 5 minutos.",
   "Salve o e-mail enviado como comprovante.",
   "Quando precisar, acesse seu guia do processo.",
+];
+const passosAnalise = [
+  "Verifique seu e-mail — o relatório e o texto de negociação chegam em até 5 minutos.",
+  "Revise os pontos de atenção antes de assinar o contrato.",
+  "Se receber um contrato revisado, você pode reanalisar de graça pela sua área.",
 ];
 
 export default function SucessoPage() {
   const [emailGerado, setEmailGerado] = useState<EmailGerado | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [estaLogado, setEstaLogado] = useState(false);
+  // Produto vem via ?produto= na success_url (adicionado no /api/checkout).
+  // Default "pacote" pra retrocompatibilidade (URLs antigas sem esse param).
+  const [produto, setProduto] = useState<"pacote" | "analise">("pacote");
 
   useEffect(() => {
+    // Lê ?produto= da URL pra decidir passos + botão "Guia" (só faz sentido pro pacote).
+    // Default "pacote" pra retrocompat com URLs antigas sem esse param.
+    try {
+      const p = new URLSearchParams(window.location.search).get("produto");
+      if (p === "analise") setProduto("analise");
+      else if (p === "pacote") setProduto("pacote");
+    } catch { /* ignora */ }
+
     try {
       const raw = localStorage.getItem("clara_email_gerado");
       console.log("sucesso: localStorage check", raw ? `${raw.length} chars` : "(vazio)");
@@ -230,7 +248,7 @@ export default function SucessoPage() {
           </p>
 
           <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 14 }}>
-            {passos.map((texto, i) => (
+            {(produto === "analise" ? passosAnalise : passosPacote).map((texto, i) => (
               <li
                 key={i}
                 style={{
@@ -266,12 +284,14 @@ export default function SucessoPage() {
       <section className="reveal" style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "56px 24px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }}>
           <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
-            <Link
-              href="/guia"
-              style={{ background: "#1a2340", color: "#fff", fontSize: 15, fontWeight: 700, padding: "16px 32px", borderRadius: 40, textDecoration: "none" }}
-            >
-              Ver meu guia do processo →
-            </Link>
+            {produto === "pacote" && (
+              <Link
+                href="/guia"
+                style={{ background: "#1a2340", color: "#fff", fontSize: 15, fontWeight: 700, padding: "16px 32px", borderRadius: 40, textDecoration: "none" }}
+              >
+                Ver meu guia do processo →
+              </Link>
+            )}
             <Link
               href="/"
               style={{ border: "1.5px solid #C8C3BA", color: "#1a2340", fontSize: 15, fontWeight: 500, padding: "15px 28px", borderRadius: 40, textDecoration: "none" }}
