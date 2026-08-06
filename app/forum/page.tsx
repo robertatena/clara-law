@@ -26,7 +26,7 @@ const etapas = [
   { n: "2", titulo: "Você conta o que aconteceu", desc: "Em linguagem simples, você explica o problema. O atendente pode ajudar a preencher o formulário se precisar." },
   { n: "3", titulo: "Protocolo da ação", desc: "A ação é registrada. Você recebe um número de processo. A empresa é notificada pelo próprio fórum." },
   { n: "4", titulo: "Audiência de conciliação", desc: "Um conciliador reúne você e a empresa para tentar um acordo. A maioria dos casos termina aqui — em 2 a 6 meses." },
-  { n: "5", titulo: "Se não houver acordo", desc: "O juiz decide. A sentença é emitida e a empresa é obrigada a cumprir. Nessa fase, para causas acima de R$28 mil, você precisará de advogado." },
+  { n: "5", titulo: "Se não houver acordo", desc: "O juiz decide. A sentença é emitida e a empresa é obrigada a cumprir. Nessa fase, para causas acima de 20 salários mínimos, você precisará de advogado." },
 ];
 
 export default function ForumPage() {

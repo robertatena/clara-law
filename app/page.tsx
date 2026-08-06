@@ -93,7 +93,7 @@ export default function Home() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, maxWidth: 520, margin: "40px auto 0" }}>
             {[
               { num: "Gratuito no JEC", lbl: "Abrir ação no Juizado Especial" },
-              { num: "Você se representa", lbl: "Até R$28 mil de indenização" },
+              { num: "Você se representa", lbl: "Até 20 salários mínimos de indenização" },
               { num: "Maioria resolve por e-mail em dias", lbl: "Sem precisar ir ao fórum" },
             ].map((s, i) => (
               <div key={i} style={{ background: "#1a2340", borderRadius: 14, padding: "16px 12px" }}>

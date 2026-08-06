@@ -1972,7 +1972,7 @@ export default function Page() {
                   placeholder="Ex: 5.000,00"
                   className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none"
                 />
-                <p className="text-xs text-slate-500 mt-1">Dano material + dano moral. Máximo R$28.000 no JEC — acima disso precisa de advogado.</p>
+                <p className="text-xs text-slate-500 mt-1">Dano material + dano moral. Máximo 20 salários mínimos no JEC — acima disso precisa de advogado.</p>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">Descreva o que aconteceu</label>
@@ -2616,7 +2616,7 @@ export default function Page() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                 {[
                   { icon: "💸", t: "É gratuito",   s: "Sem custas até o julgamento" },
-                  { icon: "🤝", t: "Sem advogado", s: "Para causas até R$28 mil" },
+                  { icon: "🤝", t: "Sem advogado", s: "Para causas até 20 salários mínimos" },
                   { icon: "📧", t: "Por e-mail",   s: "Muitos foros aceitam protocolo online" },
                 ].map((item) => (
                   <div key={item.t} className="rounded-[14px] bg-amber-50 border border-amber-100 p-3 text-center">
