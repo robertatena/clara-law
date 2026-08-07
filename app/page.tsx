@@ -147,7 +147,7 @@ export default function Home() {
                 { n: "1", t: "Conta o que aconteceu", d: "Voo atrasado, produto com defeito, cobrança indevida — escolha a situação e responda algumas perguntas." },
                 { n: "2", t: "Clara ajuda a preparar", d: "Aponta a lei aplicável e monta um modelo de notificação formal pra você revisar." },
                 { n: "3", t: "Sua notificação pronta para enviar", d: "Clara gera o e-mail com a lei certa. Você envia do seu próprio e-mail — no seu nome, com sua força." },
-                { n: "4", t: "Tudo pronto se precisar ir ao fórum", d: "Sem resposta? Clara gera sua petição e te mostra exatamente o que fazer no Juizado Especial." },
+                { n: "4", t: "Tudo pronto se precisar ir ao fórum", d: "Sem resposta? Clara gera um modelo de petição e te mostra exatamente o que fazer no Juizado Especial." },
               ].map((s, i) => (
                 <div key={i} style={{ background: "#1a2340", padding: "32px 26px" }}>
                   <div style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid #D4AF37", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#D4AF37", marginBottom: 18 }}>{s.n}</div>
@@ -422,7 +422,7 @@ export default function Home() {
                 {[
                   "E-mail de notificação pronto para enviar",
                   "Orientação para registro nos órgãos competentes",
-                  "Petição para o Juizado Especial gerada e formatada",
+                  "Modelo de petição para o Juizado Especial gerado e formatado",
                 ].map((item) => (
                   <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#fff" }}>
                     <span style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(212,175,55,0.2)", border: "1px solid rgba(212,175,55,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#D4AF37", flexShrink: 0 }}>✓</span>

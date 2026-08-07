@@ -2021,7 +2021,7 @@ export default function Page() {
             </div>
             <div className="rounded-[14px] bg-amber-50 border border-amber-200 p-4 mb-6">
               <p className="text-sm text-amber-800 leading-relaxed">
-                💡 <strong>Como funciona:</strong> A Clara gera a petição agora. Você protocola no fórum (por e-mail ou presencialmente). <strong>R$49,90 — pagamento único</strong> pelo pacote completo.
+                💡 <strong>Como funciona:</strong> A Clara gera o modelo de petição agora. Você revisa e protocola no fórum (por e-mail ou presencialmente). <strong>R$49,90 — pagamento único</strong> pelo pacote completo.
               </p>
             </div>
             <div className="flex items-center justify-between mobile-action-row">
@@ -2041,7 +2041,7 @@ export default function Page() {
                 <span className="text-3xl">🏛️</span>
                 <div>
                   <div className="text-xs font-semibold text-green-600 uppercase tracking-wider">Petição gerada com sucesso</div>
-                  <div className="text-xl font-bold text-[#0e2b50]">Sua petição JEC está pronta</div>
+                  <div className="text-xl font-bold text-[#0e2b50]">Seu modelo de petição JEC está pronto — revise e protocole</div>
                 </div>
               </div>
               <div className="grid gap-3 md:grid-cols-2 text-sm">
@@ -2366,7 +2366,7 @@ export default function Page() {
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-semibold text-[#854F0B] uppercase tracking-wider mb-0.5">Etapa 3 · Caso extremo — sem advogado</div>
                         <div className="text-base font-bold text-[#0e2b50] mb-1">Você protocola no Juizado Especial Cível (JEC)</div>
-                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">Se as etapas anteriores não resolverem, a Clara gera sua petição formatada. Você protocola no JEC competente. É gratuito, sem advogado necessário, e o processo corre por e-mail na maioria dos foros. A empresa ré tem endereço preenchido automaticamente.</p>
+                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">Se as etapas anteriores não resolverem, a Clara gera um modelo de petição formatado. Você revisa e protocola no JEC competente. É gratuito, sem advogado necessário, e o processo corre por e-mail na maioria dos foros. A empresa ré tem endereço preenchido automaticamente.</p>
                         <div className="rounded-[12px] bg-slate-50 border border-slate-200 p-3">
                           <div className="text-xs font-semibold text-slate-600 mb-2">Documentos adicionais para o JEC</div>
                           {[
@@ -2588,7 +2588,7 @@ export default function Page() {
                 </div>
               </div>
               <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-                É de graça. Você mesmo protocola. A Clara gera a petição no formato certo e encontra o fórum competente pelo CEP da empresa.
+                É de graça. Você mesmo protocola. A Clara gera um modelo de petição no formato certo e encontra o fórum competente pelo CEP da empresa.
               </p>
 
               {/* Documentos novos para JEC */}
@@ -2633,7 +2633,7 @@ export default function Page() {
               <div className="rounded-[14px] bg-slate-50 border border-slate-200 p-4 mb-4">
                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Pagamento — único</div>
                 <p className="text-sm text-slate-700 leading-relaxed">
-                  A Clara gera sua petição agora. <strong>Pagamento único de R$49,90</strong> — você recebe tudo formatado para protocolar.
+                  A Clara gera seu modelo de petição agora. <strong>Pagamento único de R$49,90</strong> — você recebe tudo formatado para revisar e protocolar.
                 </p>
               </div>
               <button

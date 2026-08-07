@@ -129,7 +129,7 @@ export default function ForumPage() {
                 A Clara preenche o formulário por você
               </h3>
               <p style={{ fontSize: 14, color: "rgba(168,216,240,0.7)", lineHeight: 1.65, maxWidth: 400 }}>
-                Você conta o que aconteceu e a Clara gera a petição no formato aceito pelo Juizado Especial.
+                Você conta o que aconteceu e a Clara gera um modelo de petição no formato aceito pelo Juizado Especial.
               </p>
             </div>
             <Link href="/enviar" style={{ background: "#fff", color: "#1a2340", fontSize: 13, fontWeight: 600, padding: "12px 22px", borderRadius: 28, textDecoration: "none", flexShrink: 0 }}>
