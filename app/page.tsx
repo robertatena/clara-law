@@ -135,19 +135,19 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Produto 2 — Clara prepara */}
+          {/* Produto 2 — Clara orienta */}
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-              <div style={{ background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#92700a" }}>Clara prepara</div>
+              <div style={{ background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#92700a" }}>Clara orienta</div>
               <div style={{ height: 1, flex: 1, background: "#E0DDD6" }} />
-              <div style={{ fontSize: 12, color: "#9ca3af" }}>R$49,90 · tudo pronto para você agir</div>
+              <div style={{ fontSize: 12, color: "#9ca3af" }}>R$49,90 · um guia completo pra você agir</div>
             </div>
             <div style={{ display: "grid", gap: 2, background: "#E0DDD6", borderRadius: 18, overflow: "hidden" }} className="grid-steps">
               {[
                 { n: "1", t: "Conta o que aconteceu", d: "Voo atrasado, produto com defeito, cobrança indevida — escolha a situação e responda algumas perguntas." },
                 { n: "2", t: "Clara ajuda a preparar", d: "Aponta a lei aplicável e monta um modelo de notificação formal pra você revisar." },
-                { n: "3", t: "Sua notificação pronta para enviar", d: "Clara gera o e-mail com a lei certa. Você envia do seu próprio e-mail — no seu nome, com sua força." },
-                { n: "4", t: "Tudo pronto se precisar ir ao fórum", d: "Sem resposta? Clara gera um modelo de petição e te mostra exatamente o que fazer no Juizado Especial." },
+                { n: "3", t: "Seu modelo de notificação, pronto para revisar e enviar", d: "Clara gera o e-mail com a lei certa. Você envia do seu próprio e-mail — no seu nome, com sua força." },
+                { n: "4", t: "Se precisar ir ao fórum, Clara te orienta", d: "Sem resposta? Clara monta um modelo de petição pra você revisar, e explica como funciona o passo a passo do Juizado Especial." },
               ].map((s, i) => (
                 <div key={i} style={{ background: "#1a2340", padding: "32px 26px" }}>
                   <div style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid #D4AF37", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#D4AF37", marginBottom: 18 }}>{s.n}</div>
