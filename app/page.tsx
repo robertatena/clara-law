@@ -408,21 +408,21 @@ export default function Home() {
               <DisclaimerBox variant="curto" style={{ marginTop: 12 }} />
             </div>
 
-            {/* Produto 2 — Clara prepara */}
+            {/* Produto 2 — Clara orienta */}
             <div style={{ border: "2px solid #1a2340", borderRadius: 20, padding: "36px 32px", background: "#1a2340", position: "relative", overflow: "hidden" }}>
-              <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 800, fontSize: 28, color: "#fff", marginBottom: 8 }}>A Clara prepara seu caso</div>
+              <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 800, fontSize: 28, color: "#fff", marginBottom: 8 }}>A Clara orienta seu próximo passo</div>
               <div style={{ fontSize: 14, color: "rgba(168,216,240,0.75)", marginBottom: 24, lineHeight: 1.6 }}>
-                Voo atrasado, produto com defeito, cobrança indevida — a Clara gera todos os documentos com a lei certa. Você envia, você age, no seu nome.
+                Voo atrasado, produto com defeito, cobrança indevida — a Clara te orienta e oferece modelos adaptados às informações que você fornece. Você revisa, envia e age no seu nome.
               </div>
               <div style={{ background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.3)", borderRadius: 12, padding: "14px 18px", marginBottom: 24 }}>
                 <div style={{ fontSize: 13, color: "#D4AF37", fontWeight: 700 }}>R$49,90 por caso — pagamento único</div>
-                <div style={{ fontSize: 12, color: "rgba(168,216,240,0.6)", marginTop: 4 }}>Documentos prontos + guia de acompanhamento inclusos.</div>
+                <div style={{ fontSize: 12, color: "rgba(168,216,240,0.6)", marginTop: 4 }}>Modelos para revisar + guia de acompanhamento inclusos.</div>
               </div>
               <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24, display: "flex", flexDirection: "column", gap: 14, marginBottom: 32 }}>
                 {[
-                  "E-mail de notificação pronto para enviar",
+                  "Modelo de e-mail de notificação para revisar e enviar",
                   "Orientação para registro nos órgãos competentes",
-                  "Modelo de petição para o Juizado Especial gerado e formatado",
+                  "Modelo de petição para o Juizado Especial para revisar",
                 ].map((item) => (
                   <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#fff" }}>
                     <span style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(212,175,55,0.2)", border: "1px solid rgba(212,175,55,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#D4AF37", flexShrink: 0 }}>✓</span>
