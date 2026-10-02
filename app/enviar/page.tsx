@@ -887,11 +887,29 @@ export default function Page() {
   }
 
   // ─── Handlers de checkout da Análise de Contrato ────────────────────────
-  // Cartão: mantém o Payment Link Stripe estático (fluxo testado e aprovado).
-  // Pix: usa a mesma infra /api/pix/create + modal do pacote.
-  function iniciarCheckoutAnaliseStripe() {
-    // Preserva o comportamento original do botão da análise
-    window.location.href = process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK || "";
+  // Cartão e Pix usam a mesma infra dinâmica (/api/checkout e /api/pix/create),
+  // que lê o preço de PRODUTOS.analise no backend — evita depender de um
+  // Payment Link estático do Stripe com preço fixo (fonte do bug de preço errado).
+  async function iniciarCheckoutAnaliseStripe() {
+    if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
+    setError("");
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: emailUsuario,
+          origin: window.location.origin,
+          produto: "analise",
+          metadata: { contractType: contractType || "" },
+        }),
+      });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+      else setError("Não foi possível iniciar o pagamento. Tente novamente.");
+    } catch {
+      setError("Erro ao iniciar o pagamento. Tente novamente.");
+    }
   }
 
   async function iniciarCheckoutAnalisePix() {
@@ -2942,7 +2960,7 @@ function ResultadoContrato({
   emailUsuario: string;
   metodoPagamento: "cartao" | "pix";
   setMetodoPagamento: (m: "cartao" | "pix") => void;
-  iniciarCheckoutAnaliseStripe: () => void;
+  iniciarCheckoutAnaliseStripe: () => Promise<void>;
   iniciarCheckoutAnalisePix: () => Promise<void>;
   reanaliseDe: string | null;
 }) {
