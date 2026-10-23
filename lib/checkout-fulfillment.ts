@@ -6,6 +6,7 @@
 
 import nodemailer from "nodemailer";
 import { supabaseAdmin } from "@/lib/supabase-server";
+import { AREA_LOGADA_ATIVA } from "@/lib/feature-flags";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.claralaw.com.br";
 
@@ -71,15 +72,14 @@ export function montarHtml(produto: Produto, magicLinkUrl?: string, tipoCaso?: s
   // problema aconteceu, não se aplica.
   const mostrarGuia = produto === "pacote";
 
-  // "Acessar minha área" sempre aparece — faz sentido pros dois produtos.
-  // Se o magic link estiver disponível, botão usa ele (login sem senha,
-  // válido 1h). Se não (ex: gerarMagicLink falhou), cai pra /minha-conta
-  // que pede login normal — usuário não fica sem entrada.
+  // "Acessar minha área" só faz sentido com a área logada ativa (depende do
+  // Supabase, hoje desligado — ver lib/feature-flags.ts). Desligada, omite o
+  // botão em vez de prometer um login que não funciona.
   const linkAcesso = magicLinkUrl || `${APP_URL}/minha-conta`;
   const legendaAcesso = magicLinkUrl
     ? "Login sem senha · válido por 1 hora"
     : "Faça login com o seu e-mail";
-  const blocoMinhaConta = `<div style="text-align:center;margin:12px 0 28px;">
+  const blocoMinhaConta = !AREA_LOGADA_ATIVA ? "" : `<div style="text-align:center;margin:12px 0 28px;">
         <a href="${linkAcesso}" style="display:inline-block;background:#1a2340;color:#fff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:40px;text-decoration:none;">
           Acessar minha área →
         </a>

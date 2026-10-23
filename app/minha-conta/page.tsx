@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase-auth";
 import { SpamAvisoBox } from "@/app/components/SpamAvisoBox";
+import { AREA_LOGADA_ATIVA } from "@/lib/feature-flags";
 
 const ClaraIcon = ({ size = 32 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
@@ -97,23 +98,29 @@ export default function MinhaContaPage() {
   }
 
   useEffect(() => {
+    if (!AREA_LOGADA_ATIVA) { setCarregando(false); return; }
     let cancelado = false;
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (cancelado) return;
-      if (session?.user?.email) {
-        setEmail(session.user.email);
-        // Buscar casos (RLS garante que só retorna os do próprio usuário)
-        const { data, error } = await supabase
-          .from("user_casos")
-          .select("id, tipo_caso, descricao, status, created_at")
-          .order("created_at", { ascending: false });
-        if (!cancelado) {
-          if (error) console.error("erro_carregar_casos", error.message);
-          setCasos((data as Caso[] | null) ?? []);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (cancelado) return;
+        if (session?.user?.email) {
+          setEmail(session.user.email);
+          // Buscar casos (RLS garante que só retorna os do próprio usuário)
+          const { data, error } = await supabase
+            .from("user_casos")
+            .select("id, tipo_caso, descricao, status, created_at")
+            .order("created_at", { ascending: false });
+          if (!cancelado) {
+            if (error) console.error("erro_carregar_casos", error.message);
+            setCasos((data as Caso[] | null) ?? []);
+          }
         }
+      } catch (err) {
+        console.error("minha-conta: falha ao checar sessão", err);
+      } finally {
+        if (!cancelado) setCarregando(false);
       }
-      if (!cancelado) setCarregando(false);
     })();
     return () => { cancelado = true; };
   }, [supabase]);
@@ -238,12 +245,32 @@ export default function MinhaContaPage() {
       <section style={{ padding: "72px 24px 40px" }}>
         <div style={{ maxWidth: 720, margin: "0 auto" }}>
 
-          {carregando && (
+          {!AREA_LOGADA_ATIVA && (
+            <div style={{ background: "#fff", border: "1px solid #E0DDD6", borderRadius: 16, padding: "32px 28px", boxShadow: "0 6px 20px rgba(26,35,64,0.04)", maxWidth: 460, margin: "0 auto", textAlign: "center" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 12 }}>
+                Área do cliente
+              </div>
+              <h1 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(22px, 3.2vw, 30px)", color: "#1a2340", marginBottom: 12, lineHeight: 1.25 }}>
+                Essa área está indisponível no momento
+              </h1>
+              <p style={{ fontSize: 15, color: "#6b7280", lineHeight: 1.65, marginBottom: 24 }}>
+                Você recebe todos os documentos e orientações por e-mail logo após a compra — não precisa de login pra isso. Alguma dúvida? Fale com a gente.
+              </p>
+              <a
+                href="mailto:contato@claralaw.com.br"
+                style={{ display: "inline-block", background: "#1a2340", color: "#fff", fontSize: 15, fontWeight: 700, padding: "14px 28px", borderRadius: 40, textDecoration: "none" }}
+              >
+                contato@claralaw.com.br
+              </a>
+            </div>
+          )}
+
+          {AREA_LOGADA_ATIVA && carregando && (
             <p style={{ color: "#6b7280", fontSize: 14, textAlign: "center" }}>Carregando…</p>
           )}
 
           {/* ── ESTADO A: não logado — formulário login/cadastro ── */}
-          {!carregando && !email && (
+          {AREA_LOGADA_ATIVA && !carregando && !email && (
             <div style={{ background: "#fff", border: "1px solid #E0DDD6", borderRadius: 16, padding: "32px 28px", boxShadow: "0 6px 20px rgba(26,35,64,0.04)", maxWidth: 460, margin: "0 auto" }}>
               <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 12 }}>
                 Área do cliente
@@ -360,7 +387,7 @@ export default function MinhaContaPage() {
           )}
 
           {/* ── ESTADO B: logado — histórico de casos ── */}
-          {!carregando && email && (
+          {AREA_LOGADA_ATIVA && !carregando && email && (
             <div>
               <div style={{ marginBottom: 28 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 8 }}>

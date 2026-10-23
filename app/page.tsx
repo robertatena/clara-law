@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ForumBuscador } from "@/components/ForumBuscador";
 import { DisclaimerBox } from "@/app/components/DisclaimerBox";
+import { AREA_LOGADA_ATIVA } from "@/lib/feature-flags";
 
 const ClaraIcon = ({ size = 36 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
@@ -36,7 +37,7 @@ export default function Home() {
             <a href="#como-funciona" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Como funciona</a>
             <a href="#forum" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Encontrar fórum</a>
             <a href="#aprenda" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Aprenda</a>
-            <Link href="/minha-conta" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Minha conta</Link>
+            {AREA_LOGADA_ATIVA && <Link href="/minha-conta" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Minha conta</Link>}
             <Link href="/enviar" style={{ background: "#1a2340", color: "#fff", fontSize: 13, fontWeight: 600, padding: "10px 22px", borderRadius: 40, textDecoration: "none" }}>
               Reivindicar meus direitos
             </Link>

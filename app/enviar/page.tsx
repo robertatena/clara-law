@@ -3105,9 +3105,6 @@ function ResultadoContrato({
           <p className="text-sm text-[#065f46] leading-relaxed mb-1">
             Pagamento confirmado — sua análise completa está liberada abaixo, junto com o e-mail pronto pra você negociar.
           </p>
-          <p className="text-xs text-[#065f46]/80">
-            Você também recebeu um e-mail com o link pra sua área ("Minha conta").
-          </p>
         </div>
       ) : (
         <div className="rounded-[18px] border-2 border-[#0e2b50] bg-white p-8">

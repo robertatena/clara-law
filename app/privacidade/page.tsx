@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AREA_LOGADA_ATIVA } from "@/lib/feature-flags";
 
 const ClaraIcon = ({ size = 32 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
@@ -66,7 +67,7 @@ export default function PrivacidadePage() {
           <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
             <Link href="/#como-funciona" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Como funciona</Link>
             <Link href="/#aprenda" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Aprenda</Link>
-            <Link href="/minha-conta" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Minha conta</Link>
+            {AREA_LOGADA_ATIVA && <Link href="/minha-conta" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Minha conta</Link>}
             <Link href="/enviar" style={{ background: "#1a2340", color: "#fff", fontSize: 13, fontWeight: 600, padding: "10px 22px", borderRadius: 40, textDecoration: "none" }}>
               Reivindicar meus direitos
             </Link>

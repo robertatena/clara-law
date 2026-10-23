@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { createBrowserSupabase } from "@/lib/supabase-auth";
 import { SpamAvisoBox } from "@/app/components/SpamAvisoBox";
+import { AREA_LOGADA_ATIVA } from "@/lib/feature-flags";
 
 type EmailGerado = {
   assunto: string;
@@ -29,13 +29,11 @@ const passosPacote = [
 const passosAnalise = [
   "Verifique seu e-mail — o relatório e o texto de negociação chegam em até 5 minutos.",
   "Revise os pontos de atenção antes de assinar o contrato.",
-  "Se receber um contrato revisado, você pode reanalisar de graça pela sua área.",
 ];
 
 export default function SucessoPage() {
   const [emailGerado, setEmailGerado] = useState<EmailGerado | null>(null);
   const [copiado, setCopiado] = useState(false);
-  const [estaLogado, setEstaLogado] = useState(false);
   // Produto vem via ?produto= na success_url (adicionado no /api/checkout).
   // Default "pacote" pra retrocompatibilidade (URLs antigas sem esse param).
   const [produto, setProduto] = useState<"pacote" | "analise">("pacote");
@@ -65,19 +63,6 @@ export default function SucessoPage() {
     } catch (err) {
       console.warn("sucesso: falha ao ler localStorage", err);
     }
-
-    // Verifica se o usuário está autenticado (mostra CTA diferente)
-    let cancelado = false;
-    (async () => {
-      try {
-        const supabase = createBrowserSupabase();
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!cancelado) setEstaLogado(!!session);
-      } catch (err) {
-        console.warn("sucesso: falha ao checar sessão", err);
-      }
-    })();
-    return () => { cancelado = true; };
   }, []);
 
   return (
@@ -95,7 +80,7 @@ export default function SucessoPage() {
             <Link href="/#como-funciona" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Como funciona</Link>
             <Link href="/#forum" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Encontrar fórum</Link>
             <Link href="/#aprenda" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Aprenda</Link>
-            <Link href="/minha-conta" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Minha conta</Link>
+            {AREA_LOGADA_ATIVA && <Link href="/minha-conta" className="hidden md:inline" style={{ fontSize: 13, color: "#6b7280", textDecoration: "none" }}>Minha conta</Link>}
             <Link href="/enviar" style={{ background: "#1a2340", color: "#fff", fontSize: 13, fontWeight: 600, padding: "10px 22px", borderRadius: 40, textDecoration: "none" }}>
               Reivindicar meus direitos
             </Link>
@@ -225,27 +210,27 @@ export default function SucessoPage() {
         </section>
       )}
 
-      {/* ACOMPANHE SEU CASO — CTA para área logada (varia se usuário já está logado) */}
-      <section className="reveal" style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "40px 24px" }}>
-        <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          <div style={{ background: "#F0F4FF", border: "1px solid #C7D2FE", borderRadius: 12, padding: 20 }}>
-            <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 20, color: "#1a2340", marginBottom: 8, lineHeight: 1.3 }}>
-              Acompanhe seu caso
-            </h2>
-            <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.65, marginBottom: 16 }}>
-              {estaLogado
-                ? "Seu caso foi registrado na sua área. Acesse para acompanhar cada etapa e tirar dúvidas com a Clara."
-                : "Crie sua conta gratuita para acessar seu histórico, tirar dúvidas com a Clara e acompanhar cada etapa do processo."}
-            </p>
-            <Link
-              href="/minha-conta"
-              style={{ display: "inline-block", background: "#1a2340", color: "#fff", fontSize: 14, fontWeight: 700, padding: "12px 24px", borderRadius: 40, textDecoration: "none" }}
-            >
-              {estaLogado ? "Acessar minha área →" : "Criar minha conta →"}
-            </Link>
+      {/* ACOMPANHE SEU CASO — CTA para área logada */}
+      {AREA_LOGADA_ATIVA && (
+        <section className="reveal" style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "40px 24px" }}>
+          <div style={{ maxWidth: 640, margin: "0 auto" }}>
+            <div style={{ background: "#F0F4FF", border: "1px solid #C7D2FE", borderRadius: 12, padding: 20 }}>
+              <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 20, color: "#1a2340", marginBottom: 8, lineHeight: 1.3 }}>
+                Acompanhe seu caso
+              </h2>
+              <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.65, marginBottom: 16 }}>
+                Crie sua conta gratuita para acessar seu histórico, tirar dúvidas com a Clara e acompanhar cada etapa do processo.
+              </p>
+              <Link
+                href="/minha-conta"
+                style={{ display: "inline-block", background: "#1a2340", color: "#fff", fontSize: 14, fontWeight: 700, padding: "12px 24px", borderRadius: 40, textDecoration: "none" }}
+              >
+                Criar minha conta →
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* PRÓXIMOS PASSOS */}
       <section className="reveal" style={{ background: "#F8F7F4", borderBottom: "1px solid #ECEAE4", padding: "64px 24px" }}>
