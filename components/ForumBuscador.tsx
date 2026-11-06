@@ -33,6 +33,10 @@ interface ForumResult {
 
 export function ForumBuscador({ compact = false }: { compact?: boolean }) {
   const [cep, setCep] = useState("");
+  // Padrão: CEP do próprio consumidor — é o que a lei recomenda (CDC art. 101, I;
+  // Lei 9.099/95 art. 4º, III). Buscar pelo CEP da empresa também é válido
+  // (art. 4º, I), mas é a opção secundária, não a padrão.
+  const [usarProprioCep, setUsarProprioCep] = useState(true);
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<ForumResult | null>(null);
   const [erro, setErro] = useState("");
@@ -70,7 +74,7 @@ export function ForumBuscador({ compact = false }: { compact?: boolean }) {
         <input
           type="text"
           inputMode="numeric"
-          placeholder="CEP da empresa ou pessoa (ex: 01310-100)"
+          placeholder={usarProprioCep ? "Seu CEP (ex: 01310-100)" : "CEP da empresa (ex: 01310-100)"}
           value={cep}
           onChange={(e) => {
             setCep(formatarCep(e.target.value));
@@ -112,9 +116,20 @@ export function ForumBuscador({ compact = false }: { compact?: boolean }) {
 
       {erro && <p style={{ fontSize: 12, color: "#dc2626", marginBottom: 8 }}>{erro}</p>}
 
-      <p style={{ fontSize: 12, color: "#aaa", marginBottom: resultado ? 16 : 0 }}>
-        Digite o CEP do endereço da empresa ou pessoa que causou o problema — não o seu.
+      <p style={{ fontSize: 12, color: "#aaa", marginBottom: 4 }}>
+        {usarProprioCep
+          ? "Digite o CEP da sua casa. Como consumidor, você pode entrar com a ação no Juizado da sua cidade (CDC, art. 101, I)."
+          : "Digite o CEP da empresa ou do local onde o problema aconteceu (Lei 9.099/95, art. 4º)."}
       </p>
+      <button
+        type="button"
+        onClick={() => { setUsarProprioCep((v) => !v); setResultado(null); setErro(""); }}
+        style={{ background: "transparent", border: "none", padding: 0, color: "#185FA5", fontSize: 12, fontWeight: 500, cursor: "pointer", textAlign: "left", marginBottom: resultado ? 16 : 0 }}
+      >
+        {usarProprioCep
+          ? "Prefere usar o endereço da empresa ou do local onde o problema aconteceu? Também pode (Lei 9.099/95, art. 4º) →"
+          : "← Usar o CEP da sua casa (recomendado)"}
+      </button>
 
       {/* Resultado rico (SP capital) */}
       {resultado?.encontrado && resultado.fonte === "mapa_local_sp" && (

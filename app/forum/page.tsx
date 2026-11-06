@@ -65,7 +65,7 @@ export default function ForumPage() {
             Encontre o fórum certo<br />e saiba o que fazer.
           </h1>
           <p style={{ fontSize: 16, color: "#4b5563", lineHeight: 1.75, marginBottom: 36, maxWidth: 520 }}>
-            Digite o CEP da empresa ou pessoa que causou o problema. A Clara encontra o fórum competente, o e-mail do cartório e o que você precisa levar.
+            Digite seu CEP — como consumidor, você pode entrar com a ação no Juizado da sua cidade (CDC, art. 101, I). A Clara encontra o fórum competente, o e-mail do cartório e o que você precisa levar.
           </p>
           <ForumBuscador />
         </div>

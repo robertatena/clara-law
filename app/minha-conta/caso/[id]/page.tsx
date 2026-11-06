@@ -91,6 +91,8 @@ export default function CasoPage() {
 
   // Busca de fórum por CEP
   const [cepInput, setCepInput] = useState("");
+  // Padrão: CEP do próprio consumidor (CDC art. 101, I; Lei 9.099/95 art. 4º, III).
+  const [cepProprio, setCepProprio] = useState(true);
   const [buscandoForum, setBuscandoForum] = useState(false);
   const [forum, setForum] = useState<ForumInfo | null>(null);
   const [erroForum, setErroForum] = useState("");
@@ -459,9 +461,21 @@ export default function CasoPage() {
                 <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 8 }}>
                   Encontrar meu fórum
                 </div>
-                <p style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.7, marginBottom: 14 }}>
-                  Quando for a hora de protocolar no Juizado, você vai precisar saber o fórum responsável. Pode descobrir aqui a qualquer momento — digite o CEP <strong>da empresa</strong> (não o seu).
+                <p style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.7, marginBottom: 6 }}>
+                  Quando for a hora de protocolar no Juizado, você vai precisar saber o fórum responsável. Pode descobrir aqui a qualquer momento —{" "}
+                  {cepProprio
+                    ? "digite o CEP da sua casa. Como consumidor, você pode entrar com a ação no Juizado da sua cidade (CDC, art. 101, I)."
+                    : "digite o CEP da empresa ou do local onde o problema aconteceu (Lei 9.099/95, art. 4º)."}
                 </p>
+                <button
+                  type="button"
+                  onClick={() => { setCepProprio((v) => !v); setCepInput(""); setForum(null); setErroForum(""); }}
+                  style={{ background: "transparent", border: "none", padding: 0, color: "#185FA5", fontSize: 12, fontWeight: 500, cursor: "pointer", marginBottom: 14, display: "block" }}
+                >
+                  {cepProprio
+                    ? "Prefere usar o endereço da empresa ou do local onde o problema aconteceu? Também pode (Lei 9.099/95, art. 4º) →"
+                    : "← Usar o CEP da sua casa (recomendado)"}
+                </button>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <input
                     type="text"
@@ -472,7 +486,7 @@ export default function CasoPage() {
                       setCepInput(v.length > 5 ? v.slice(0, 5) + "-" + v.slice(5) : v);
                       if (v.length < 8) { setForum(null); setErroForum(""); }
                     }}
-                    placeholder="CEP da empresa (ex: 01310-100)"
+                    placeholder={cepProprio ? "Seu CEP (ex: 01310-100)" : "CEP da empresa (ex: 01310-100)"}
                     style={{ flex: "1 1 220px", padding: "12px 14px", fontSize: 14, borderRadius: 10, border: "1px solid #D0CCC4", outline: "none", background: "#fff", color: "#1a2340", fontFamily: "'Montserrat', sans-serif" }}
                   />
                   <button

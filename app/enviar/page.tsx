@@ -311,6 +311,9 @@ export default function Page() {
 
   // JEC state
   const [cepEmpresa, setCepEmpresa] = useState("");
+  // Padrão: CEP do próprio consumidor (CDC art. 101, I; Lei 9.099/95 art. 4º, III).
+  // Usar o CEP da empresa também é válido (art. 4º, I), mas é a opção secundária.
+  const [cepProprioJec, setCepProprioJec] = useState(true);
   const [foroJec, setForoJec] = useState<any>(null);
   const [loadingForo, setLoadingForo] = useState(false);
   const [nomeEmpresa, setNomeEmpresa] = useState("");
@@ -541,6 +544,12 @@ export default function Page() {
     salvarLead({ email: emailUsuario, origem: "jec" });
     const descricao = descricaoJecRef.current?.value || "";
     const foroNome = foroJec?.foro || "Juizado Especial Cível";
+    // Fundamento da competência varia conforme o CEP escolhido pra buscar o
+    // fórum: próprio domicílio (padrão, CDC art. 101, I) ou domicílio do réu /
+    // local do fato (Lei 9.099/95, art. 4º, I) — ver toggle no step 1 do JEC.
+    const competencia = cepProprioJec
+      ? "Ajuíza a presente ação neste Juizado, foro do domicílio do autor, com fundamento no art. 101, I, do Código de Defesa do Consumidor e no art. 4º, III, da Lei 9.099/95."
+      : "Ajuíza a presente ação neste Juizado, foro do domicílio do réu, com fundamento no art. 4º, I, da Lei 9.099/95.";
     const assunto = `Petição inicial — JEC — ${nomeEmpresa} — R$ ${valorCausa}`;
     const corpo =
       `Ao(À) Meritíssimo(a) Juiz(a) de Direito\n` +
@@ -551,10 +560,12 @@ export default function Page() {
       `em face de ${nomeEmpresa}, pessoa jurídica de direito privado, pelos fatos e fundamentos a seguir expostos.\n\n` +
       `I. DOS FATOS\n\n` +
       `${descricao}\n\n` +
-      `II. DO DIREITO\n\n` +
+      `II. DA COMPETÊNCIA\n\n` +
+      `${competencia}\n\n` +
+      `III. DO DIREITO\n\n` +
       `Os fatos narrados configuram violação ao Código de Defesa do Consumidor (Lei 8.078/1990), em especial ao art. 6º, que garante proteção contra práticas abusivas, e ao art. 14, que trata da responsabilidade por danos causados ao consumidor.\n\n` +
       `O descumprimento e/ou conduta negligente da empresa ré causou ao autor danos materiais e morais, passíveis de reparação nos termos dos arts. 186 e 927 do Código Civil.\n\n` +
-      `III. DOS PEDIDOS\n\n` +
+      `IV. DOS PEDIDOS\n\n` +
       `Diante do exposto, requer:\n` +
       `a) A condenação da empresa ré ao pagamento de indenização por danos materiais no valor de R$ ${valorCausa};\n` +
       `b) A condenação ao pagamento de indenização por danos morais, a ser arbitrada por Vossa Excelência;\n` +
@@ -1889,12 +1900,12 @@ export default function Page() {
 
         {/* JEC step 1 — encontrar fórum */}
         {modo === "jec" && step === 1 && (
-          <Shell title="Qual é o CEP da empresa?" subtitle="O CEP determina qual fórum é competente para o seu caso.">
+          <Shell title={cepProprioJec ? "Qual é o CEP da sua casa?" : "Qual é o CEP da empresa?"} subtitle="O CEP determina qual fórum é competente para o seu caso.">
             <div className="flex gap-3 mb-2">
               <input
                 type="text"
                 inputMode="numeric"
-                placeholder="CEP da empresa (ex: 01310-100)"
+                placeholder={cepProprioJec ? "Seu CEP (ex: 01310-100)" : "CEP da empresa (ex: 01310-100)"}
                 value={cepEmpresa}
                 onChange={(e) => {
                   const v = e.target.value.replace(/\D/g, "").slice(0, 8);
@@ -1913,7 +1924,20 @@ export default function Page() {
                 {loadingForo ? "Buscando..." : "Buscar fórum"}
               </button>
             </div>
-            <p className="text-sm text-slate-500 mb-5">Digite o CEP do endereço da empresa — não o seu.</p>
+            <p className="text-sm text-slate-500 mb-1">
+              {cepProprioJec
+                ? "Como consumidor, você pode entrar com a ação no Juizado da sua cidade (CDC, art. 101, I)."
+                : "Digite o CEP da empresa ou do local onde o problema aconteceu (Lei 9.099/95, art. 4º)."}
+            </p>
+            <button
+              type="button"
+              onClick={() => { setCepProprioJec((v) => !v); setCepEmpresa(""); setForoJec(null); }}
+              className="text-sm font-medium text-blue-600 mb-5 block"
+            >
+              {cepProprioJec
+                ? "Prefere usar o endereço da empresa ou do local onde o problema aconteceu? Também pode (Lei 9.099/95, art. 4º) →"
+                : "← Usar o CEP da sua casa (recomendado)"}
+            </button>
 
             {foroJec && (
               <div className="rounded-[18px] border border-green-200 bg-green-50 p-5 mb-4">
@@ -2606,7 +2630,7 @@ export default function Page() {
                 </div>
               </div>
               <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-                É de graça. Você mesmo protocola. A Clara gera um modelo de petição no formato certo e encontra o fórum competente pelo CEP da empresa.
+                É de graça. Você mesmo protocola. A Clara gera um modelo de petição no formato certo e encontra o fórum competente pelo seu CEP — como consumidor, você pode processar no Juizado da sua cidade (CDC, art. 101, I).
               </p>
 
               {/* Documentos novos para JEC */}
