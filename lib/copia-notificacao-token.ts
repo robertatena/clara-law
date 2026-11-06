@@ -10,10 +10,16 @@ import crypto from "crypto";
 const TOKEN_TTL_MS = 30 * 60 * 1000; // 30 min — cobre a sessão de uso do resultado grátis
 
 function getSecret(): string {
-  // EMAIL_COPIA_SECRET é o ideal (dedicado); na ausência, deriva de
-  // GMAIL_PASS (já um segredo só-servidor) pra não exigir configurar uma
-  // env var nova só pra isso funcionar.
-  return process.env.EMAIL_COPIA_SECRET || `${process.env.GMAIL_PASS || "clara-law-fallback-secret"}::copia-notificacao`;
+  // Sem fallback de propósito: assinar ou verificar com um segredo
+  // previsível (ex.: derivado de outra env var, ou um literal no código)
+  // anularia a proteção do token. Se EMAIL_COPIA_SECRET não estiver
+  // configurada, falha fechada — quem chama (as rotas) deve tratar esse
+  // throw como 500, nunca seguir em frente sem assinatura real.
+  const secret = process.env.EMAIL_COPIA_SECRET;
+  if (!secret) {
+    throw new Error("EMAIL_COPIA_SECRET não configurada");
+  }
+  return secret;
 }
 
 export type EmailTokenPayload = { email: string; assunto: string; corpo: string; exp: number };

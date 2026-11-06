@@ -15,27 +15,57 @@ const TIPOS_VALIDOS = [
   "produto_defeito", "cobranca_indevida", "servico_nao_entregue", "outro",
 ];
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export async function POST(req: Request) {
-  if (!checkRateLimit(`preparar-email:${clientIp(req)}`, 10, 10 * 60_000)) {
+  // (a) rate limit por IP — 10/hora.
+  if (!checkRateLimit(`preparar-email:${clientIp(req)}`, 10, 60 * 60_000)) {
     return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   }
 
   const body = await req.json().catch(() => ({}));
   const tipoCaso = String(body.tipoCaso || "");
-  const descricao = String(body.descricao || "").slice(0, 4000);
-  const ciaNome = body.ciaNome ? String(body.ciaNome).slice(0, 120) : undefined;
-  const ciaEmail = body.ciaEmail ? String(body.ciaEmail).slice(0, 200) : undefined;
+  const descricao = String(body.descricao || "");
+  const ciaNome = body.ciaNome !== undefined && body.ciaNome !== null ? String(body.ciaNome) : "";
+  const ciaEmail = body.ciaEmail !== undefined && body.ciaEmail !== null ? String(body.ciaEmail) : "";
   const email = String(body.email || "").trim().toLowerCase();
 
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return NextResponse.json({ error: "email_invalido" }, { status: 400 });
-  }
+  // (b) validação e limite de tamanho de cada campo — rejeita com 400 em
+  // vez de truncar silenciosamente (truncar esconde o problema do chamador
+  // e ainda deixa passar payloads grandes até o corte).
   if (!TIPOS_VALIDOS.includes(tipoCaso)) {
     return NextResponse.json({ error: "tipo_invalido" }, { status: 400 });
   }
+  if (descricao.length > 2000) {
+    return NextResponse.json({ error: "descricao_muito_longa", limite: 2000 }, { status: 400 });
+  }
+  if (ciaNome.length > 120) {
+    return NextResponse.json({ error: "ciaNome_muito_longo", limite: 120 }, { status: 400 });
+  }
+  if (ciaEmail) {
+    if (ciaEmail.length > 254 || !EMAIL_REGEX.test(ciaEmail)) {
+      return NextResponse.json({ error: "ciaEmail_invalido" }, { status: 400 });
+    }
+  }
+  if (!email || email.length > 254 || !EMAIL_REGEX.test(email)) {
+    return NextResponse.json({ error: "email_invalido" }, { status: 400 });
+  }
 
-  const { assunto, corpo } = gerarEmailEmpresa(tipoCaso, descricao, { nome: ciaNome, email: ciaEmail });
-  const token = signEmailToken({ email, assunto, corpo });
+  const { assunto, corpo } = gerarEmailEmpresa(tipoCaso, descricao, {
+    nome: ciaNome || undefined,
+    email: ciaEmail || undefined,
+  });
+
+  let token: string;
+  try {
+    token = signEmailToken({ email, assunto, corpo });
+  } catch (err) {
+    // getSecret() em lib/copia-notificacao-token.ts lança se
+    // EMAIL_COPIA_SECRET não estiver configurada — falha fechada, nunca
+    // assina com um segredo previsível.
+    console.error("preparar_email_sem_secret", err instanceof Error ? err.message : "unknown");
+    return NextResponse.json({ error: "servico_indisponivel" }, { status: 500 });
+  }
 
   return NextResponse.json({ assunto, corpo, token });
 }

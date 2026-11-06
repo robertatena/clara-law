@@ -4,11 +4,21 @@
 // verdade por trás do token assinado em /api/caso/preparar-email), sem
 // duplicar a lógica nos dois lados.
 
+// Neutraliza URLs no texto livre (descricao) antes de entrar no e-mail —
+// clientes de e-mail (Gmail etc.) costumam auto-linkificar qualquer coisa
+// que pareça link em texto puro, mesmo sem tag <a>. Como /api/caso/preparar-email
+// aceita descricao sem autenticação, isso fecha o vetor de phishing via link
+// embutido no "relato do caso".
+function removerLinks(texto: string): string {
+  return texto.replace(/(https?:\/\/|www\.)[^\s]+/gi, "[link removido]");
+}
+
 export function gerarEmailEmpresa(
   tipo: string,
-  descricao: string,
+  descricaoBruta: string,
   cia: { nome?: string; email?: string } | undefined
 ): { assunto: string; corpo: string } {
+  const descricao = removerLinks(descricaoBruta);
   const tipoLabel = tipo === "voo_atrasado" ? "ATRASO DE VOO" : tipo === "voo_cancelado" ? "CANCELAMENTO DE VOO" : tipo === "bagagem" ? "EXTRAVIO / DANO DE BAGAGEM" : "PROBLEMA DE CONSUMO";
   const assunto = tipo.startsWith("voo") || tipo === "bagagem"
     ? `NOTIFICAÇÃO EXTRAJUDICIAL — ${tipoLabel} — SOLICITAÇÃO DE INDENIZAÇÃO`

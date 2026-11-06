@@ -10,12 +10,15 @@
 // Limites: 1 envio por token (idempotente — reenvio do mesmo token não
 // duplica) + rate limit por IP. Ambos em memória, best-effort (ver
 // lib/rate-limit.ts) — não sobrevivem a cold start nem são compartilhados
-// entre instâncias, mas já cortam scripts simples de abuso.
+// entre instâncias, mas já cortam scripts simples de abuso. Proposta de
+// trocar por um store persistente (Upstash/Vercel KV) está documentada à
+// parte — não implementada ainda.
 
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { verifyEmailToken } from "@/lib/copia-notificacao-token";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { escapeHtml } from "@/lib/escape-html";
 
 export const runtime = "nodejs";
 
@@ -28,7 +31,16 @@ const transporter = nodemailer.createTransport({
 });
 
 // Tokens já enviados nesta instância — evita duplicar em duplo clique/retry.
-const tokensEnviados = new Set<string>();
+// Mapeado token -> exp (do próprio token) pra poder podar entradas vencidas
+// e não crescer sem limite durante a vida de uma instância quente.
+const tokensEnviados = new Map<string, number>();
+
+function podarTokensVencidos() {
+  const agora = Date.now();
+  for (const [token, exp] of tokensEnviados) {
+    if (agora > exp) tokensEnviados.delete(token);
+  }
+}
 
 export async function POST(req: Request) {
   if (!checkRateLimit(`enviar-copia:${clientIp(req)}`, 5, 60 * 60_000)) {
@@ -37,10 +49,21 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}));
   const token = String(body.token || "");
-  const payload = verifyEmailToken(token);
+
+  let payload: ReturnType<typeof verifyEmailToken>;
+  try {
+    payload = verifyEmailToken(token);
+  } catch (err) {
+    // EMAIL_COPIA_SECRET ausente — falha fechada, nunca verifica com um
+    // segredo previsível/derivado.
+    console.error("enviar_copia_notificacao_sem_secret", err instanceof Error ? err.message : "unknown");
+    return NextResponse.json({ error: "servico_indisponivel" }, { status: 500 });
+  }
   if (!payload) {
     return NextResponse.json({ error: "token_invalido" }, { status: 400 });
   }
+
+  podarTokensVencidos();
 
   if (tokensEnviados.has(token)) {
     return NextResponse.json({ ok: true, ja_enviado: true });
@@ -51,13 +74,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, skipped: true });
   }
 
-  tokensEnviados.add(token);
+  tokensEnviados.set(token, payload.exp);
 
   try {
-    const corpoEscapado = payload.corpo
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+    const assuntoEscapado = escapeHtml(payload.assunto);
+    const corpoEscapado = escapeHtml(payload.corpo);
 
     await transporter.sendMail({
       from: `"Clara Law" <${process.env.GMAIL_USER}>`,
@@ -71,7 +92,7 @@ export async function POST(req: Request) {
         <div style="background:#fff;border-radius:12px;padding:20px;border:1px solid #E0DDD6;">
           <p style="color:#6b7280;font-size:12px;margin:0 0 14px;">⚠️ Modelo orientativo — revise antes de enviar.</p>
           <div style="color:#9ca3af;font-size:11px;margin-bottom:2px;">Assunto</div>
-          <div style="color:#1a2340;font-size:14px;font-weight:700;margin-bottom:14px;">${payload.assunto}</div>
+          <div style="color:#1a2340;font-size:14px;font-weight:700;margin-bottom:14px;">${assuntoEscapado}</div>
           <div style="color:#374151;font-size:14px;line-height:1.7;white-space:pre-wrap;border-top:1px solid #F0EDE8;padding-top:14px;">${corpoEscapado}</div>
         </div>
       </div>`,
