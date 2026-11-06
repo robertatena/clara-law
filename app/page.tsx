@@ -86,7 +86,7 @@ export default function Home() {
             </a>
           </div>
 
-          <p style={{ fontSize: 12, color: "#bbb" }}>Sem cartão · Sem cadastro · Resultado em minutos</p>
+          <p style={{ fontSize: 12, color: "#bbb" }}>E-mail de notificação grátis · Kit Juizado R$49,90 só se precisar</p>
 
           <DisclaimerBox variant="curto" style={{ marginTop: 14 }} />
 
@@ -376,8 +376,8 @@ export default function Home() {
             {/* Produto 1 — Análise de contrato */}
             <div style={{ border: "1.5px solid #E0DDD6", borderRadius: 20, padding: "36px 32px" }}>
               <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-                <div style={{ display: "inline-block", background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#065f46" }}>Análise básica grátis</div>
-                <div style={{ display: "inline-block", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#92400e" }}>Relatório completo pago</div>
+                <div style={{ display: "inline-block", background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#065f46" }}>Resumo grátis</div>
+                <div style={{ display: "inline-block", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#92400e" }}>Relatório completo R$9,90</div>
               </div>
               <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 800, fontSize: 28, color: "#1a2340", marginBottom: 8 }}>Analise seu contrato</div>
               <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 24, lineHeight: 1.6 }}>A Clara lê seu contrato e aponta pontos de atenção e riscos — antes de você assinar. Resumo gratuito, relatório completo sob demanda.</div>
@@ -415,14 +415,23 @@ export default function Home() {
               <div style={{ fontSize: 14, color: "rgba(168,216,240,0.75)", marginBottom: 24, lineHeight: 1.6 }}>
                 Voo atrasado, produto com defeito, cobrança indevida — a Clara te orienta e oferece modelos adaptados às informações que você fornece. Você revisa, envia e age no seu nome.
               </div>
-              <div style={{ background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.3)", borderRadius: 12, padding: "14px 18px", marginBottom: 24 }}>
-                <div style={{ fontSize: 13, color: "#D4AF37", fontWeight: 700 }}>R$49,90 por caso — pagamento único</div>
-                <div style={{ fontSize: 12, color: "rgba(168,216,240,0.6)", marginTop: 4 }}>Modelos para revisar + guia de acompanhamento inclusos.</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+                <div style={{ display: "inline-block", background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.4)", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#6EE7B7" }}>E-mail de notificação grátis</div>
+                <div style={{ display: "inline-block", background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#D4AF37" }}>Kit Juizado R$49,90 só se precisar</div>
               </div>
-              <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24, display: "flex", flexDirection: "column", gap: 14, marginBottom: 32 }}>
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24, display: "flex", flexDirection: "column", gap: 14, marginBottom: 14 }}>
                 {[
-                  "Modelo de e-mail de notificação para revisar e enviar",
-                  "Orientação para registro nos órgãos competentes",
+                  "Modelo de e-mail de notificação, liberado na hora",
+                ].map((item) => (
+                  <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#fff" }}>
+                    <span style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(110,231,183,0.2)", border: "1px solid rgba(110,231,183,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#6EE7B7", flexShrink: 0 }}>✓</span>
+                    {item}
+                  </div>
+                ))}
+              </div>
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 14, marginBottom: 32 }}>
+                {[
+                  "Se não resolver: orientação para registro nos órgãos competentes",
                   "Modelo de petição para o Juizado Especial para revisar",
                 ].map((item) => (
                   <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#fff" }}>
@@ -432,7 +441,7 @@ export default function Home() {
                 ))}
               </div>
               <Link href="/enviar" style={{ display: "block", textAlign: "center", background: "#D4AF37", color: "#1a2340", fontSize: 14, fontWeight: 800, padding: "15px 24px", borderRadius: 40, textDecoration: "none" }}>
-                Quero meu pacote completo →
+                Quero meu Kit Juizado →
               </Link>
             </div>
           </div>
@@ -454,7 +463,7 @@ export default function Home() {
           <Link href="/enviar" style={{ background: "#D4AF37", color: "#1a2340", fontSize: 17, fontWeight: 800, padding: "20px 48px", borderRadius: 40, textDecoration: "none", display: "inline-block" }}>
             Começar gratuitamente
           </Link>
-          <p style={{ fontSize: 12, color: "rgba(168,216,240,0.55)", marginTop: 16 }}>Sem cartão · Sem cadastro obrigatório</p>
+          <p style={{ fontSize: 12, color: "rgba(168,216,240,0.55)", marginTop: 16 }}>E-mail de notificação grátis · Kit Juizado R$49,90 só se precisar</p>
         </div>
       </section>
 

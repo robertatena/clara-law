@@ -3,6 +3,12 @@
 import { useState } from "react";
 import jsPDF from "jspdf";
 
+interface DocumentoField {
+  label: string;
+  value: File | null;
+  onChange: (f: File | null) => void;
+}
+
 interface Props {
   nomePassageiro: string;
   tipoLabel?: string;
@@ -11,6 +17,13 @@ interface Props {
   dataVoo?: string;
   onAceitar: (pdfBlob: Blob) => void;
   onFechar: () => void;
+  // Campos pessoais — opcionais, pedidos só aqui (na hora do Kit), nunca antes
+  // do plano de ação/e-mail grátis. Omitidos = seção não aparece.
+  cpf?: string;
+  onCpfChange?: (v: string) => void;
+  telefone?: string;
+  onTelefoneChange?: (v: string) => void;
+  documentos?: DocumentoField[];
 }
 
 function referenciaAceite() {
@@ -47,6 +60,7 @@ function body(doc: jsPDF, text: string, y: number, margin: number, maxWidth: num
 export default function ContratoModal({
   nomePassageiro, tipoLabel, ciaNome, numVoo, dataVoo,
   onAceitar, onFechar,
+  cpf, onCpfChange, telefone, onTelefoneChange, documentos,
 }: Props) {
   const [aceito, setAceito] = useState(false);
   const [gerando, setGerando] = useState(false);
@@ -136,7 +150,7 @@ export default function ContratoModal({
     // ── SEÇÃO 4 — PAGAMENTO ─────────────────────────────────
     y = sectionTitle(doc, "4. PAGAMENTO", y, margin);
     y = body(doc,
-      "R$ 49,90 por caso — pagamento unico. Sem taxa de exito. " +
+      "R$ 49,90 pelo Kit Juizado — pagamento unico. Sem taxa de exito. " +
       "Sem cobranca adicional.",
       y, margin, cw);
     y = sep(doc, y, margin);
@@ -239,6 +253,57 @@ export default function ContratoModal({
           </div>
         )}
 
+        {onCpfChange && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 10 }}>
+              Seus dados para a petição <span style={{ color: "#9ca3af", fontWeight: 400 }}>(opcional, ajuda a preencher o modelo)</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: documentos ? 10 : 0 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>CPF</label>
+                <input
+                  type="text"
+                  value={cpf || ""}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 11);
+                    onCpfChange(v.length > 9 ? v.slice(0,3)+"."+v.slice(3,6)+"."+v.slice(6,9)+"-"+v.slice(9) : v.length > 6 ? v.slice(0,3)+"."+v.slice(3,6)+"."+v.slice(6) : v.length > 3 ? v.slice(0,3)+"."+v.slice(3) : v);
+                  }}
+                  placeholder="000.000.000-00"
+                  style={{ width: "100%", padding: "10px 12px", fontSize: 13, borderRadius: 10, border: "1px solid #D0CCC4", outline: "none", background: "#fff", color: "#1a2340" }}
+                />
+              </div>
+              {onTelefoneChange && (
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>Telefone</label>
+                  <input
+                    type="tel"
+                    value={telefone || ""}
+                    onChange={(e) => onTelefoneChange(e.target.value)}
+                    placeholder="(11) 99999-9999"
+                    style={{ width: "100%", padding: "10px 12px", fontSize: 13, borderRadius: 10, border: "1px solid #D0CCC4", outline: "none", background: "#fff", color: "#1a2340" }}
+                  />
+                </div>
+              )}
+            </div>
+            {documentos && documentos.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {documentos.map((d) => (
+                  <div key={d.label}>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>{d.label} <span style={{ color: "#9ca3af", fontWeight: 400 }}>(opcional)</span></label>
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => d.onChange(e.target.files?.[0] || null)}
+                      style={{ fontSize: 12, color: "#374151", width: "100%" }}
+                    />
+                    {d.value && <p style={{ fontSize: 11, color: "#185FA5", marginTop: 2 }}>✓ {d.value.name}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div style={{
           background: "#F8F7F4", border: "1px solid #E0DDD6", borderRadius: 12,
           padding: "20px 22px", marginBottom: 20, fontSize: 14, color: "#4b5563", lineHeight: 1.8,
@@ -266,7 +331,7 @@ export default function ContratoModal({
 
           <p style={{ marginTop: 14 }}><strong style={{ color: "#1a2340" }}>Pagamento:</strong></p>
           <p>
-            R$49,90 por caso — pagamento único. Sem taxa de êxito. Sem cobrança adicional.
+            R$49,90 pelo Kit Juizado — pagamento único. Sem taxa de êxito. Sem cobrança adicional.
           </p>
 
           <p style={{

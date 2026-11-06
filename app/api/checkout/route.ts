@@ -13,7 +13,7 @@ const PRODUTOS: Record<Produto, { unitAmount: number; name: string; description:
   },
   pacote: {
     unitAmount: 4990,
-    name: "Pacote Ação — Clara Law",
+    name: "Kit Juizado — Clara Law",
     description: "E-mail de notificação + modelo de petição JEC + guia de acompanhamento. Você envia, você age.",
   },
 };
