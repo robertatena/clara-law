@@ -75,6 +75,7 @@ export function montarHtml(produto: Produto, magicLinkUrl?: string, tipoCaso?: s
   // "Acessar minha área" só faz sentido com a área logada ativa (depende do
   // Supabase, hoje desligado — ver lib/feature-flags.ts). Desligada, omite o
   // botão em vez de prometer um login que não funciona.
+  const nomeProduto = produto === "pacote" ? "Kit Juizado" : "kit";
   const linkAcesso = magicLinkUrl || `${APP_URL}/minha-conta`;
   const legendaAcesso = magicLinkUrl
     ? "Login sem senha · válido por 1 hora"
@@ -99,7 +100,7 @@ export function montarHtml(produto: Produto, magicLinkUrl?: string, tipoCaso?: s
 
     <div style="background:#fff;border-radius:12px;padding:28px 24px;border:1px solid #E0DDD6;">
       <p style="color:#374151;font-size:15px;line-height:1.7;margin:0 0 20px;">
-        Obrigada por confiar na Clara Law. Seu kit foi gerado e está disponível.
+        Obrigada por confiar na Clara Law. Seu ${nomeProduto} foi gerado e está disponível.
       </p>
 
       ${
@@ -159,7 +160,7 @@ export async function enviarConfirmacaoCompra(email: string, produto: Produto, m
   await transporter.sendMail({
     from: `"Clara Law" <${process.env.GMAIL_USER}>`,
     to: email,
-    subject: "Seu kit Clara Law está pronto 🎉",
+    subject: produto === "pacote" ? "Seu Kit Juizado está pronto 🎉" : "Seu kit Clara Law está pronto 🎉",
     html,
   });
 }

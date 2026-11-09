@@ -1,19 +1,19 @@
 // Micro-disclaimers reutilizáveis pra deixar claro perto de pontos de
-// decisão (CTAs, depoimentos) que a Clara é educacional, não substitui
-// advogado, e resultados variam. Complemento (não substituto) do
+// decisão (CTAs, exemplos ilustrativos) que a Clara é educacional, não
+// substitui advogado, e resultados variam. Complemento (não substituto) do
 // disclaimer longo que fica no footer de cada página.
 //
 // Variantes:
 //   "curto": nota de 1 linha perto de CTAs principais
-//   "depoimentos": nota de 1 linha antes de blocos de depoimento/resultado
+//   "exemplos": nota de 1 linha antes de blocos de exemplos ilustrativos
 
-type Variant = "curto" | "depoimentos";
+type Variant = "curto" | "exemplos";
 
 const TEXTO: Record<Variant, string> = {
   curto:
     "Plataforma educacional — orienta com base no CDC, não substitui advogado.",
-  depoimentos:
-    "Cada caso é único. Os relatos abaixo são experiências pessoais, não garantia de resultado.",
+  exemplos:
+    "Situações ilustrativas, sem relação com casos reais. Cada caso é único e não há garantia de resultado.",
 };
 
 export function DisclaimerBox({

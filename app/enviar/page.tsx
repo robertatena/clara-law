@@ -5,6 +5,8 @@ import ContratoModal from "@/components/ContratoModal";
 import { salvarCaso, uploadDocumento, uploadContrato, salvarLead } from "@/lib/supabase";
 import { createBrowserSupabase } from "@/lib/supabase-auth";
 import { gerarEmailEmpresa } from "@/lib/gerar-email-empresa";
+import { maskBRL } from "@/lib/format-brl";
+import { DisclaimerBox } from "@/app/components/DisclaimerBox";
 import { useEffect, useRef, useState } from "react";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -50,7 +52,7 @@ type ResultData = {
   plano_acao?: {
     resumo_direitos?: string;
     email_empresa?: { assunto: string; corpo: string };
-    valor_estimado?: string;
+    pedidos_cabiveis?: string[];
   };
 };
 
@@ -639,7 +641,7 @@ export default function Page() {
       try { data = JSON.parse(raw); } catch { data = {}; }
       if (!data.plano_acao) data.plano_acao = {};
       data.plano_acao.resumo_direitos = data.plano_acao.resumo_direitos || gerarResumoDireitos(tipoCaso!, cia);
-      data.plano_acao.valor_estimado = data.plano_acao.valor_estimado || estimarValor(tipoCaso!);
+      data.plano_acao.pedidos_cabiveis = data.plano_acao.pedidos_cabiveis || pedidosCabiveis(tipoCaso!);
 
       // O e-mail de notificação e o token pra mandar cópia são sempre gerados
       // no SERVIDOR (/api/caso/preparar-email) — nunca confiamos em
@@ -1577,7 +1579,7 @@ export default function Page() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">Valor do produto</label>
-                    <input type="text" inputMode="decimal" value={prodValor} onChange={(e) => setProdValor(e.target.value.replace(/[^\d,.]/g, ""))}
+                    <input type="text" inputMode="decimal" value={prodValor ? `R$ ${prodValor}` : ""} onChange={(e) => setProdValor(maskBRL(e.target.value))}
                       placeholder="R$ 0,00"
                       className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
                   </div>
@@ -1975,11 +1977,18 @@ export default function Page() {
                   {resultado.plano_acao.resumo_direitos}
                 </div>
               )}
-              {resultado.plano_acao?.valor_estimado && (
+              {resultado.plano_acao?.pedidos_cabiveis && resultado.plano_acao.pedidos_cabiveis.length > 0 && (
                 <div className="mt-3 rounded-[14px] bg-green-50 border border-green-100 p-4">
-                  <div className="text-xs font-semibold text-green-700 uppercase tracking-wider mb-1">Estimativa de indenização</div>
-                  <div className="text-lg font-bold text-green-800">{resultado.plano_acao.valor_estimado}</div>
-                  <div className="text-xs text-green-600 mt-1">Orientativo · depende do caso e do juiz</div>
+                  <div className="text-xs font-semibold text-green-700 uppercase tracking-wider mb-2">O que você pode pedir</div>
+                  <ul className="space-y-1">
+                    {resultado.plano_acao.pedidos_cabiveis.map((item, i) => (
+                      <li key={i} className="text-sm font-semibold text-green-800 flex gap-2">
+                        <span aria-hidden="true">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="text-xs text-green-600 mt-2">Orientativo · depende do caso</div>
                 </div>
               )}
             </div>
@@ -2352,6 +2361,7 @@ export default function Page() {
                     R$49,90 · pagamento único
                     {metodoPagamento === "pix" && <span> · confirmação em segundos</span>}
                   </p>
+                  <DisclaimerBox variant="curto" style={{ marginTop: 10 }} />
                 </>
               )}
             </div>
@@ -2966,14 +2976,46 @@ function gerarResumoDireitos(tipo: TipoCaso, cia: typeof CIAS_AEREAS[0] | undefi
   }
 }
 
-function estimarValor(tipo: TipoCaso): string {
+function pedidosCabiveis(tipo: TipoCaso): string[] {
   switch (tipo) {
-    case "voo_atrasado":      return "Indenização por dano moral — valor varia conforme o caso e o juiz + despesas comprovadas — orientativo";
-    case "voo_cancelado":     return "Indenização por dano moral — valor varia conforme o caso e o juiz + reembolso integral do bilhete — orientativo";
-    case "bagagem":           return "Indenização de até USD 1.288 (limite Convenção de Montreal) ou dano moral se comprovado — valor varia conforme o caso e o juiz — orientativo";
-    case "cobranca_indevida": return "Devolução em dobro do valor cobrado + indenização por dano moral em casos de negativação indevida — valor varia conforme o caso e o juiz — orientativo";
-    case "produto_defeito":   return "Substituição / devolução / abatimento (à escolha do consumidor) + eventual dano moral — orientativo";
-    case "servico_nao_entregue": return "Devolução integral do valor pago + possível indenização por danos materiais e morais — orientativo";
-    default:                  return "Valor a calcular com base nos danos materiais + dano moral — orientativo";
+    case "voo_atrasado":
+      return [
+        "Assistência material não prestada (alimentação, hospedagem, comunicação)",
+        "Reembolso de despesas comprovadas por causa do atraso",
+        "Eventual dano moral, dependendo da gravidade do caso",
+      ];
+    case "voo_cancelado":
+      return [
+        "Reembolso integral do bilhete ou reacomodação em outro voo",
+        "Assistência material não prestada",
+        "Eventual dano moral, dependendo da gravidade do caso",
+      ];
+    case "bagagem":
+      return [
+        "Reembolso pelos itens danificados, extraviados ou faltantes",
+        "Eventual dano moral, dependendo da gravidade do caso",
+      ];
+    case "cobranca_indevida":
+      return [
+        "Devolução do valor cobrado indevidamente",
+        "Eventual dano moral, especialmente em caso de negativação indevida",
+      ];
+    case "produto_defeito":
+      return [
+        "Substituição do produto",
+        "Devolução do valor pago",
+        "Abatimento proporcional do preço",
+        "Eventual dano moral, dependendo do caso",
+      ];
+    case "servico_nao_entregue":
+      return [
+        "Devolução do valor pago pelo serviço",
+        "Eventual dano moral, dependendo do caso",
+      ];
+    default:
+      return [
+        "Reparação dos danos materiais comprovados",
+        "Eventual dano moral, dependendo do caso",
+      ];
   }
 }
