@@ -14,11 +14,11 @@ const ClaraIcon = ({ size = 36 }: { size?: number }) => (
 
 const situations = [
   { icon: "📦", bg: "#FBF5E6", title: "Comprei algo com defeito e a loja não quer resolver", desc: "Direito à troca, conserto ou devolução. A loja é obrigada por lei.", badges: ["Clara orienta", "sem advogado"] },
-  { icon: "💳", bg: "#EBF6FD", title: "Cobraram algo que eu não devo ou meu nome foi ao Serasa", desc: "Cobrança errada dá direito a indenização — sem precisar ir ao fórum.", badges: ["Clara orienta", "sem advogado"] },
+  { icon: "💳", bg: "#EBF6FD", title: "Cobraram algo que eu não devo ou meu nome foi ao Serasa", desc: "Cobrança errada pode dar direito a indenização — sem precisar ir ao fórum.", badges: ["Clara orienta", "sem advogado"] },
   { icon: "✈️", bg: "#FBF5E6", title: "Meu voo atrasou ou foi cancelado", desc: "A companhia é obrigada a dar assistência e reembolso.", badges: ["Clara orienta", "JEC disponível"] },
   { icon: "🔧", bg: "#EBF6FD", title: "Paguei por um serviço que não foi entregue", desc: "Direito ao dinheiro de volta e, dependendo do caso, a uma indenização.", badges: ["Clara orienta", "sem advogado"] },
   { icon: "🏠", bg: "#FBF5E6", title: "Meu aluguel tem cláusula abusiva", desc: "Algumas cláusulas são ilegais — mesmo que você já tenha assinado.", badges: ["Clara orienta", "JEC disponível"] },
-  { icon: "📱", bg: "#EBF6FD", title: "Meu plano de internet não funciona como prometido", desc: "Velocidade menor que a contratada é descumprimento. Pode cancelar sem multa.", badges: ["Clara orienta", "sem advogado"] },
+  { icon: "📱", bg: "#EBF6FD", title: "Meu plano de internet não funciona como prometido", desc: "Velocidade menor que a contratada é descumprimento. Em geral, você pode cancelar sem multa.", badges: ["Clara orienta", "sem advogado"] },
 ];
 
 export default function Home() {
@@ -69,7 +69,7 @@ export default function Home() {
           </h1>
 
           <p style={{ fontSize: "clamp(16px, 2vw, 19px)", lineHeight: 1.75, color: "#4b5563", marginBottom: 16, maxWidth: 540, margin: "0 auto 16px" }}>
-            Descubra seus direitos, entenda o que fazer e resolva —
+            Descubra seus direitos, entenda o que fazer e saiba como agir —
             tudo em minutos, <strong style={{ color: "#1a2340" }}>sem juridiquês.</strong>
           </p>
 
@@ -94,8 +94,8 @@ export default function Home() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, maxWidth: 520, margin: "40px auto 0" }}>
             {[
               { num: "Gratuito no JEC", lbl: "Abrir ação no Juizado Especial" },
-              { num: "Você se representa", lbl: "Até 20 salários mínimos de indenização" },
-              { num: "Maioria resolve por e-mail em dias", lbl: "Sem precisar ir ao fórum" },
+              { num: "Você se representa", lbl: "Causas de até 20 salários mínimos, sem advogado" },
+              { num: "Muitos casos se resolvem por e-mail", lbl: "Sem precisar ir ao fórum" },
             ].map((s, i) => (
               <div key={i} style={{ background: "#1a2340", borderRadius: 14, padding: "16px 12px" }}>
                 <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 13, color: "#D4AF37", marginBottom: 4, lineHeight: 1.2 }}>{s.num}</div>
@@ -106,12 +106,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* COMO FUNCIONA */}
-      <section id="como-funciona" style={{ background: "#F8F7F4", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
+      {/* PASSO A PASSO */}
+      <section style={{ background: "#F8F7F4", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>como funciona</p>
+          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>passo a passo</p>
           <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(26px, 3vw, 36px)", color: "#1a2340", marginBottom: 48, lineHeight: 1.2 }}>
-            Dois produtos. Um objetivo.
+            Veja como cada etapa funciona.
           </h2>
 
           {/* Produto 1 — Análise de contrato */}
@@ -141,7 +141,7 @@ export default function Home() {
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
               <div style={{ background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#92700a" }}>Clara orienta</div>
               <div style={{ height: 1, flex: 1, background: "#E0DDD6" }} />
-              <div style={{ fontSize: 12, color: "#9ca3af" }}>R$49,90 · um guia completo pra você agir</div>
+              <div style={{ fontSize: 12, color: "#9ca3af" }}>E-mail de notificação grátis · Kit Juizado R$49,90 só se precisar</div>
             </div>
             <div style={{ display: "grid", gap: 2, background: "#E0DDD6", borderRadius: 18, overflow: "hidden" }} className="grid-steps">
               {[
@@ -322,7 +322,6 @@ export default function Home() {
           <div style={{ display: "grid", gap: 20 }} className="grid-testimonials">
             {/* Exemplo principal */}
             <div style={{ background: "#1a2340", borderRadius: 20, padding: "36px 40px", position: "relative" }}>
-              <div style={{ fontSize: 64, color: "#D4AF37", lineHeight: 1, marginBottom: 8, fontFamily: "Georgia, serif", opacity: 0.6 }}>&ldquo;</div>
               <p style={{ fontSize: 17, color: "#fff", lineHeight: 1.8, marginBottom: 28, maxWidth: 680 }}>
                 Voo atrasou mais de 4 horas e a companhia não deu assistência adequada. A Clara ajuda a reunir os fatos e a base legal (CDC + Resolução ANAC) pra notificar a empresa e, se for o caso, levar ao Juizado Especial <strong style={{ color: "#D4AF37" }}>sem precisar de advogado</strong>.
               </p>
@@ -344,7 +343,8 @@ export default function Home() {
                   <p style={{ fontSize: 14, color: "#4b5563", lineHeight: 1.75, marginBottom: 20 }}>{t.texto}</p>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{ width: 8, height: 8, borderRadius: "50%", background: t.cor, flexShrink: 0 }} />
-                    <div style={{ fontSize: 11, color: "#9ca3af" }}>{t.contexto}</div>
+                    <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Exemplo</div>
+                    <div style={{ fontSize: 11, color: "#9ca3af" }}>· {t.contexto}</div>
                   </div>
                 </div>
               ))}
@@ -354,7 +354,7 @@ export default function Home() {
       </section>
 
       {/* FREEMIUM */}
-      <section style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
+      <section id="como-funciona" style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
         <div style={{ maxWidth: 860, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 48 }}>
             <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>como funciona</p>
