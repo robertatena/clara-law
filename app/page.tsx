@@ -238,7 +238,7 @@ export default function Home() {
                 Sabia que você pode resolver muita coisa sem sair de casa?
               </h3>
               <p style={{ fontSize: 15, color: "rgba(168,216,240,0.75)", lineHeight: 1.7 }}>
-                E-mail bem escrito, com a lei certa — é o que resolve a maioria dos casos. Sem fila, sem fórum, sem advogado.
+                E-mail bem escrito, com a lei certa — é o caminho que ajuda a resolver muitos casos, sem fila e sem advogado.
               </p>
             </div>
             <Link href="/enviar" style={{ background: "#D4AF37", color: "#1a2340", fontSize: 14, fontWeight: 700, padding: "14px 26px", borderRadius: 40, textDecoration: "none", flexShrink: 0, whiteSpace: "nowrap" }}>

@@ -2019,7 +2019,7 @@ export default function Page() {
                 </div>
               </div>
               <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-                A maioria dos casos se resolve nessa etapa. Um e-mail bem fundamentado faz a empresa levar a sério e responder em 48–72h.
+                Muitos casos avançam nessa etapa. Dê à empresa até 10 dias para responder.
               </p>
               {isVoo && ciaAerea && (() => {
                 const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
