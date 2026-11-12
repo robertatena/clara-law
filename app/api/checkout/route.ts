@@ -14,7 +14,7 @@ const PRODUTOS: Record<Produto, { unitAmount: number; name: string; description:
   pacote: {
     unitAmount: 4990,
     name: "Kit Juizado — Clara Law",
-    description: "E-mail de notificação + modelo de petição JEC + guia de acompanhamento. Você envia, você age.",
+    description: "E-mail de notificação + modelo de petição JEC em PDF/DOCX (complete seus dados após a compra) + guia de acompanhamento. Você envia, você age.",
   },
 };
 

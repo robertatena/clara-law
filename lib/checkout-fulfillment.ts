@@ -7,6 +7,8 @@
 import nodemailer from "nodemailer";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { AREA_LOGADA_ATIVA } from "@/lib/feature-flags";
+import { prepararPeticao } from "@/lib/peticao-pipeline";
+import { signCasoToken } from "@/lib/caso-acesso-token";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.claralaw.com.br";
 
@@ -41,8 +43,8 @@ function itensPorProduto(produto: Produto, tipoCaso?: string): string[] {
   if (produto === "pacote") {
     return [
       "E-mail de notificação com a lei certa",
-      orientacaoOrgaos(tipoCaso),
-      "Modelo de petição JEC — revise e protocole",
+      orientacaoOrgaos(tipoCaso) + " (com links diretos, na página do seu caso)",
+      "Modelo de petição JEC em PDF e DOCX — complete seus dados na página do caso pra finalizar",
       "Guia completo das etapas do processo",
     ];
   }
@@ -58,7 +60,7 @@ function itensPorProduto(produto: Produto, tipoCaso?: string): string[] {
 
 // Exportada pra rota de preview /api/dev/preview-email. Não usar em outro
 // contexto além de renderizar o HTML do email de confirmação.
-export function montarHtml(produto: Produto, magicLinkUrl?: string, tipoCaso?: string): string {
+export function montarHtml(produto: Produto, magicLinkUrl?: string, tipoCaso?: string, casoLink?: string): string {
   const itens = itensPorProduto(produto, tipoCaso);
   const listaItens = itens
     .map(
@@ -112,9 +114,16 @@ export function montarHtml(produto: Produto, magicLinkUrl?: string, tipoCaso?: s
           : ""
       }
 
-      ${mostrarGuia ? `<div style="text-align:center;margin:28px 0 12px;">
-        <a href="${APP_URL}/guia" style="display:inline-block;background:#D4AF37;color:#1a2340;font-weight:800;font-size:15px;padding:14px 28px;border-radius:40px;text-decoration:none;">
-          Acesse seu guia do processo →
+      ${casoLink ? `<div style="text-align:center;margin:28px 0 8px;">
+        <a href="${casoLink}" style="display:inline-block;background:#D4AF37;color:#1a2340;font-weight:800;font-size:15px;padding:14px 28px;border-radius:40px;text-decoration:none;">
+          Ver minha petição e completar meus dados →
+        </a>
+        <p style="color:#9ca3af;font-size:11px;margin:8px 0 0;">Não precisa criar conta — o link dá acesso direto ao seu caso.</p>
+      </div>` : ""}
+
+      ${mostrarGuia ? `<div style="text-align:center;margin:8px 0 12px;">
+        <a href="${APP_URL}/guia" style="font-size:13px;color:#185FA5;text-decoration:none;">
+          Acesse o guia do processo →
         </a>
       </div>` : ""}
 
@@ -146,7 +155,7 @@ export function montarHtml(produto: Produto, magicLinkUrl?: string, tipoCaso?: s
 </html>`;
 }
 
-export async function enviarConfirmacaoCompra(email: string, produto: Produto, magicLinkUrl?: string, tipoCaso?: string): Promise<void> {
+export async function enviarConfirmacaoCompra(email: string, produto: Produto, magicLinkUrl?: string, tipoCaso?: string, casoLink?: string): Promise<void> {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
     console.warn("fulfillment_email_skipped_missing_credentials", {
       hasUser: !!process.env.GMAIL_USER,
@@ -155,7 +164,7 @@ export async function enviarConfirmacaoCompra(email: string, produto: Produto, m
     return;
   }
 
-  const html = montarHtml(produto, magicLinkUrl, tipoCaso);
+  const html = montarHtml(produto, magicLinkUrl, tipoCaso, casoLink);
 
   await transporter.sendMail({
     from: `"Clara Law" <${process.env.GMAIL_USER}>`,
@@ -222,8 +231,8 @@ export async function salvarCasoNoSupabase(params: {
   provider: "stripe" | "pix";
   providerId: string;
   metadata: Record<string, string>;
-}): Promise<void> {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+}): Promise<string | null> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
   const tipoCaso =
     params.produto === "pacote"
       ? (params.metadata.tipo_caso || "desconhecido")
@@ -246,13 +255,16 @@ export async function salvarCasoNoSupabase(params: {
     row.abacate_transaction_id = params.providerId;
   }
 
-  const { error } = await supabaseAdmin.from("user_casos").upsert(row, {
-    onConflict,
-    ignoreDuplicates: true,
-  });
+  const { data, error } = await supabaseAdmin
+    .from("user_casos")
+    .upsert(row, { onConflict, ignoreDuplicates: true })
+    .select("id")
+    .maybeSingle();
   if (error) {
     console.error("salvar_caso_error", { provider: params.provider, providerId: params.providerId, error: error.message });
+    return null;
   }
+  return (data as { id: string } | null)?.id ?? null;
 }
 
 // Checa se um caso já foi fulfilled pra esse provider+providerId. Usado como
@@ -299,9 +311,31 @@ export async function fulfillCheckout(params: {
   const userId = await provisionarUsuario(email);
   console.log("fulfillment_user_provisioned", { provider, providerId, email, userId: userId || "(none)" });
 
+  let casoId: string | null = null;
   if (userId) {
-    await salvarCasoNoSupabase({ userId, email, produto, provider, providerId, metadata });
-    console.log("fulfillment_caso_saved", { provider, providerId, userId });
+    casoId = await salvarCasoNoSupabase({ userId, email, produto, provider, providerId, metadata });
+    console.log("fulfillment_caso_saved", { provider, providerId, userId, casoId: casoId || "(none)" });
+  }
+
+  // Primeira tentativa de geração da petição — normalmente "parcial" porque
+  // nome/CPF/endereço/empresa/fórum ainda não foram preenchidos (isso só
+  // acontece no formulário pós-pagamento, na página do caso). Mesmo assim
+  // já deixa o status calculado, pra /sucesso e o e-mail saberem o que
+  // mostrar. Nunca bloqueia o resto do fulfillment se falhar.
+  let casoLink: string | undefined;
+  if (casoId && produto === "pacote") {
+    try {
+      await prepararPeticao(casoId);
+    } catch (err) {
+      console.error("fulfillment_peticao_failed", { provider, providerId, casoId, error: err instanceof Error ? err.message : "unknown" });
+    }
+    try {
+      casoLink = `${APP_URL}/caso/${casoId}?token=${signCasoToken(casoId)}`;
+    } catch (err) {
+      // CASO_ACESSO_SECRET ausente — sem token não dá pra montar o link.
+      // Segue sem ele; o e-mail ainda sai com o resto do conteúdo.
+      console.error("fulfillment_caso_token_failed", err instanceof Error ? err.message : "unknown");
+    }
   }
 
   const magicLink = await gerarMagicLink(email);
@@ -311,7 +345,7 @@ export async function fulfillCheckout(params: {
     // Passa tipo_caso pro montarHtml — condiciona o item "orientação para X"
     // do kit conforme voo/cobrança/produto/serviço/analise.
     const tipoCaso = metadata.tipo_caso || undefined;
-    await enviarConfirmacaoCompra(email, produto, magicLink ?? undefined, tipoCaso);
+    await enviarConfirmacaoCompra(email, produto, magicLink ?? undefined, tipoCaso, casoLink);
     console.log("fulfillment_email_sent", { provider, providerId, email, produto, hasMagicLink: !!magicLink });
   } catch (err) {
     console.error("fulfillment_email_failed", { provider, providerId, email, produto, error: err instanceof Error ? err.message : "unknown" });

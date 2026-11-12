@@ -126,7 +126,8 @@ export default function ContratoModal({
     doc.setTextColor(60, 65, 80);
     const itens = [
       "E-mail de notificacao formatado com a legislacao aplicavel",
-      "Modelo de peticao para o Juizado Especial Civel (revise antes de protocolar)",
+      "Modelo de peticao para o Juizado Especial Civel, em PDF e DOCX, na pagina do seu caso",
+      "Formulario curto apos a compra pra completar nome, CPF, endereco e dados da empresa",
       "Guia de acompanhamento com as etapas do processo",
     ];
     for (const item of itens) {
@@ -143,7 +144,9 @@ export default function ContratoModal({
     y = body(doc,
       "O usuario e o unico responsavel pelo envio do e-mail, pelo protocolo " +
       "da peticao e pelo comparecimento a audiencia. A Clara Law fornece " +
-      "ferramentas educacionais — a acao e inteiramente do usuario.",
+      "ferramentas educacionais — a acao e inteiramente do usuario. Os dados " +
+      "pedidos no formulario pos-compra (nome, CPF, endereco, dados da " +
+      "empresa) sao usados apenas para preencher sua peticao.",
       y, margin, cw);
     y = sep(doc, y, margin);
 
@@ -318,7 +321,8 @@ export default function ContratoModal({
           <p style={{ marginTop: 14 }}><strong style={{ color: "#1a2340" }}>O que você recebe:</strong></p>
           <ul style={{ paddingLeft: 20, margin: 0 }}>
             <li>E-mail de notificação formatado com a legislação aplicável</li>
-            <li>Modelo de petição para o Juizado Especial Cível (revise antes de protocolar)</li>
+            <li>Modelo de petição para o Juizado Especial Cível, em PDF e DOCX, na página do seu caso (revise antes de protocolar)</li>
+            <li>Formulário curto após a compra pra completar nome, CPF, endereço e dados da empresa</li>
             <li>Guia de acompanhamento com as etapas do processo</li>
           </ul>
 
