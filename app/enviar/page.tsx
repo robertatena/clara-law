@@ -136,12 +136,11 @@ export default function Page() {
   const [numVoo, setNumVoo] = useState("");
   const [dataVoo, setDataVoo] = useState("");
 
-  // Campos estruturados para calcularProbabilidade e e-mail
+  // Campos estruturados pro e-mail de notificação e registro do caso
   const [tempoAtraso, setTempoAtraso] = useState("");
   const [assistenciaComida, setAssistenciaComida] = useState("");
   const [assistenciaHotel, setAssistenciaHotel] = useState("");
   const [prejuizoExtra, setPrejuizoExtra] = useState("");
-  const [avisoPrevia] = useState("");
   const [tipoBagagem, setTipoBagagem] = useState("");
   // Bagagem — extras
   const [bagPir, setBagPir] = useState("");
@@ -535,6 +534,16 @@ export default function Page() {
       setLoading(true); setError(""); setResultado(null);
       let descricaoCaso = descricaoCasoRef.current?.value || "";
       const cia = CIAS_AEREAS.find((c) => c.id === ciaAerea);
+      // Pra voo, o nome da empresa vem do catálogo (cia). Pros outros tipos,
+      // vem do campo "Qual empresa?" que o usuário já preencheu — sem isso,
+      // o cabeçalho do e-mail ficava com o placeholder "[NOME DA EMPRESA...]".
+      const nomeEmpresaInformada =
+        tipoCaso === "produto_defeito" ? prodEmpresa :
+        tipoCaso === "servico_nao_entregue" ? servEmpresa :
+        tipoCaso === "cobranca_indevida" ? cobrancaEmpresa :
+        undefined;
+      const ciaParaEmail: { nome?: string; email?: string } | undefined =
+        cia ?? (nomeEmpresaInformada ? { nome: nomeEmpresaInformada } : undefined);
       if (isVoo) {
         const tipoLabel: Record<string,string> = { "voo_atrasado": "atraso do voo", "voo_cancelado": "cancelamento do voo", "bagagem": "problema com bagagem" };
         const dataFormatada = dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : "data não informada";
@@ -655,7 +664,7 @@ export default function Page() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             tipoCaso, descricao: descricaoCaso,
-            ciaNome: cia?.nome, ciaEmail: cia?.email,
+            ciaNome: ciaParaEmail?.nome, ciaEmail: ciaParaEmail?.email,
             email: emailUsuario,
           }),
         });
@@ -666,7 +675,7 @@ export default function Page() {
         }
       } catch { /* segue com o fallback abaixo */ }
       if (!data.plano_acao.email_empresa) {
-        data.plano_acao.email_empresa = gerarEmailEmpresa(tipoCaso!, descricaoCaso, cia);
+        data.plano_acao.email_empresa = gerarEmailEmpresa(tipoCaso!, descricaoCaso, ciaParaEmail);
       }
 
       setResultado(data);
@@ -719,6 +728,13 @@ export default function Page() {
   // usada no metadata do provider de pagamento.
   function prepararCheckoutMetadata(): string {
     const cia = CIAS_AEREAS.find((c) => c.id === ciaAerea);
+    const nomeEmpresaInformada =
+      tipoCaso === "produto_defeito" ? prodEmpresa :
+      tipoCaso === "servico_nao_entregue" ? servEmpresa :
+      tipoCaso === "cobranca_indevida" ? cobrancaEmpresa :
+      undefined;
+    const ciaParaEmail: { nome?: string; email?: string } | undefined =
+      cia ?? (nomeEmpresaInformada ? { nome: nomeEmpresaInformada } : undefined);
     const dataFmt = dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : "";
     let descricao = "";
     if (isVoo) {
@@ -734,7 +750,7 @@ export default function Page() {
 
     // Salva o e-mail gerado no localStorage pra /sucesso mostrar
     try {
-      const emailGerado = gerarEmailEmpresa(tipoCaso!, descricao, cia);
+      const emailGerado = gerarEmailEmpresa(tipoCaso!, descricao, ciaParaEmail);
       const paraEmpresa =
         isVoo ? (cia && cia.id !== "outra" && cia.email ? cia.email : "consulte o site da companhia") :
         tipoCaso === "cobranca_indevida" ? "consulte o site da empresa (SAC)" :
@@ -943,7 +959,7 @@ export default function Page() {
               {isResultado && modo === "jec" ? "Sua petição JEC"
                 : isResultado && modo === "caso" ? "Seu plano de ação"
                 : isResultado ? "Resultado da análise"
-                : modo === "caso" ? "Resolva seu caso"
+                : modo === "caso" ? "Entenda e encaminhe seu caso"
                 : modo === "jec" ? "Petição JEC"
                 : modo === "contrato" ? "Entenda seu contrato"
                 : "O que você precisa hoje?"}
@@ -1993,20 +2009,6 @@ export default function Page() {
               )}
             </div>
 
-            {/* Casos similares — classificação qualitativa (sem percentual) */}
-            {(() => {
-              const prob = calcularProbabilidade(tipoCaso!, tempoAtraso, assistenciaComida, assistenciaHotel, prejuizoExtra, avisoPrevia, tipoBagagem);
-              const bgClass = prob.score >= 80 ? "bg-green-50 border-green-200" : prob.score >= 60 ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-200";
-              return (
-                <div className={`rounded-[24px] border-2 ${bgClass} p-6`}>
-                  <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: prob.cor }}>Casos similares</div>
-                  <div className="text-lg font-bold mb-3" style={{ color: prob.cor }}>{prob.label}</div>
-                  <p className="text-sm leading-relaxed text-slate-700">{prob.texto}</p>
-                  <p className="text-xs mt-3 text-slate-500">Baseado em casos similares · orientativo · não é garantia de resultado</p>
-                </div>
-              );
-            })()}
-
             <>
 
             {/* Passo 1 */}
@@ -2138,7 +2140,7 @@ export default function Page() {
                 </div>
               </div>
               <p className="text-sm text-slate-600 mb-5 leading-relaxed">
-                Taxa de resolução de 8 em cada 10 casos. A empresa tem 10 dias para responder ou o caso fica marcado como "não resolvido" no histórico dela.
+                Registrar no órgão certo formaliza sua reclamação e pode ajudar a acelerar uma solução.
               </p>
 
               {/* Documentos novos para esta etapa */}
@@ -2269,7 +2271,14 @@ export default function Page() {
                   {[
                     { doc: "CEP e endereço completo", desc: "seu endereço residencial", req: true },
                     { doc: "Comprovante de residência", desc: "conta de luz, água ou extrato recente", req: true },
-                    { doc: "Protocolo ANAC ou consumidor.gov.br", desc: "da Etapa 2", req: true },
+                    {
+                      doc: isVoo ? "Protocolo ANAC ou consumidor.gov.br" :
+                        tipoCaso === "cobranca_indevida" ? "Protocolo do Procon ou Banco Central" :
+                        tipoCaso === "produto_defeito" ? "Protocolo do Procon ou Reclame Aqui" :
+                        "Protocolo do Procon ou consumidor.gov.br",
+                      desc: "da Etapa 2",
+                      req: true,
+                    },
                     { doc: "Assinatura digital ou presença no fórum", req: true },
                   ].map((d) => (
                     <div key={d.doc} className="flex items-start gap-2 text-xs text-amber-800">
@@ -2651,37 +2660,6 @@ function OpcaoCard({ id, icon, label, desc, selecionada, onClick, cor = "blue" }
       </div>
     </button>
   );
-}
-
-function calcularProbabilidade(
-  tipo: TipoCaso,
-  tempoAtraso: string, assistenciaComida: string, assistenciaHotel: string, prejuizoExtra: string,
-  avisoPrevia: string, tipoBagagem: string
-): { score: number; label: string; cor: string; texto: string } {
-  let score = 60;
-  if (tipo === "voo_atrasado") {
-    const base: Record<string, number> = { "1_2h": 25, "2_4h": 48, "4_8h": 72, "8_12h": 82, "12_24h": 88, "mais_24h": 93 };
-    score = base[tempoAtraso] ?? 60;
-    if (assistenciaComida === "nao") score = Math.min(95, score + 7);
-    else if (assistenciaComida === "voucher_pequeno") score = Math.min(95, score + 3);
-    if (assistenciaHotel === "nao") score = Math.min(95, score + 5);
-    if (prejuizoExtra === "sim") score = Math.min(95, score + 5);
-  } else if (tipo === "voo_cancelado") {
-    const base: Record<string, number> = { "sem_aviso": 90, "menos_24h": 83, "24_72h": 72, "mais_72h": 52 };
-    score = base[avisoPrevia] ?? 72;
-  } else if (tipo === "bagagem") {
-    score = 80;
-  } else if (tipo === "cobranca_indevida") { score = 84; }
-  else if (tipo === "produto_defeito") { score = 71; }
-  else if (tipo === "servico_nao_entregue") { score = 85; }
-  const label = score >= 80 ? "Favorável em casos similares" : score >= 60 ? "Moderado em casos similares" : "Depende do contexto";
-  const cor = score >= 80 ? "#22c55e" : score >= 60 ? "#f59e0b" : "#6b7280";
-  const texto = score >= 80
-    ? "Em casos similares registrados no TJSP, consumidores obtiveram resultado favorável. Cada caso é único — resultado não garantido."
-    : score >= 60
-    ? "Há precedentes favoráveis, mas o resultado depende das provas que você conseguir reunir."
-    : "O resultado depende bastante do contexto e das provas — o e-mail costuma ser o melhor primeiro passo.";
-  return { score, label, cor, texto };
 }
 
 function Shell({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {

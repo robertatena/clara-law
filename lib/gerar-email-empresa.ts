@@ -128,7 +128,7 @@ ${sep}
 III. DOS PEDIDOS
 ${sep}
 
-Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 10 (dez) dias úteis
+Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 10 (dez) dias
 contados do recebimento desta notificação:
 
   1. Reembolso integral das despesas materiais comprovadas decorrentes do
@@ -197,7 +197,7 @@ ${sep}
 III. DOS PEDIDOS
 ${sep}
 
-Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 10 (dez) dias úteis:
+Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 10 (dez) dias:
 
   1. Reacomodação imediata em voo equivalente ou reembolso integral do valor
      pago pelo bilhete, à escolha do passageiro;
@@ -270,7 +270,7 @@ ${sep}
 III. DOS PEDIDOS
 ${sep}
 
-Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 5 (cinco) dias úteis:
+Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 10 (dez) dias:
 
   1. Localização e entrega imediata da bagagem, caso ainda não tenha sido
      devolvida; ou, alternativamente,
@@ -292,7 +292,7 @@ ${rodape(nome, cpf)}`
 
   : tipo === "servico_nao_entregue" ? `\
 Ao Departamento de Atendimento ao Consumidor
-[NOME DA EMPRESA — preencher com a empresa contratada]
+${cia?.nome || "[NOME DA EMPRESA — preencher com a empresa contratada]"}
 
 NOTIFICAÇÃO EXTRAJUDICIAL — SERVIÇO NÃO ENTREGUE
 Solicitação de Devolução ou Execução — CDC art. 35
@@ -349,7 +349,7 @@ ${sep}
 III. DOS PEDIDOS
 ${sep}
 
-Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 5 (cinco) dias úteis
+Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 10 (dez) dias
 contados do recebimento desta notificação:
 
   1. A devolução integral e imediata do valor pago, monetariamente atualizado;
@@ -379,7 +379,7 @@ ${rodapeGenerico(nome !== "[NOME DO PASSAGEIRO]" ? nome : "")}`
 
   : tipo === "cobranca_indevida" ? `\
 Ao Departamento de Atendimento ao Consumidor
-[NOME DA EMPRESA — preencher com a empresa cobradora]
+${cia?.nome || "[NOME DA EMPRESA — preencher com a empresa cobradora]"}
 
 NOTIFICAÇÃO EXTRAJUDICIAL — COBRANÇA INDEVIDA
 Solicitação de Cessação de Cobrança e Reparação — CDC
@@ -427,7 +427,7 @@ ${sep}
 III. DOS PEDIDOS
 ${sep}
 
-Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 5 (cinco) dias úteis
+Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 10 (dez) dias
 contados do recebimento desta notificação:
 
   1. A cessação imediata da cobrança indevida;
@@ -458,7 +458,7 @@ ${rodapeGenerico(nome !== "[NOME DO PASSAGEIRO]" ? nome : "")}`
 
   : tipo === "produto_defeito" ? `\
 Ao Departamento de Atendimento ao Consumidor
-[NOME DA EMPRESA — preencher com a loja/fabricante]
+${cia?.nome || "[NOME DA EMPRESA — preencher com a loja/fabricante]"}
 
 NOTIFICAÇÃO EXTRAJUDICIAL — PRODUTO COM VÍCIO / DEFEITO
 Solicitação de Reparação — CDC art. 18
@@ -505,16 +505,13 @@ em especial:
     da constatação do vício oculto;
 
   • Art. 49 (se aplicável a compras online/à distância) — Direito de
-    arrependimento em até 7 (sete) dias, contados do recebimento do produto;
-
-  • Art. 14 — Responsabilidade objetiva do fornecedor pelo defeito na
-    prestação do serviço.
+    arrependimento em até 7 (sete) dias, contados do recebimento do produto.
 
 ${sep}
 III. DOS PEDIDOS
 ${sep}
 
-Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 5 (cinco) dias úteis
+Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 10 (dez) dias
 contados do recebimento desta notificação:
 
   1. Reparo do produto, sem custos, no prazo máximo legal de 30 (trinta)
@@ -544,7 +541,7 @@ imediata e cumulativamente, as seguintes medidas:
 
 ${rodapeGenerico(nome !== "[NOME DO PASSAGEIRO]" ? nome : "")}`
 
-  : `Prezados,\n\nVenho, por meio desta, notificar formalmente sobre o problema descrito abaixo, solicitando resolução:\n\n${descricao}\n\nNos termos do Código de Defesa do Consumidor (Lei 8.078/90, art. 14 e art. 6º, VI), solicito, no prazo de 10 (dez) dias úteis, a devida reparação pelos danos causados.\n\nNa ausência de resposta satisfatória, procederei com registro nos órgãos competentes e, se necessário, ação no Juizado Especial Cível.\n\n${rodapeGenerico(nome !== "[NOME DO PASSAGEIRO]" ? nome : "")}`;
+  : `Prezados,\n\nVenho, por meio desta, notificar formalmente sobre o problema descrito abaixo, solicitando resolução:\n\n${descricao}\n\nNos termos do Código de Defesa do Consumidor (Lei 8.078/90, art. 14 e art. 6º, VI), solicito, no prazo de 10 (dez) dias, a devida reparação pelos danos causados.\n\nNa ausência de resposta satisfatória, procederei com registro nos órgãos competentes e, se necessário, ação no Juizado Especial Cível.\n\n${rodapeGenerico(nome !== "[NOME DO PASSAGEIRO]" ? nome : "")}`;
 
   return { assunto, corpo };
 }

@@ -21,10 +21,10 @@ const etapas: Etapa[] = [
   {
     icon: "📧",
     titulo: "Você enviou o e-mail. E agora?",
-    texto: "A empresa tem até 5 dias úteis para responder. Guarde o comprovante de envio — você vai precisar depois.",
+    texto: "Dê à empresa até 10 dias para responder. Guarde o comprovante de envio — você vai precisar depois.",
     acoes: [
       "Salve o e-mail enviado (print ou PDF).",
-      "Se não responderem em 5 dias → vá para a Etapa 2.",
+      "Se não responderem em 10 dias → vá para a Etapa 2.",
       "Se oferecerem solução ruim → vá para a Etapa 2 também.",
     ],
   },
