@@ -192,6 +192,12 @@ export async function provisionarUsuario(email: string): Promise<string | null> 
       const { data: list } = await supabaseAdmin.auth.admin.listUsers({ perPage: 200 });
       const usersList = (list?.users ?? []) as Array<{ id: string; email?: string }>;
       const found = usersList.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+      console.log("provisionar_usuario_fallback_listusers", {
+        email,
+        createErr: createErr.message,
+        totalListados: usersList.length,
+        encontrado: !!found,
+      });
       if (found?.id) return found.id;
     }
     return null;
@@ -260,29 +266,65 @@ export async function salvarCasoNoSupabase(params: {
     .upsert(row, { onConflict, ignoreDuplicates: true })
     .select("id")
     .maybeSingle();
+  // Log cru do que o Supabase devolveu, mesmo sem erro — "data vazio, sem
+  // error" é o caso esperado do ignoreDuplicates, mas precisa aparecer no
+  // log pra diferenciar de "realmente inseriu" na hora de investigar.
+  console.log("salvar_caso_upsert_result", {
+    provider: params.provider,
+    providerId: params.providerId,
+    userId: params.userId,
+    hasData: !!data,
+    dataId: (data as { id: string } | null)?.id ?? null,
+    error: error?.message ?? null,
+  });
   if (error) {
     console.error("salvar_caso_error", { provider: params.provider, providerId: params.providerId, error: error.message });
     return null;
   }
-  const insertedId = (data as { id: string } | null)?.id ?? null;
-  if (insertedId) return insertedId;
+  let casoRowId = (data as { id: string } | null)?.id ?? null;
 
-  // ignoreDuplicates descartou o upsert (já existe linha pra esse
-  // provider+providerId — webhook duplicado ou chamada concorrente) e por
-  // isso o select não devolveu nada. Busca o id da linha existente em vez
-  // de devolver null: sem isso, o chamador concorrente que perdeu a corrida
-  // ficava sem casoId e o e-mail saía sem o link do caso.
-  const onConflictCol = params.provider === "stripe" ? "stripe_session_id" : "abacate_transaction_id";
-  const { data: existing, error: lookupError } = await supabaseAdmin
+  if (!casoRowId) {
+    // ignoreDuplicates descartou o upsert (já existe linha pra esse
+    // provider+providerId — webhook duplicado ou chamada concorrente) e por
+    // isso o select não devolveu nada. Busca o id da linha existente em vez
+    // de devolver null: sem isso, o chamador concorrente que perdeu a
+    // corrida ficava sem casoId e o e-mail saía sem o link do caso.
+    const onConflictCol = params.provider === "stripe" ? "stripe_session_id" : "abacate_transaction_id";
+    const { data: existing, error: lookupError } = await supabaseAdmin
+      .from("user_casos")
+      .select("id")
+      .eq(onConflictCol, params.providerId)
+      .maybeSingle();
+    if (lookupError) {
+      console.error("salvar_caso_lookup_error", { provider: params.provider, providerId: params.providerId, error: lookupError.message });
+      return null;
+    }
+    casoRowId = (existing as { id: string } | null)?.id ?? null;
+    console.log("salvar_caso_lookup_fallback", { provider: params.provider, providerId: params.providerId, foundId: casoRowId });
+  }
+
+  if (!casoRowId) return null;
+
+  // Confirma que a linha é de fato legível antes de considerar sucesso — se
+  // o upsert "respondeu certo" mas uma leitura imediata pelo id não encontra
+  // nada, é melhor falhar aqui (persist_failed, sem e-mail) do que mandar o
+  // cliente pra um link que vai dar 404.
+  const { data: confirmado, error: confirmError } = await supabaseAdmin
     .from("user_casos")
     .select("id")
-    .eq(onConflictCol, params.providerId)
+    .eq("id", casoRowId)
     .maybeSingle();
-  if (lookupError) {
-    console.error("salvar_caso_lookup_error", { provider: params.provider, providerId: params.providerId, error: lookupError.message });
+  if (confirmError || !confirmado) {
+    console.error("salvar_caso_nao_confirmado", {
+      provider: params.provider,
+      providerId: params.providerId,
+      casoRowId,
+      confirmError: confirmError?.message || "sem_linha_na_releitura",
+    });
     return null;
   }
-  return (existing as { id: string } | null)?.id ?? null;
+
+  return casoRowId;
 }
 
 // Checa se um caso já foi fulfilled pra esse provider+providerId. Usado como
