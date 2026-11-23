@@ -264,7 +264,25 @@ export async function salvarCasoNoSupabase(params: {
     console.error("salvar_caso_error", { provider: params.provider, providerId: params.providerId, error: error.message });
     return null;
   }
-  return (data as { id: string } | null)?.id ?? null;
+  const insertedId = (data as { id: string } | null)?.id ?? null;
+  if (insertedId) return insertedId;
+
+  // ignoreDuplicates descartou o upsert (já existe linha pra esse
+  // provider+providerId — webhook duplicado ou chamada concorrente) e por
+  // isso o select não devolveu nada. Busca o id da linha existente em vez
+  // de devolver null: sem isso, o chamador concorrente que perdeu a corrida
+  // ficava sem casoId e o e-mail saía sem o link do caso.
+  const onConflictCol = params.provider === "stripe" ? "stripe_session_id" : "abacate_transaction_id";
+  const { data: existing, error: lookupError } = await supabaseAdmin
+    .from("user_casos")
+    .select("id")
+    .eq(onConflictCol, params.providerId)
+    .maybeSingle();
+  if (lookupError) {
+    console.error("salvar_caso_lookup_error", { provider: params.provider, providerId: params.providerId, error: lookupError.message });
+    return null;
+  }
+  return (existing as { id: string } | null)?.id ?? null;
 }
 
 // Checa se um caso já foi fulfilled pra esse provider+providerId. Usado como
@@ -294,7 +312,7 @@ export async function fulfillCheckout(params: {
   provider: "stripe" | "pix";
   providerId: string;
   metadata: Record<string, string>;
-}): Promise<{ status: "ok" | "already_fulfilled" | "skipped_invalid_input" }> {
+}): Promise<{ status: "ok" | "already_fulfilled" | "skipped_invalid_input" | "persist_failed" }> {
   const { email, produto, provider, providerId, metadata } = params;
 
   if (!email || produto === "desconhecido") {
@@ -315,6 +333,15 @@ export async function fulfillCheckout(params: {
   if (userId) {
     casoId = await salvarCasoNoSupabase({ userId, email, produto, provider, providerId, metadata });
     console.log("fulfillment_caso_saved", { provider, providerId, userId, casoId: casoId || "(none)" });
+  }
+
+  // Sem usuário provisionado ou sem linha gravada em user_casos, não tem
+  // caso pra entregar — não manda o e-mail de "está pronto" (que incluiria
+  // o link /caso/[id]) apontando pra um registro que não existe. Devolve um
+  // status que o webhook usa pra responder 500 e o provedor reenviar depois.
+  if (!casoId && produto === "pacote") {
+    console.error("fulfillment_caso_persist_failed", { provider, providerId, email, userId: userId || "(none)" });
+    return { status: "persist_failed" };
   }
 
   // Primeira tentativa de geração da petição — normalmente "parcial" porque

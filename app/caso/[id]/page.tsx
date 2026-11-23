@@ -47,19 +47,23 @@ function CasoPageConteudo() {
 
   const [caso, setCaso] = useState<CasoSnapshot | null>(null);
   const [carregando, setCarregando] = useState(true);
-  const [erroCarregar, setErroCarregar] = useState(false);
+  const [erroCarregar, setErroCarregar] = useState<string | null>(null);
   const [mostrarSucessoForm, setMostrarSucessoForm] = useState(false);
 
   async function carregar() {
     setCarregando(true);
-    setErroCarregar(false);
+    setErroCarregar(null);
     try {
       const resp = await fetch(`/api/caso/${casoId}?token=${encodeURIComponent(token)}`);
-      if (!resp.ok) { setErroCarregar(true); return; }
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => null);
+        setErroCarregar(body?.error || `http_${resp.status}`);
+        return;
+      }
       const data = await resp.json();
       setCaso(data.caso);
     } catch {
-      setErroCarregar(true);
+      setErroCarregar("rede");
     } finally {
       setCarregando(false);
     }
@@ -67,7 +71,7 @@ function CasoPageConteudo() {
 
   useEffect(() => {
     if (casoId && token) carregar();
-    else { setCarregando(false); setErroCarregar(true); }
+    else { setCarregando(false); setErroCarregar("sem_token"); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [casoId, token]);
 
@@ -76,11 +80,21 @@ function CasoPageConteudo() {
   }
 
   if (erroCarregar || !caso) {
+    const MENSAGENS: Record<string, string> = {
+      token_invalido: "O link está incompleto ou foi alterado. Copie o link direto do e-mail de confirmação, sem quebras.",
+      caso_nao_encontrado: "Não encontramos esse caso. Se você acabou de comprar, aguarde alguns segundos e tente de novo pelo link do e-mail.",
+      rate_limited: "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente de novo.",
+      servico_indisponivel: "Serviço temporariamente indisponível. Tente de novo em alguns minutos.",
+      sem_token: "Link incompleto — falta o token de acesso.",
+      rede: "Não conseguimos conectar. Verifique sua internet e tente de novo.",
+    };
+    const mensagem = (erroCarregar && MENSAGENS[erroCarregar]) || "Confira o link do e-mail de confirmação da sua compra.";
     return (
       <main className="min-h-screen flex items-center justify-center px-4">
         <div className="max-w-md text-center">
-          <h1 className="text-xl font-bold text-[#0e2b50] mb-2">Link inválido ou expirado</h1>
-          <p className="text-sm text-slate-600">Confira o link do e-mail de confirmação da sua compra, ou escreva pra contato@claralaw.com.br.</p>
+          <h1 className="text-xl font-bold text-[#0e2b50] mb-2">Não foi possível abrir seu caso</h1>
+          <p className="text-sm text-slate-600">{mensagem}</p>
+          <p className="text-xs text-slate-400 mt-3">Dúvidas? Escreva pra contato@claralaw.com.br.</p>
         </div>
       </main>
     );
