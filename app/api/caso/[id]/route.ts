@@ -34,7 +34,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     .eq("id", id)
     .maybeSingle();
 
-  if (error || !row) {
+  // Nunca tratar erro de banco/schema como "caso não encontrado" — são
+  // causas bem diferentes (uma é "revise o link", a outra é "o serviço tá
+  // quebrado"), e confundir as duas já escondeu um bug de coluna ausente.
+  if (error) {
+    console.error("caso_dados_query_error", { id, code: error.code, message: error.message });
+    return NextResponse.json({ error: "servico_indisponivel" }, { status: 500 });
+  }
+  if (!row) {
     return NextResponse.json({ error: "caso_nao_encontrado" }, { status: 404 });
   }
 

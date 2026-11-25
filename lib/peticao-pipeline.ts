@@ -36,7 +36,24 @@ type LinhaUserCaso = {
   foro_json: DadosPeticao["foro"] | null;
 };
 
-export async function prepararPeticao(casoId: string): Promise<void> {
+// Erros do Supabase/PostgREST são objetos { code, message, details, hint },
+// não instâncias de Error — "err instanceof Error" dá falso pra eles e some
+// com a mensagem real (virava "unknown" no log). Extrai code+message sempre
+// que der.
+function mensagemErro(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object") {
+    const e = err as { code?: string; message?: string; details?: string };
+    const partes = [e.code, e.message || e.details].filter(Boolean);
+    if (partes.length) return partes.join(": ");
+  }
+  return String(err);
+}
+
+// Devolve true se a petição ficou parcial/completo (ou não se aplica a esse
+// tipo de caso) — false se algo falhou de verdade. O chamador usa isso pra
+// decidir se manda o e-mail de "está pronto" (ver lib/checkout-fulfillment.ts).
+export async function prepararPeticao(casoId: string): Promise<boolean> {
   try {
     const { data: row, error } = await supabaseAdmin
       .from("user_casos")
@@ -48,7 +65,7 @@ export async function prepararPeticao(casoId: string): Promise<void> {
     if (!row) throw new Error("caso não encontrado");
 
     // Petição JEC só se aplica a casos de disputa — análise de contrato não vai a JEC.
-    if (!TIPOS_SUPORTADOS.includes(row.tipo_caso as TipoCasoPeticao)) return;
+    if (!TIPOS_SUPORTADOS.includes(row.tipo_caso as TipoCasoPeticao)) return true;
 
     const dados: DadosPeticao = {
       tipo: row.tipo_caso as TipoCasoPeticao,
@@ -67,21 +84,27 @@ export async function prepararPeticao(casoId: string): Promise<void> {
     const { camposFaltantes } = gerarPeticaoJec(dados);
     const status = camposFaltantes.length === 0 ? "completo" : "parcial";
 
-    await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin
       .from("user_casos")
       .update({ peticao_status: status, peticao_gerada_em: new Date().toISOString(), peticao_erro: null })
       .eq("id", casoId);
+    if (updateError) throw updateError;
+
+    return true;
   } catch (err) {
-    console.error("preparar_peticao_erro", { casoId, erro: err instanceof Error ? err.message : "unknown" });
+    const erro = mensagemErro(err);
+    console.error("preparar_peticao_erro", { casoId, erro });
     try {
       await supabaseAdmin
         .from("user_casos")
-        .update({ peticao_status: "erro", peticao_erro: err instanceof Error ? err.message : "unknown" })
+        .update({ peticao_status: "erro", peticao_erro: erro.slice(0, 500) })
         .eq("id", casoId);
-    } catch {
-      // Se nem o update de erro funcionar (ex.: banco fora do ar), não há
-      // mais nada a fazer aqui — o e-mail de confirmação já tem o texto da
-      // petição inline como rede de segurança (ver lib/checkout-fulfillment.ts).
+    } catch (err2) {
+      // Se nem o update de erro funcionar (ex.: coluna ainda não existe no
+      // schema cache do PostgREST, ou banco fora do ar), loga e segue — o
+      // e-mail de confirmação não vai sair (ver checkout-fulfillment.ts).
+      console.error("preparar_peticao_update_erro_falhou", { casoId, erro: mensagemErro(err2) });
     }
+    return false;
   }
 }

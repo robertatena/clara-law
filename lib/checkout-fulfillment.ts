@@ -343,11 +343,20 @@ export async function buscarCasoExistente(params: {
 }): Promise<{ id: string; peticaoStatus: string | null } | null> {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
   const col = params.provider === "stripe" ? "stripe_session_id" : "abacate_transaction_id";
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("user_casos")
     .select("id, peticao_status")
     .eq(col, params.providerId)
     .maybeSingle();
+  // Nunca tratar error como "não encontrado" — um erro de schema (coluna
+  // ausente no cache do PostgREST, por exemplo) também vem com data=null,
+  // mas não é a mesma coisa que "não existe linha". Deixa o chamador decidir
+  // (ver fulfillCheckout: aborta com persist_failed em vez de seguir como
+  // se não houvesse caso nenhum).
+  if (error) {
+    console.error("buscar_caso_existente_error", { provider: params.provider, providerId: params.providerId, code: error.code, message: error.message });
+    throw new Error(`buscar_caso_existente: ${error.code} ${error.message}`);
+  }
   const row = data as { id: string; peticao_status: string | null } | null;
   console.log("buscar_caso_existente", {
     provider: params.provider,
@@ -377,7 +386,16 @@ export async function fulfillCheckout(params: {
   }
 
   // Guarda de idempotência — polling do client pode chamar a cada 4s.
-  const existente = await buscarCasoExistente({ provider, providerId });
+  let existente: { id: string; peticaoStatus: string | null } | null;
+  try {
+    existente = await buscarCasoExistente({ provider, providerId });
+  } catch (err) {
+    // Erro de banco/schema na própria checagem de idempotência — não dá pra
+    // saber se já existe ou não. Mais seguro abortar (sem e-mail, 500 pro
+    // provedor reenviar) do que seguir como se não houvesse caso nenhum.
+    console.error("fulfillment_buscar_existente_falhou", { provider, providerId, error: err instanceof Error ? err.message : String(err) });
+    return { status: "persist_failed" };
+  }
   const peticaoJaResolvida = existente?.peticaoStatus === "parcial" || existente?.peticaoStatus === "completo";
   if (existente && (produto !== "pacote" || peticaoJaResolvida)) {
     console.log("fulfillment_already_done", { provider, providerId, casoId: existente.id, peticaoStatus: existente.peticaoStatus });
@@ -415,10 +433,14 @@ export async function fulfillCheckout(params: {
   // mostrar. Nunca bloqueia o resto do fulfillment se falhar.
   let casoLink: string | undefined;
   if (casoId && produto === "pacote") {
-    try {
-      await prepararPeticao(casoId);
-    } catch (err) {
-      console.error("fulfillment_peticao_failed", { provider, providerId, casoId, error: err instanceof Error ? err.message : "unknown" });
+    const peticaoOk = await prepararPeticao(casoId);
+    if (!peticaoOk) {
+      // prepararPeticao já logou o motivo (preparar_peticao_erro). Não manda
+      // o e-mail de "está pronto" prometendo uma petição que não existe —
+      // devolve persist_failed pro webhook responder 500 e o provedor
+      // reenviar depois (mesmo tratamento do caso não persistido).
+      console.error("fulfillment_peticao_failed_abortando_email", { provider, providerId, casoId });
+      return { status: "persist_failed" };
     }
     try {
       casoLink = `${APP_URL}/caso/${casoId}?token=${signCasoToken(casoId)}`;

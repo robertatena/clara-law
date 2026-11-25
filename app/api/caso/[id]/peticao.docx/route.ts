@@ -41,7 +41,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     .eq("id", id)
     .maybeSingle();
 
-  if (error || !row || !TIPOS_SUPORTADOS.includes(row.tipo_caso as TipoCasoPeticao)) {
+  if (error) {
+    console.error("caso_docx_query_error", { id, code: error.code, message: error.message });
+    return NextResponse.json({ error: "servico_indisponivel" }, { status: 500 });
+  }
+  if (!row || !TIPOS_SUPORTADOS.includes(row.tipo_caso as TipoCasoPeticao)) {
     return NextResponse.json({ error: "caso_nao_encontrado" }, { status: 404 });
   }
 
