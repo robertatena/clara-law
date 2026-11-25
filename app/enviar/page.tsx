@@ -1863,12 +1863,22 @@ export default function Page() {
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-8 h-8 rounded-full bg-amber-50 border border-[#D4AF37] flex items-center justify-center text-[#D4AF37] font-bold text-sm flex-shrink-0">3</div>
                 <div>
-                  <div className="text-xs font-semibold text-[#854F0B] uppercase tracking-wider">Se não resolver — sem advogado</div>
+                  <div className="text-xs font-semibold text-[#854F0B] uppercase tracking-wider">
+                    {avisoValorAtivo?.nivel === "acima_teto" ? "Esse valor passa do teto do Juizado"
+                      : avisoValorAtivo?.nivel === "advogado_obrigatorio" ? "Se não resolver — Juizado Especial"
+                      : "Se não resolver — sem advogado"}
+                  </div>
                   <div className="text-lg font-bold text-[#0e2b50]">Juizado Especial Cível (JEC)</div>
                 </div>
               </div>
               <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-                Se a empresa não responder em até 10 dias, o próximo passo é o Juizado Especial — gratuito e sem advogado. O Kit Juizado prepara a petição e mostra o fórum certo. <strong>R$49,90 · pagamento único.</strong>
+                {avisoValorAtivo?.nivel === "acima_teto" ? (
+                  <>Esse valor passa do teto do Juizado Especial (40 salários mínimos — art. 3º, I, da Lei 9.099/95). O Kit Juizado pode não ser o caminho certo aqui — considere reduzir o pedido até o teto ou buscar a Justiça Comum.</>
+                ) : avisoValorAtivo?.nivel === "advogado_obrigatorio" ? (
+                  <>Se a empresa não responder em até 10 dias, o próximo passo é o Juizado Especial. Acima de 20 salários mínimos, a lei exige advogado (art. 9º, Lei 9.099/95) — o Kit prepara a petição e mostra o fórum certo, mas considere também buscar um advogado. <strong>R$49,90 · pagamento único.</strong></>
+                ) : (
+                  <>Se a empresa não responder em até 10 dias, o próximo passo é o Juizado Especial — gratuito e sem advogado. O Kit Juizado prepara a petição e mostra o fórum certo. <strong>R$49,90 · pagamento único.</strong></>
+                )}
               </p>
 
               {/* Documentos novos para JEC */}
