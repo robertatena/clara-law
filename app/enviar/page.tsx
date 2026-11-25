@@ -5,7 +5,8 @@ import ContratoModal from "@/components/ContratoModal";
 import { salvarCaso, uploadDocumento, uploadContrato, salvarLead } from "@/lib/supabase";
 import { createBrowserSupabase } from "@/lib/supabase-auth";
 import { gerarEmailEmpresa } from "@/lib/gerar-email-empresa";
-import { maskBRL } from "@/lib/format-brl";
+import { maskBRL, parseBRL } from "@/lib/format-brl";
+import { avaliarValorCausa } from "@/lib/jec-limites";
 import { DisclaimerBox } from "@/app/components/DisclaimerBox";
 import OrientacaoOrgaos from "@/components/OrientacaoOrgaos";
 import { useEffect, useRef, useState } from "react";
@@ -146,6 +147,7 @@ export default function Page() {
   // Bagagem — extras
   const [bagPir, setBagPir] = useState("");
   const [bagValor, setBagValor] = useState("");
+  const avisoBagValor = avaliarValorCausa(parseBRL(bagValor));
 
   // Voo cancelado — campos específicos (reusa nomeCompleto, cpf, numVoo, dataVoo, ciaAerea)
   const [voocanOferecido, setVoocanOferecido] = useState("");
@@ -156,6 +158,7 @@ export default function Page() {
   const [cobrancaTipo, setCobrancaTipo] = useState("");
   const [cobrancaEmpresa, setCobrancaEmpresa] = useState("");
   const [cobrancaValor, setCobrancaValor] = useState("");
+  const avisoCobrancaValor = avaliarValorCausa(parseBRL(cobrancaValor));
   const [cobrancaSerasa, setCobrancaSerasa] = useState("");
   const [cobrancaComprovante, setCobrancaComprovante] = useState("");
 
@@ -166,11 +169,23 @@ export default function Page() {
   const [prodOnde, setProdOnde] = useState("");
   const [prodEmpresa, setProdEmpresa] = useState("");
   const [prodValor, setProdValor] = useState("");
+  const avisoProdValor = avaliarValorCausa(parseBRL(prodValor));
 
   // Serviço não entregue
   const [servNome, setServNome] = useState("");
   const [servEmpresa, setServEmpresa] = useState("");
   const [servValor, setServValor] = useState("");
+  const avisoServValor = avaliarValorCausa(parseBRL(servValor));
+
+  // Aviso do valor relevante pro tipo de caso ativo — usado pra ajustar o
+  // texto "Sem advogado" do card do Kit Juizado (Passo 3) quando o valor
+  // já digitado passar de 20 salários mínimos.
+  const avisoValorAtivo =
+    tipoCaso === "bagagem" ? avisoBagValor :
+    tipoCaso === "cobranca_indevida" ? avisoCobrancaValor :
+    tipoCaso === "produto_defeito" ? avisoProdValor :
+    tipoCaso === "servico_nao_entregue" ? avisoServValor :
+    null;
   const [servPrazo, setServPrazo] = useState("");
   const [servComprovante, setServComprovante] = useState("");
   const [servResposta, setServResposta] = useState("");
@@ -1354,6 +1369,11 @@ export default function Page() {
                   <input type="text" inputMode="decimal" value={bagValor ? `R$ ${bagValor}` : ""} onChange={(e) => setBagValor(maskBRL(e.target.value))}
                     placeholder="R$ 0,00"
                     className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                  {avisoBagValor && (
+                    <p className={`text-xs mt-1.5 font-semibold ${avisoBagValor.nivel === "acima_teto" ? "text-red-600" : "text-amber-700"}`}>
+                      ⚠ {avisoBagValor.mensagem}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1397,6 +1417,11 @@ export default function Page() {
                   <input type="text" inputMode="decimal" value={cobrancaValor ? `R$ ${cobrancaValor}` : ""} onChange={(e) => setCobrancaValor(maskBRL(e.target.value))}
                     placeholder="R$ 0,00"
                     className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                  {avisoCobrancaValor && (
+                    <p className={`text-xs mt-1.5 font-semibold ${avisoCobrancaValor.nivel === "acima_teto" ? "text-red-600" : "text-amber-700"}`}>
+                      ⚠ {avisoCobrancaValor.mensagem}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -1512,6 +1537,11 @@ export default function Page() {
                     <input type="text" inputMode="decimal" value={prodValor ? `R$ ${prodValor}` : ""} onChange={(e) => setProdValor(maskBRL(e.target.value))}
                       placeholder="R$ 0,00"
                       className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                    {avisoProdValor && (
+                      <p className={`text-xs mt-1.5 font-semibold ${avisoProdValor.nivel === "acima_teto" ? "text-red-600" : "text-amber-700"}`}>
+                        ⚠ {avisoProdValor.mensagem}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1545,6 +1575,11 @@ export default function Page() {
                   <input type="text" inputMode="decimal" value={servValor ? `R$ ${servValor}` : ""} onChange={(e) => setServValor(maskBRL(e.target.value))}
                     placeholder="R$ 0,00"
                     className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                  {avisoServValor && (
+                    <p className={`text-xs mt-1.5 font-semibold ${avisoServValor.nivel === "acima_teto" ? "text-red-600" : "text-amber-700"}`}>
+                      ⚠ {avisoServValor.mensagem}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -1872,7 +1907,9 @@ export default function Page() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                 {[
                   { icon: "💸", t: "É gratuito",   s: "Sem custas até o julgamento" },
-                  { icon: "🤝", t: "Sem advogado", s: "Para causas até 20 salários mínimos" },
+                  avisoValorAtivo
+                    ? { icon: "⚠️", t: "Advogado necessário", s: avisoValorAtivo.nivel === "acima_teto" ? "Esse valor passa do teto do Juizado" : "Esse valor passa de 20 salários mínimos" }
+                    : { icon: "🤝", t: "Sem advogado", s: "Para causas até 20 salários mínimos" },
                   { icon: "📧", t: "Por e-mail",   s: "Muitos foros aceitam protocolo online" },
                 ].map((item) => (
                   <div key={item.t} className="rounded-[14px] bg-amber-50 border border-amber-100 p-3 text-center">
