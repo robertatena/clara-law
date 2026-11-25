@@ -327,22 +327,36 @@ export async function salvarCasoNoSupabase(params: {
   return casoRowId;
 }
 
-// Checa se um caso já foi fulfilled pra esse provider+providerId. Usado como
+// Busca se já existe user_casos pra esse provider+providerId. Usado como
 // guarda de idempotência antes de rodar o pipeline — permite chamar
 // fulfillCheckout múltiplas vezes (polling, webhook, endpoint admin) sem
-// duplicar user_casos ou mandar email múltiplos.
-export async function jaFoiFulfilled(params: {
+// duplicar linha ou mandar email múltiplos.
+//
+// Devolve o estado, não só um booleano: pra "pacote", uma linha travada em
+// peticao_status 'pendente' (nunca terminou de gerar) ou 'erro' NÃO conta
+// como fulfilled de verdade. Um booleano puro (só "a linha existe?") fazia
+// um reenvio do Stripe/AbacatePay pra uma compra que quebrou no meio do
+// pipeline cair sempre em "already_fulfilled" e nunca se recuperar.
+export async function buscarCasoExistente(params: {
   provider: "stripe" | "pix";
   providerId: string;
-}): Promise<boolean> {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return false;
+}): Promise<{ id: string; peticaoStatus: string | null } | null> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
   const col = params.provider === "stripe" ? "stripe_session_id" : "abacate_transaction_id";
   const { data } = await supabaseAdmin
     .from("user_casos")
-    .select("id")
+    .select("id, peticao_status")
     .eq(col, params.providerId)
     .maybeSingle();
-  return !!data;
+  const row = data as { id: string; peticao_status: string | null } | null;
+  console.log("buscar_caso_existente", {
+    provider: params.provider,
+    providerId: params.providerId,
+    encontrado: !!row,
+    casoId: row?.id ?? null,
+    peticaoStatus: row?.peticao_status ?? null,
+  });
+  return row ? { id: row.id, peticaoStatus: row.peticao_status } : null;
 }
 
 // Pipeline completo: provisiona → salva caso → gera magic link → envia e-mail.
@@ -363,16 +377,24 @@ export async function fulfillCheckout(params: {
   }
 
   // Guarda de idempotência — polling do client pode chamar a cada 4s.
-  if (await jaFoiFulfilled({ provider, providerId })) {
-    console.log("fulfillment_already_done", { provider, providerId });
+  const existente = await buscarCasoExistente({ provider, providerId });
+  const peticaoJaResolvida = existente?.peticaoStatus === "parcial" || existente?.peticaoStatus === "completo";
+  if (existente && (produto !== "pacote" || peticaoJaResolvida)) {
+    console.log("fulfillment_already_done", { provider, providerId, casoId: existente.id, peticaoStatus: existente.peticaoStatus });
     return { status: "already_fulfilled" };
+  }
+  if (existente) {
+    // Linha existe mas peticao_status ainda não é parcial/completo — retoma
+    // o caso já criado em vez de tentar inserir de novo (upsert com o mesmo
+    // stripe_session_id só devolveria esse mesmo id pelo fallback).
+    console.warn("fulfillment_retomando_caso_incompleto", { provider, providerId, casoId: existente.id, peticaoStatus: existente.peticaoStatus });
   }
 
   const userId = await provisionarUsuario(email);
   console.log("fulfillment_user_provisioned", { provider, providerId, email, userId: userId || "(none)" });
 
-  let casoId: string | null = null;
-  if (userId) {
+  let casoId: string | null = existente?.id ?? null;
+  if (!casoId && userId) {
     casoId = await salvarCasoNoSupabase({ userId, email, produto, provider, providerId, metadata });
     console.log("fulfillment_caso_saved", { provider, providerId, userId, casoId: casoId || "(none)" });
   }
