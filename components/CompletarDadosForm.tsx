@@ -5,6 +5,8 @@
 // resolve o fórum pelo CEP e recalcula o status da petição.
 
 import { useState } from "react";
+import { maskBRL, parseBRL } from "@/lib/format-brl";
+import { avaliarValorCausa } from "@/lib/jec-limites";
 
 type Props = {
   token: string;
@@ -28,6 +30,7 @@ export default function CompletarDadosForm({ token, valoresIniciais, onSalvo }: 
   const [nomeEmpresa, setNomeEmpresa] = useState(valoresIniciais?.nomeEmpresa || "");
   const [cnpjEmpresa, setCnpjEmpresa] = useState("");
   const [valorCausa, setValorCausa] = useState("");
+  const avisoValorCausa = avaliarValorCausa(parseBRL(valorCausa));
   const [cepBusca, setCepBusca] = useState("");
   const [cepProprio, setCepProprio] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -114,9 +117,35 @@ export default function CompletarDadosForm({ token, valoresIniciais, onSalvo }: 
 
       <div>
         <label className="block text-sm font-semibold text-slate-700 mb-2">Valor da causa</label>
-        <p className="text-xs text-slate-500 mb-2">Soma dos danos materiais que você pode comprovar + uma estimativa de dano moral, se for o caso.</p>
-        <input type="text" value={valorCausa} onChange={(e) => setValorCausa(e.target.value)} placeholder="R$ 0,00"
+
+        <div className="rounded-[14px] bg-blue-50 border border-blue-100 p-4 mb-3">
+          <div className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3">Como calcular o valor a pedir</div>
+          <div className="space-y-2.5">
+            <div className="flex gap-3 items-start">
+              <span className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 font-bold text-[11px] flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+              <div>
+                <div className="text-xs font-semibold text-blue-800">Dano material — o que você perdeu de dinheiro</div>
+                <div className="text-xs text-blue-700 mt-0.5">O que você pagou ou perdeu e consegue comprovar: valor do produto/serviço, despesas extras, reembolsos devidos, multas cobradas indevidamente.</div>
+              </div>
+            </div>
+            <div className="flex gap-3 items-start">
+              <span className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 font-bold text-[11px] flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+              <div>
+                <div className="text-xs font-semibold text-blue-800">Dano moral — pelo transtorno causado</div>
+                <div className="text-xs text-blue-700 mt-0.5">Você estima um valor, mas quem decide é o juiz — pode ser menor do que o pedido ou não ser concedido.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-xs text-slate-500 mb-2">Soma dos danos materiais que você pode comprovar + uma estimativa de dano moral, se for o caso. O total precisa respeitar os limites do JEC (aviso abaixo).</p>
+        <input type="text" inputMode="decimal" value={valorCausa ? `R$ ${valorCausa}` : ""} onChange={(e) => setValorCausa(maskBRL(e.target.value))} placeholder="R$ 0,00"
           className="w-full rounded-[14px] border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none" />
+        {avisoValorCausa && (
+          <p className={`text-xs mt-1.5 font-semibold ${avisoValorCausa.nivel === "acima_teto" ? "text-red-600" : "text-amber-700"}`}>
+            ⚠ {avisoValorCausa.mensagem}
+          </p>
+        )}
       </div>
 
       <div>

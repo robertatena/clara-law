@@ -25,7 +25,7 @@ function emailValido(email: string): boolean {
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 
-type Modo = "contrato" | "caso" | "jec" | null;
+type Modo = "contrato" | "caso" | null;
 
 type TipoCaso =
   | "voo_atrasado"
@@ -207,19 +207,6 @@ export default function Page() {
   const [docAtraso, setDocAtraso] = useState<File | null>(null);
   const [docDespesas, setDocDespesas] = useState<File | null>(null);
 
-  // JEC state
-  const [cepEmpresa, setCepEmpresa] = useState("");
-  // Padrão: CEP do próprio consumidor (CDC art. 101, I; Lei 9.099/95 art. 4º, III).
-  // Usar o CEP da empresa também é válido (art. 4º, I), mas é a opção secundária.
-  const [cepProprioJec, setCepProprioJec] = useState(true);
-  const [foroJec, setForoJec] = useState<any>(null);
-  const [loadingForo, setLoadingForo] = useState(false);
-  const [nomeEmpresa, setNomeEmpresa] = useState("");
-  const [valorCausa, setValorCausa] = useState("");
-  const [defaultDescricaoJec, setDefaultDescricaoJec] = useState("");
-  const descricaoJecRef = useRef<HTMLTextAreaElement | null>(null);
-  const [peticaoJec, setPeticaoJec] = useState<{ assunto: string; corpo: string } | null>(null);
-
   const [emailUsuario, setEmailUsuario] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -235,8 +222,7 @@ export default function Page() {
   const isCasoAtivo = tipoCaso === "voo_atrasado" || tipoCaso === "voo_cancelado" || tipoCaso === "bagagem" || tipoCaso === "cobranca_indevida" || tipoCaso === "produto_defeito" || tipoCaso === "servico_nao_entregue";
   const totalStepsContrato = 5;
   const totalStepsCaso = 3;
-  const totalStepsJec = 3;
-  const totalSteps = modo === "contrato" ? totalStepsContrato : modo === "jec" ? totalStepsJec : totalStepsCaso;
+  const totalSteps = modo === "contrato" ? totalStepsContrato : totalStepsCaso;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -399,14 +385,6 @@ export default function Page() {
         }
       }
     }
-    if (modo === "jec") {
-      if (step === 1 && !foroJec) { setError("Busque o fórum pelo CEP antes de continuar."); return; }
-      if (step === 2) {
-        if (!nomeEmpresa.trim()) { setError("Informe o nome da empresa."); return; }
-        if (!valorCausa.trim()) { setError("Informe o valor aproximado da causa."); return; }
-        if ((descricaoJecRef.current?.value || "").trim().length < 30) { setError("Descreva o que aconteceu com um pouco mais de detalhe."); return; }
-      }
-    }
     setStep((s) => s + 1);
   }
 
@@ -416,69 +394,6 @@ export default function Page() {
     else setStep((s) => Math.max(1, s - 1));
   }
 
-  async function buscarForoJec() {
-    const cepLimpo = cepEmpresa.replace(/\D/g, "");
-    if (cepLimpo.length !== 8) { setError("Digite o CEP completo da empresa (8 dígitos)."); return; }
-    setError("");
-    setLoadingForo(true);
-    setForoJec(null);
-    try {
-      const res = await fetch(`/api/forum?cep=${cepLimpo}`);
-      const data = await res.json();
-      if (data.encontrado) {
-        setForoJec(data);
-      } else {
-        setError("CEP não encontrado no mapa. Verifique e tente novamente.");
-      }
-    } catch {
-      setError("Erro ao buscar o fórum. Tente novamente.");
-    } finally {
-      setLoadingForo(false);
-    }
-  }
-
-  function gerarPeticaoJec() {
-    if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
-    salvarLead({ email: emailUsuario, origem: "jec" });
-    const descricao = descricaoJecRef.current?.value || "";
-    const foroNome = foroJec?.foro || "Juizado Especial Cível";
-    // Fundamento da competência varia conforme o CEP escolhido pra buscar o
-    // fórum: próprio domicílio (padrão, CDC art. 101, I) ou domicílio do réu /
-    // local do fato (Lei 9.099/95, art. 4º, I) — ver toggle no step 1 do JEC.
-    const competencia = cepProprioJec
-      ? "Ajuíza a presente ação neste Juizado, foro do domicílio do autor, com fundamento no art. 101, I, do Código de Defesa do Consumidor e no art. 4º, III, da Lei 9.099/95."
-      : "Ajuíza a presente ação neste Juizado, foro do domicílio do réu, com fundamento no art. 4º, I, da Lei 9.099/95.";
-    const assunto = `Petição inicial — JEC — ${nomeEmpresa} — R$ ${valorCausa}`;
-    const corpo =
-      `Ao(À) Meritíssimo(a) Juiz(a) de Direito\n` +
-      `${foroNome}\n\n` +
-      `PETIÇÃO INICIAL\n\n` +
-      `Eu, [SEU NOME COMPLETO], [ESTADO CIVIL], [PROFISSÃO], portador(a) do CPF nº [SEU CPF], RG nº [SEU RG], residente à [SEU ENDEREÇO COMPLETO, CIDADE, ESTADO], venho, respeitosamente, à presença de Vossa Excelência propor a presente\n\n` +
-      `AÇÃO DE INDENIZAÇÃO POR DANOS MORAIS E MATERIAIS\n\n` +
-      `em face de ${nomeEmpresa}, pessoa jurídica de direito privado, pelos fatos e fundamentos a seguir expostos.\n\n` +
-      `I. DOS FATOS\n\n` +
-      `${descricao}\n\n` +
-      `II. DA COMPETÊNCIA\n\n` +
-      `${competencia}\n\n` +
-      `III. DO DIREITO\n\n` +
-      `Os fatos narrados configuram violação ao Código de Defesa do Consumidor (Lei 8.078/1990), em especial ao art. 6º, que garante proteção contra práticas abusivas, e ao art. 14, que trata da responsabilidade por danos causados ao consumidor.\n\n` +
-      `O descumprimento e/ou conduta negligente da empresa ré causou ao autor danos materiais e morais, passíveis de reparação nos termos dos arts. 186 e 927 do Código Civil.\n\n` +
-      `IV. DOS PEDIDOS\n\n` +
-      `Diante do exposto, requer:\n` +
-      `a) A condenação da empresa ré ao pagamento de indenização por danos materiais no valor de R$ ${valorCausa};\n` +
-      `b) A condenação ao pagamento de indenização por danos morais, a ser arbitrada por Vossa Excelência;\n` +
-      `c) A condenação ao pagamento das custas processuais, se houver.\n\n` +
-      `Dá-se à causa o valor de R$ ${valorCausa}.\n\n` +
-      `Termos em que pede e espera deferimento.\n\n` +
-      `[Cidade], [DATA]\n\n` +
-      `_______________________________\n` +
-      `[SEU NOME COMPLETO]\n` +
-      `CPF: [SEU CPF]`;
-
-    setPeticaoJec({ assunto, corpo });
-    registrarLead({ email: emailUsuario, modo: "jec", nomeEmpresa, valorCausa, foro: foroJec?.foro, evento: "peticao_gerada" });
-    setStep(99);
-  }
 
   async function analisar() {
     if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
@@ -957,11 +872,9 @@ export default function Page() {
               {step === 0 ? "A Clara está aqui para te ajudar." : "Vamos por etapas."}
             </p>
             <h1 className="text-5xl font-black text-[#0e2b50]">
-              {isResultado && modo === "jec" ? "Sua petição JEC"
-                : isResultado && modo === "caso" ? "Seu plano de ação"
+              {isResultado && modo === "caso" ? "Seu plano de ação"
                 : isResultado ? "Resultado da análise"
                 : modo === "caso" ? "Entenda e encaminhe seu caso"
-                : modo === "jec" ? "Petição JEC"
                 : modo === "contrato" ? "Entenda seu contrato"
                 : "O que você precisa hoje?"}
             </h1>
@@ -1438,7 +1351,7 @@ export default function Page() {
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Qual o valor estimado do prejuízo?</label>
                   <p className="text-xs text-slate-500 mb-2">Some o valor dos itens perdidos, danificados ou furtados.</p>
-                  <input type="text" inputMode="decimal" value={bagValor} onChange={(e) => setBagValor(e.target.value.replace(/[^\d,.]/g, ""))}
+                  <input type="text" inputMode="decimal" value={bagValor ? `R$ ${bagValor}` : ""} onChange={(e) => setBagValor(maskBRL(e.target.value))}
                     placeholder="R$ 0,00"
                     className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
                 </div>
@@ -1481,7 +1394,7 @@ export default function Page() {
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Qual valor estão cobrando?</label>
                   <p className="text-xs text-slate-500 mb-2">Mesmo que seja pequeno, a lei prevê devolução. Coloque o valor que estão cobrando.</p>
-                  <input type="text" inputMode="decimal" value={cobrancaValor} onChange={(e) => setCobrancaValor(e.target.value.replace(/[^\d,.]/g, ""))}
+                  <input type="text" inputMode="decimal" value={cobrancaValor ? `R$ ${cobrancaValor}` : ""} onChange={(e) => setCobrancaValor(maskBRL(e.target.value))}
                     placeholder="R$ 0,00"
                     className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
                 </div>
@@ -1629,7 +1542,7 @@ export default function Page() {
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Qual o valor pago?</label>
-                  <input type="text" inputMode="decimal" value={servValor} onChange={(e) => setServValor(e.target.value.replace(/[^\d,.]/g, ""))}
+                  <input type="text" inputMode="decimal" value={servValor ? `R$ ${servValor}` : ""} onChange={(e) => setServValor(maskBRL(e.target.value))}
                     placeholder="R$ 0,00"
                     className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
                 </div>
@@ -1720,262 +1633,6 @@ export default function Page() {
               </button>
             </div>
           </Shell>
-        )}
-
-        {/* JEC step 1 — encontrar fórum */}
-        {modo === "jec" && step === 1 && (
-          <Shell title={cepProprioJec ? "Qual é o CEP da sua casa?" : "Qual é o CEP da empresa?"} subtitle="O CEP determina qual fórum é competente para o seu caso.">
-            <div className="flex gap-3 mb-2">
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder={cepProprioJec ? "Seu CEP (ex: 01310-100)" : "CEP da empresa (ex: 01310-100)"}
-                value={cepEmpresa}
-                onChange={(e) => {
-                  const v = e.target.value.replace(/\D/g, "").slice(0, 8);
-                  setCepEmpresa(v.length > 5 ? v.slice(0, 5) + "-" + v.slice(5) : v);
-                  setForoJec(null);
-                }}
-                onKeyDown={(e) => e.key === "Enter" && buscarForoJec()}
-                className="flex-1 rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none"
-              />
-              <button
-                type="button"
-                onClick={buscarForoJec}
-                disabled={loadingForo}
-                className="rounded-full bg-[#0e2b50] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50 whitespace-nowrap"
-              >
-                {loadingForo ? "Buscando..." : "Buscar fórum"}
-              </button>
-            </div>
-            <p className="text-sm text-slate-500 mb-1">
-              {cepProprioJec
-                ? "Como consumidor, você pode entrar com a ação no Juizado da sua cidade (CDC, art. 101, I)."
-                : "Digite o CEP da empresa ou do local onde o problema aconteceu (Lei 9.099/95, art. 4º)."}
-            </p>
-            <button
-              type="button"
-              onClick={() => { setCepProprioJec((v) => !v); setCepEmpresa(""); setForoJec(null); }}
-              className="text-sm font-medium text-blue-600 mb-5 block"
-            >
-              {cepProprioJec
-                ? "Prefere usar o endereço da empresa ou do local onde o problema aconteceu? Também pode (Lei 9.099/95, art. 4º) →"
-                : "← Usar o CEP da sua casa (recomendado)"}
-            </button>
-
-            {foroJec && (
-              <div className="rounded-[18px] border border-green-200 bg-green-50 p-5 mb-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xl">🏛️</span>
-                  <span className="text-base font-bold text-[#0e2b50]">{foroJec.foro}</span>
-                </div>
-                <div className="space-y-1 text-sm text-slate-600 mb-3">
-                  <div>📍 {foroJec.endereco}</div>
-                  <div>✉️ <a href={`mailto:${foroJec.email}`} className="text-blue-600 font-medium">{foroJec.email}</a></div>
-                  <div>🕐 {foroJec.horario}</div>
-                </div>
-                <div className="rounded-[10px] bg-white border border-green-200 px-3 py-2 text-xs text-green-700 font-medium">
-                  ✅ Fórum encontrado — clique em Continuar para preencher os detalhes
-                </div>
-              </div>
-            )}
-
-            <Nav nextLabel="Continuar" onNext={next} onBack={back} />
-          </Shell>
-        )}
-
-        {/* JEC step 2 — detalhes do caso */}
-        {modo === "jec" && step === 2 && (
-          <Shell title="Detalhes do seu caso" subtitle="Essas informações serão inseridas na petição formal.">
-            <div className="space-y-5">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Nome da empresa</label>
-                <input
-                  type="text"
-                  value={nomeEmpresa}
-                  onChange={(e) => setNomeEmpresa(e.target.value)}
-                  placeholder="Ex: GOL Linhas Aéreas S.A."
-                  className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Valor da causa (R$)</label>
-
-                {/* Guia de cálculo */}
-                <div className="rounded-[14px] bg-blue-50 border border-blue-100 p-4 mb-3">
-                  <div className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3">Como calcular o valor a pedir</div>
-                  <div className="space-y-3">
-                    <div className="flex gap-3 items-start">
-                      <span className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 font-bold text-[11px] flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-                      <div>
-                        <div className="text-xs font-semibold text-blue-800">Dano material — o que você perdeu de dinheiro</div>
-                        <div className="text-xs text-blue-700 mt-0.5">Valor do produto/serviço não entregue, despesas extras, reembolsos devidos, multas cobradas indevidamente. Use o valor exato.</div>
-                      </div>
-                    </div>
-                    <div className="flex gap-3 items-start">
-                      <span className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 font-bold text-[11px] flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                      <div>
-                        <div className="text-xs font-semibold text-blue-800">Dano moral — pelo transtorno causado</div>
-                        <div className="text-xs text-blue-700 mt-0.5">Nos juizados de SP costuma ser entre <strong>R$2.000 e R$5.000</strong> para casos comuns. Peça R$5.000 — o juiz pode reduzir, mas nunca vai aumentar.</div>
-                      </div>
-                    </div>
-                    <div className="rounded-[10px] bg-white border border-blue-200 px-3 py-2">
-                      <div className="text-xs font-bold text-blue-900">Exemplos práticos:</div>
-                      <div className="mt-1 space-y-0.5 text-xs text-blue-700">
-                        <div>• Voo atrasado sem assistência → R$5.000 a R$8.000</div>
-                        <div>• Produto com defeito (R$800) + moral → R$5.800</div>
-                        <div>• Cobrança indevida (R$300) + negativação indevida → R$5.300</div>
-                        <div>• Serviço não entregue (R$1.500) + moral → R$6.500</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <input
-                  type="text"
-                  value={valorCausa}
-                  onChange={(e) => setValorCausa(e.target.value)}
-                  placeholder="Ex: 5.000,00"
-                  className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none"
-                />
-                <p className="text-xs text-slate-500 mt-1">Dano material + dano moral. Máximo 20 salários mínimos no JEC — acima disso precisa de advogado.</p>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Descreva o que aconteceu</label>
-                <textarea
-                  ref={descricaoJecRef}
-                  rows={8}
-                  defaultValue={defaultDescricaoJec}
-                  placeholder="Ex: Em 05/01/2026, contratei o serviço X da empresa Y pelo valor de R$ Z. A empresa não cumpriu o combinado porque..."
-                  className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none leading-relaxed"
-                />
-                <p className="text-xs text-slate-500 mt-1">Seja específico: datas, valores, o que foi prometido vs. o que aconteceu.</p>
-              </div>
-            </div>
-            <Nav nextLabel="Revisar e gerar" onNext={next} onBack={back} />
-          </Shell>
-        )}
-
-        {/* JEC step 3 — revisão e geração */}
-        {modo === "jec" && step === 3 && (
-          <Shell title="Tudo pronto para gerar" subtitle="Confirme os dados antes de gerar sua petição.">
-            <div className="grid gap-4 md:grid-cols-2 mb-6">
-              <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
-                <div className="text-sm text-slate-500">Fórum competente</div>
-                <div className="mt-1 text-base font-semibold text-[#123047]">{foroJec?.foro}</div>
-                <div className="text-xs text-slate-500 mt-0.5">✉️ {foroJec?.email}</div>
-              </div>
-              <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
-                <div className="text-sm text-slate-500">Empresa ré</div>
-                <div className="mt-1 text-base font-semibold text-[#123047]">{nomeEmpresa}</div>
-              </div>
-              <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
-                <div className="text-sm text-slate-500">Valor da causa</div>
-                <div className="mt-1 text-base font-semibold text-[#123047]">R$ {valorCausa}</div>
-              </div>
-            </div>
-            <div className="mb-6">
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Seu e-mail <span className="text-red-500">*</span></label>
-              <input
-                type="email"
-                required
-                value={emailUsuario}
-                onChange={(e) => setEmailUsuario(e.target.value)}
-                placeholder="voce@email.com"
-                className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none"
-              />
-            </div>
-            <div className="rounded-[14px] bg-amber-50 border border-amber-200 p-4 mb-6">
-              <p className="text-sm text-amber-800 leading-relaxed">
-                💡 <strong>Como funciona:</strong> A Clara gera o modelo de petição agora. Você revisa e protocola no fórum (por e-mail ou presencialmente). <strong>R$49,90 — pagamento único</strong> pelo pacote completo.
-              </p>
-            </div>
-            <div className="flex items-center justify-between mobile-action-row">
-              <button type="button" onClick={back} className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700">Voltar</button>
-              <button type="button" onClick={gerarPeticaoJec} className="rounded-full bg-[#0e2b50] px-6 py-3 text-sm font-semibold text-white">
-                Gerar minha petição
-              </button>
-            </div>
-          </Shell>
-        )}
-
-        {/* RESULTADO JEC */}
-        {step === 99 && modo === "jec" && peticaoJec && (
-          <div className="space-y-5">
-            <div className="rounded-[24px] border-2 border-green-300 bg-green-50 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-3xl">🏛️</span>
-                <div>
-                  <div className="text-xs font-semibold text-green-600 uppercase tracking-wider">Petição gerada com sucesso</div>
-                  <div className="text-xl font-bold text-[#0e2b50]">Seu modelo de petição JEC está pronto — revise e protocole</div>
-                </div>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2 text-sm">
-                <div className="rounded-[14px] bg-white border border-green-200 p-4">
-                  <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Fórum competente</div>
-                  <div className="font-semibold text-[#0e2b50]">{foroJec?.foro}</div>
-                  <div className="text-xs text-slate-500 mt-1">✉️ {foroJec?.email}</div>
-                  <div className="text-xs text-slate-500">📍 {foroJec?.endereco}</div>
-                </div>
-                <div className="rounded-[14px] bg-white border border-green-200 p-4">
-                  <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Empresa ré</div>
-                  <div className="font-semibold text-[#0e2b50]">{nomeEmpresa}</div>
-                  <div className="text-sm text-slate-600 mt-1">Valor da causa: <strong>R$ {valorCausa}</strong></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border border-slate-200 bg-white p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-[#0e2b50]">Petição gerada pela Clara</h3>
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(`${peticaoJec.assunto}\n\n${peticaoJec.corpo}`)}
-                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-[#0e2b50]"
-                >
-                  Copiar tudo
-                </button>
-              </div>
-              <div className="rounded-[14px] bg-slate-50 border border-slate-200 p-4 mb-4">
-                <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Assunto (para protocolo por e-mail)</div>
-                <div className="text-sm font-semibold text-[#0e2b50]">{peticaoJec.assunto}</div>
-              </div>
-              <div className="rounded-[14px] bg-white border border-slate-200 p-4 text-sm text-slate-700 whitespace-pre-line leading-relaxed max-h-96 overflow-y-auto">
-                {peticaoJec.corpo}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="inline-block text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium">Gerado pela Clara · orientativo</span>
-                <span className="inline-block text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-full font-medium">Preencha os campos entre colchetes [ ] antes de protocolar</span>
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border border-amber-200 bg-amber-50 p-6">
-              <h3 className="text-lg font-bold text-[#0e2b50] mb-4">Próximos passos</h3>
-              <div className="space-y-3">
-                {[
-                  { n: "1", t: "Preencha seus dados pessoais", s: "Substitua [SEU NOME], [CPF], [ENDEREÇO] na petição antes de enviar." },
-                  { n: "2", t: "Protocole por e-mail no fórum", s: `Envie a petição para ${foroJec?.email} com documentos que comprovem o caso (notas, prints, recibos).` },
-                  { n: "3", t: "Acompanhe pelo e-mail", s: "O fórum confirmará o recebimento e agendará a audiência de conciliação." },
-                ].map((p) => (
-                  <div key={p.n} className="flex gap-3 items-start">
-                    <div className="w-7 h-7 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 font-bold text-xs flex-shrink-0 mt-0.5">{p.n}</div>
-                    <div>
-                      <div className="text-sm font-semibold text-[#0e2b50]">{p.t}</div>
-                      <div className="text-xs text-slate-600 mt-0.5">{p.s}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border-2 border-[#0e2b50] bg-white p-6 text-center">
-              <div className="text-2xl mb-2">⚖️</div>
-              <h3 className="text-lg font-bold text-[#0e2b50] mb-2">R$49,90 — pagamento único</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Você paga uma única vez pelo pacote completo: notificação, orientações e modelos prontos para você revisar e agir.
-              </p>
-            </div>
-          </div>
         )}
 
         {/* RESULTADO CASO */}
@@ -2269,15 +1926,7 @@ export default function Page() {
                 <>
                   <button
                     type="button"
-                    onClick={() => {
-                      const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
-                      if (cia && cia.id !== "outra") setNomeEmpresa(cia.nome);
-                      const jecDesc = isVoo && nomeCompleto
-                        ? `Passageiro ${nomeCompleto}${cpf ? ", CPF " + cpf : ""}. Voo ${numVoo}${dataVoo ? " em " + new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : ""}. ${SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo || ""}.`
-                        : descricaoCasoRef.current?.value || "";
-                      setDefaultDescricaoJec(jecDesc);
-                      setMostrarContrato(true);
-                    }}
+                    onClick={() => setMostrarContrato(true)}
                     className="w-full rounded-full bg-[#D4AF37] text-[#0e2b50] font-black text-base py-4">
                     Quero meu Kit Juizado — R$49,90 →
                   </button>
@@ -2285,7 +1934,7 @@ export default function Page() {
                     R$49,90 · pagamento único
                     {metodoPagamento === "pix" && <span> · confirmação em segundos</span>}
                   </p>
-                  <DisclaimerBox variant="curto" style={{ marginTop: 10 }} />
+                  <DisclaimerBox variant="compra" style={{ marginTop: 10 }} />
                 </>
               )}
             </div>
@@ -2821,6 +2470,7 @@ function ResultadoContrato({
                 R$9,90 · acesso imediato · pagamento único
                 {metodoPagamento === "pix" && <span> · confirmação em segundos</span>}
               </p>
+              <DisclaimerBox variant="compra" style={{ marginTop: 8 }} />
             </>
           )}
         </div>

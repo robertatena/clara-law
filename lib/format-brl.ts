@@ -11,3 +11,12 @@ export function maskBRL(raw: string): string {
   const reaisFormatado = reais.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return `${reaisFormatado},${centavos}`;
 }
+
+// Converte o resultado de maskBRL ("1.234,56") num número ("1234.56") pra
+// cálculo (ex.: comparar com os limites do JEC em lib/jec-limites.ts).
+export function parseBRL(formatado: string): number {
+  if (!formatado) return 0;
+  const limpo = formatado.replace(/\./g, "").replace(",", ".");
+  const num = parseFloat(limpo);
+  return Number.isFinite(num) ? num : 0;
+}

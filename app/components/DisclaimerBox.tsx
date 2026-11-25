@@ -6,14 +6,17 @@
 // Variantes:
 //   "curto": nota de 1 linha perto de CTAs principais
 //   "exemplos": nota de 1 linha antes de blocos de exemplos ilustrativos
+//   "compra": frase exata exigida perto dos botões de compra (R$49,90/R$9,90)
 
-type Variant = "curto" | "exemplos";
+type Variant = "curto" | "exemplos" | "compra";
 
 const TEXTO: Record<Variant, string> = {
   curto:
     "Plataforma educacional — orienta com base no CDC, não substitui advogado.",
   exemplos:
     "Situações ilustrativas, sem relação com casos reais. Cada caso é único e não há garantia de resultado.",
+  compra:
+    "Plataforma educacional, não substitui advogado.",
 };
 
 export function DisclaimerBox({

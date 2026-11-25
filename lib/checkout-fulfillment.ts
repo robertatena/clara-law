@@ -451,6 +451,25 @@ export async function fulfillCheckout(params: {
     }
   }
 
+  // Rede de segurança contra e-mail duplicado: o guard de peticao_status no
+  // topo já cobre a maioria dos reenvios do provedor, mas duas chamadas bem
+  // próximas (corrida) podem passar por ele antes de qualquer uma escrever
+  // o status novo. email_enviado_em fecha essa brecha. Erro aqui não bloqueia
+  // o envio — na dúvida, manda (pior cenário é um e-mail repetido, não nenhum).
+  if (casoId) {
+    const { data: jaEnviado, error: jaEnviadoError } = await supabaseAdmin
+      .from("user_casos")
+      .select("email_enviado_em")
+      .eq("id", casoId)
+      .maybeSingle();
+    if (jaEnviadoError) {
+      console.error("fulfillment_checar_email_enviado_falhou", { provider, providerId, casoId, code: jaEnviadoError.code, message: jaEnviadoError.message });
+    } else if (jaEnviado?.email_enviado_em) {
+      console.log("fulfillment_email_ja_enviado", { provider, providerId, casoId, emailEnviadoEm: jaEnviado.email_enviado_em });
+      return { status: "already_fulfilled" };
+    }
+  }
+
   const magicLink = await gerarMagicLink(email);
   if (magicLink) console.log("fulfillment_magic_link_ok", { provider, providerId });
 
@@ -460,6 +479,9 @@ export async function fulfillCheckout(params: {
     const tipoCaso = metadata.tipo_caso || undefined;
     await enviarConfirmacaoCompra(email, produto, magicLink ?? undefined, tipoCaso, casoLink);
     console.log("fulfillment_email_sent", { provider, providerId, email, produto, hasMagicLink: !!magicLink });
+    if (casoId) {
+      await supabaseAdmin.from("user_casos").update({ email_enviado_em: new Date().toISOString() }).eq("id", casoId);
+    }
   } catch (err) {
     console.error("fulfillment_email_failed", { provider, providerId, email, produto, error: err instanceof Error ? err.message : "unknown" });
   }
