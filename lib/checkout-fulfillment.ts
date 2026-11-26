@@ -4,23 +4,15 @@
 //
 // Extraído de app/api/webhook/route.ts sem alterar comportamento.
 
-import nodemailer from "nodemailer";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { AREA_LOGADA_ATIVA } from "@/lib/feature-flags";
 import { prepararPeticao } from "@/lib/peticao-pipeline";
 import { signCasoToken } from "@/lib/caso-acesso-token";
+import { transporter, emailConfigurado } from "@/lib/mailer";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.claralaw.com.br";
 
 export type Produto = "pacote" | "analise" | "desconhecido";
-
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS,
-  },
-});
 
 // Mapa de "onde reclamar" por tipo de caso. Espelha a lógica do orientItem
 // no card kit do /enviar (result screen) — mantém consistência entre o que
@@ -156,7 +148,7 @@ export function montarHtml(produto: Produto, magicLinkUrl?: string, tipoCaso?: s
 }
 
 export async function enviarConfirmacaoCompra(email: string, produto: Produto, magicLinkUrl?: string, tipoCaso?: string, casoLink?: string): Promise<void> {
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
+  if (!emailConfigurado()) {
     console.warn("fulfillment_email_skipped_missing_credentials", {
       hasUser: !!process.env.GMAIL_USER,
       hasPass: !!process.env.GMAIL_PASS,

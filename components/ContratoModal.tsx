@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import jsPDF from "jspdf";
+import { trackEvent } from "@/lib/analytics/track";
 
 interface DocumentoField {
   label: string;
@@ -222,6 +223,7 @@ export default function ContratoModal({
       a.click();
       URL.revokeObjectURL(url);
 
+      trackEvent("termos_aceitos");
       onAceitar(blob);
     } finally {
       setGerando(false);

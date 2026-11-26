@@ -25,6 +25,7 @@
     "openai": "^6.32.0",
     "pdf-parse": "^1.1.4",
     "pdfjs-dist": "^4.2.67",
+    "posthog-js": "^1.455.4",
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "stripe": "^20.4.1",

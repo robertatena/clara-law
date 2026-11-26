@@ -37,3 +37,15 @@ export function avaliarValorCausa(valorNumerico: number): AvisoValorCausa | null
 
   return null;
 }
+
+export type FaixaValorCausa = "<20SM" | "20-40SM" | ">40SM";
+
+// Faixa por salários mínimos, pra analytics — nunca o valor em R$ (PII
+// indireta: daria pra inferir dados sensíveis do caso cruzando com outros
+// eventos). Sem faixa pra valor zerado/inválido (undefined = não rastreia).
+export function faixaSalarioMinimo(valorNumerico: number): FaixaValorCausa | undefined {
+  if (!valorNumerico || valorNumerico <= 0) return undefined;
+  if (valorNumerico > LIMITE_TETO_JEC) return ">40SM";
+  if (valorNumerico > LIMITE_SEM_ADVOGADO) return "20-40SM";
+  return "<20SM";
+}

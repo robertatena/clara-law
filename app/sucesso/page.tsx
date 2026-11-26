@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SpamAvisoBox } from "@/app/components/SpamAvisoBox";
 import { AREA_LOGADA_ATIVA } from "@/lib/feature-flags";
+import { trackEvent } from "@/lib/analytics/track";
 
 type EmailGerado = {
   assunto: string;
@@ -54,6 +55,22 @@ export default function SucessoPage() {
       else if (p === "pacote") setProduto("pacote");
       sessionId = qs.get("session_id");
       pixId = qs.get("src") === "pix" ? qs.get("id") : null;
+
+      // Dedupe por sessão/transação — refresh ou "voltar" na /sucesso não
+      // deve contar uma segunda compra no funil.
+      const idCompra = sessionId || pixId;
+      if (idCompra) {
+        const chave = `clara_compra_tracked:${idCompra}`;
+        let jaRastreado = false;
+        try { jaRastreado = !!localStorage.getItem(chave); } catch { /* segue sem dedupe */ }
+        if (!jaRastreado) {
+          trackEvent("compra_concluida", {
+            produto: p === "analise" ? "analise" : "pacote",
+            metodo: pixId ? "pix" : "cartao",
+          });
+          try { localStorage.setItem(chave, "1"); } catch { /* sem persistência — pode rastrear de novo num refresh */ }
+        }
+      }
     } catch { /* ignora */ }
 
     try {

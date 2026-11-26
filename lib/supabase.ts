@@ -67,12 +67,27 @@ export async function salvarLead(dados: {
   email: string;
   origem: "caso" | "contrato" | "jec";
   tipo_caso?: string;
-}) {
-  if (!dados.email) return;
-  const { error } = await supabase
+  querLembrete?: boolean;
+  utm?: { utm_source?: string; utm_medium?: string; utm_campaign?: string };
+}): Promise<string | null> {
+  if (!dados.email) return null;
+  const { querLembrete, utm, ...resto } = dados;
+  const { data, error } = await supabase
     .from("leads")
-    .insert([{ ...dados, converteu: false, criado_em: new Date().toISOString() }]);
-  if (error) console.log("Erro ao salvar lead:", error.message);
+    .insert([{
+      ...resto,
+      ...utm,
+      quer_lembrete: querLembrete ?? false,
+      converteu: false,
+      criado_em: new Date().toISOString(),
+    }])
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    console.log("Erro ao salvar lead:", error.message);
+    return null;
+  }
+  return (data as { id: string } | null)?.id ?? null;
 }
 
 export async function marcarEmailEnviado(casoId: string) {
