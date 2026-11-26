@@ -34,7 +34,7 @@ export async function GET(req: Request) {
     .eq("quer_lembrete", true)
     .is("lembrete_enviado_em", null)
     .is("descadastrado_em", null)
-    .lte("criado_em", cortes)
+    .lte("created_at", cortes)
     .not("email", "is", null);
 
   if (queryError) {

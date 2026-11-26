@@ -72,6 +72,9 @@ export async function salvarLead(dados: {
 }): Promise<string | null> {
   if (!dados.email) return null;
   const { querLembrete, utm, ...resto } = dados;
+  // created_at tem default NOW() na tabela — não envia explícito, pra não
+  // depender de um nome de coluna que já causou um bug (criado_em não existe
+  // de verdade; a coluna real é created_at).
   const { data, error } = await supabase
     .from("leads")
     .insert([{
@@ -79,12 +82,11 @@ export async function salvarLead(dados: {
       ...utm,
       quer_lembrete: querLembrete ?? false,
       converteu: false,
-      criado_em: new Date().toISOString(),
     }])
     .select("id")
     .maybeSingle();
   if (error) {
-    console.log("Erro ao salvar lead:", error.message);
+    console.error("salvar_lead_error", { email: dados.email, origem: dados.origem, code: error.code, message: error.message });
     return null;
   }
   return (data as { id: string } | null)?.id ?? null;
