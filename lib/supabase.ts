@@ -63,33 +63,28 @@ export async function uploadContrato(casoId: string, blob: Blob, nomePassageiro 
   return path;
 }
 
+// Grava via /api/leads (service role, servidor) em vez do cliente anon
+// direto — a tabela leads tem RLS com policy de INSERT pra anon mas SEM
+// policy de SELECT (não expõe e-mail de ninguém), então um insert feito no
+// browser com .select() pedia RETURNING, era negado pelo RLS e o insert
+// inteiro falhava com 401 (achado real: a tabela tinha 0 linhas por isso).
 export async function salvarLead(dados: {
   email: string;
   origem: "caso" | "contrato" | "jec";
   tipo_caso?: string;
   querLembrete?: boolean;
   utm?: { utm_source?: string; utm_medium?: string; utm_campaign?: string };
-}): Promise<string | null> {
-  if (!dados.email) return null;
-  const { querLembrete, utm, ...resto } = dados;
-  // created_at tem default NOW() na tabela — não envia explícito, pra não
-  // depender de um nome de coluna que já causou um bug (criado_em não existe
-  // de verdade; a coluna real é created_at).
-  const { data, error } = await supabase
-    .from("leads")
-    .insert([{
-      ...resto,
-      ...utm,
-      quer_lembrete: querLembrete ?? false,
-      converteu: false,
-    }])
-    .select("id")
-    .maybeSingle();
-  if (error) {
-    console.error("salvar_lead_error", { email: dados.email, origem: dados.origem, code: error.code, message: error.message });
-    return null;
+}): Promise<void> {
+  if (!dados.email) return;
+  try {
+    await fetch("/api/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(dados),
+    });
+  } catch (err) {
+    console.log("Erro ao salvar lead:", err instanceof Error ? err.message : err);
   }
-  return (data as { id: string } | null)?.id ?? null;
 }
 
 export async function marcarEmailEnviado(casoId: string) {
