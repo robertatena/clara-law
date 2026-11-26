@@ -164,7 +164,7 @@ export default function ProblemaPage() {
 
           <div style={{ fontSize: 17, color: "#374151", lineHeight: 1.85, marginBottom: 32 }}>
             <p style={{ marginBottom: 20 }}>
-              A maior parte dos conflitos de consumo se resolve <strong style={{ color: "#1a2340" }}>antes de chegar ao fórum</strong>.
+              Muitos conflitos de consumo se resolvem <strong style={{ color: "#1a2340" }}>antes de chegar ao fórum</strong>.
               Uma notificação bem escrita, citando a lei certa e o prazo certo, costuma ser suficiente para a empresa resolver —
               porque ela sabe exatamente o que vem depois.
             </p>

@@ -381,7 +381,7 @@ export default function CasoPage() {
                       // Resolver problema: fluxo de disputa (comportamento atual, intocado)
                       { titulo: "Caso registrado", concluido: true, data: fmt(caso.created_at) },
                       { titulo: "E-mail de notificação enviado", subtitulo: "Você envia direto do seu e-mail — a Clara só prepara o texto.", concluido: enviouNegociar, data: fmt(caso.email_enviado_em) },
-                      { titulo: "Aguardando resposta da empresa", subtitulo: "A empresa costuma responder em até 5 dias úteis.", concluido: false },
+                      { titulo: "Aguardando resposta da empresa", subtitulo: "Dê à empresa até 10 dias para responder.", concluido: false },
                       { titulo: "Caso resolvido", subtitulo: "Quando a empresa devolver o valor, cumprir o combinado ou o JEC decidir.", concluido: !!caso.resolvido_em, data: fmt(caso.resolvido_em) },
                     ];
                 return (

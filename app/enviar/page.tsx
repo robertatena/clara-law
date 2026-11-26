@@ -1,9 +1,14 @@
-"use client";
+﻿"use client";
 
 import LegalInsightsCard from "@/components/LegalInsightsCard";
 import ContratoModal from "@/components/ContratoModal";
 import { salvarCaso, uploadDocumento, uploadContrato, salvarLead } from "@/lib/supabase";
 import { createBrowserSupabase } from "@/lib/supabase-auth";
+import { gerarEmailEmpresa } from "@/lib/gerar-email-empresa";
+import { maskBRL, parseBRL } from "@/lib/format-brl";
+import { avaliarValorCausa } from "@/lib/jec-limites";
+import { DisclaimerBox } from "@/app/components/DisclaimerBox";
+import OrientacaoOrgaos from "@/components/OrientacaoOrgaos";
 import { useEffect, useRef, useState } from "react";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -19,120 +24,9 @@ function emailValido(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 }
 
-// Config do roadmap "O que você vai fazer" — varia por tipoCaso.
-// Etapa 3 (JEC) é igual para todos; etapas 1 e 2 mudam título/texto/documentos.
-type EtapaRoadmap = { titulo: string; texto: string; documentos: string[] };
-function getRoadmapConfig(tipo: string | null): { etapa1: EtapaRoadmap; etapa2: EtapaRoadmap } {
-  if (tipo === "cobranca_indevida") {
-    return {
-      etapa1: {
-        titulo: "Você envia a notificação para a empresa",
-        texto: "A Clara gerou o e-mail com os artigos do CDC certos. Você copia e envia do seu próprio e-mail. Muitas empresas resolvem nesta etapa.",
-        documentos: [
-          "Comprovante de pagamento ou contrato (se tiver)",
-          "Print da cobrança ou extrato",
-          "Print da negativação no Serasa/SPC (se aplicável)",
-        ],
-      },
-      etapa2: {
-        titulo: "Você registra no Procon e consumidor.gov.br",
-        texto: "A Clara te mostra onde registrar. Isso pressiona a empresa e cria histórico oficial — essencial se precisar ir ao JEC.",
-        documentos: [
-          "Protocolo de atendimento da empresa — número recebido na Etapa 1",
-          "Print ou e-mail mostrando que a empresa não respondeu",
-        ],
-      },
-    };
-  }
-  if (tipo === "produto_defeito") {
-    return {
-      etapa1: {
-        titulo: "Você envia a notificação para a loja/fabricante",
-        texto: "A Clara gerou o e-mail com base no CDC Art. 18. Você copia e envia do seu próprio e-mail. A maioria das lojas resolve nesta etapa.",
-        documentos: [
-          "Nota fiscal ou comprovante de compra",
-          "Foto do defeito ou print do problema",
-          "Print da recusa da loja (e-mail, chat, etc)",
-        ],
-      },
-      etapa2: {
-        titulo: "Você registra no Procon e Reclame Aqui",
-        texto: "A Clara te mostra onde registrar. Isso pressiona a empresa publicamente — essencial se precisar ir ao JEC.",
-        documentos: [
-          "Protocolo de atendimento da loja — número recebido na Etapa 1",
-          "Print ou e-mail mostrando que a loja não respondeu",
-        ],
-      },
-    };
-  }
-  if (tipo === "bagagem") {
-    return {
-      etapa1: {
-        titulo: "Você envia a notificação para a cia aérea",
-        texto: "A Clara gerou o e-mail com base na Resolução ANAC 400/2016 e na Convenção de Montreal. Você copia e envia do seu próprio e-mail.",
-        documentos: [
-          "Comprovante do voo (bilhete ou boarding pass)",
-          "PIR — Property Irregularity Report (se tiver)",
-          "Fotos dos danos na mala e nos itens",
-          "Nota fiscal dos itens danificados ou furtados",
-        ],
-      },
-      etapa2: {
-        titulo: "Você registra na ANAC e consumidor.gov.br",
-        texto: "A Clara te mostra onde registrar. Isso pressiona a empresa publicamente e cria histórico oficial — essencial se precisar ir ao JEC.",
-        documentos: [
-          "Protocolo de atendimento da cia — número recebido na Etapa 1",
-          "Print ou e-mail mostrando que a empresa não respondeu",
-        ],
-      },
-    };
-  }
-  if (tipo === "servico_nao_entregue") {
-    return {
-      etapa1: {
-        titulo: "Você envia a notificação para a empresa",
-        texto: "A Clara gerou o e-mail com base no CDC art. 35 (inexecução do serviço). Você copia e envia do seu próprio e-mail — muitas empresas resolvem nesta etapa.",
-        documentos: [
-          "Comprovante de pagamento",
-          "Print da contratação (site, WhatsApp, contrato, e-mail)",
-          "Print das tentativas de contato com a empresa",
-        ],
-      },
-      etapa2: {
-        titulo: "Você registra no Procon e consumidor.gov.br",
-        texto: "A Clara te mostra onde registrar. Isso pressiona a empresa e cria histórico oficial — essencial se precisar ir ao JEC.",
-        documentos: [
-          "Protocolo de atendimento da empresa — número recebido na Etapa 1",
-          "Print ou e-mail mostrando que a empresa não respondeu",
-        ],
-      },
-    };
-  }
-  // Default: voo_atrasado / voo_cancelado
-  return {
-    etapa1: {
-      titulo: "Você envia a notificação para a cia aérea",
-      texto: "A Clara gerou o e-mail com a lei certa. Você copia e envia do seu próprio e-mail. A maioria das empresas responde nesta etapa.",
-      documentos: [
-        "Comprovante de reserva ou bilhete",
-        "Comprovante do problema — print do app, e-mail da cia ou boarding pass",
-        "Notas de despesas extras, se tiver — hotel, refeição",
-      ],
-    },
-    etapa2: {
-      titulo: "Você registra na ANAC e consumidor.gov.br",
-      texto: "A Clara te mostra exatamente onde e como registrar. Isso pressiona a empresa publicamente e cria histórico oficial — essencial se precisar ir ao JEC.",
-      documentos: [
-        "Protocolo de atendimento da cia — número recebido na Etapa 1",
-        "Print ou e-mail mostrando que a empresa não respondeu",
-      ],
-    },
-  };
-}
-
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
 
-type Modo = "contrato" | "caso" | "jec" | null;
+type Modo = "contrato" | "caso" | null;
 
 type TipoCaso =
   | "voo_atrasado"
@@ -160,7 +54,7 @@ type ResultData = {
   plano_acao?: {
     resumo_direitos?: string;
     email_empresa?: { assunto: string; corpo: string };
-    valor_estimado?: string;
+    pedidos_cabiveis?: string[];
   };
 };
 
@@ -244,16 +138,16 @@ export default function Page() {
   const [numVoo, setNumVoo] = useState("");
   const [dataVoo, setDataVoo] = useState("");
 
-  // Campos estruturados para calcularProbabilidade e e-mail
+  // Campos estruturados pro e-mail de notificação e registro do caso
   const [tempoAtraso, setTempoAtraso] = useState("");
   const [assistenciaComida, setAssistenciaComida] = useState("");
   const [assistenciaHotel, setAssistenciaHotel] = useState("");
   const [prejuizoExtra, setPrejuizoExtra] = useState("");
-  const [avisoPrevia] = useState("");
   const [tipoBagagem, setTipoBagagem] = useState("");
   // Bagagem — extras
   const [bagPir, setBagPir] = useState("");
   const [bagValor, setBagValor] = useState("");
+  const avisoBagValor = avaliarValorCausa(parseBRL(bagValor));
 
   // Voo cancelado — campos específicos (reusa nomeCompleto, cpf, numVoo, dataVoo, ciaAerea)
   const [voocanOferecido, setVoocanOferecido] = useState("");
@@ -264,6 +158,7 @@ export default function Page() {
   const [cobrancaTipo, setCobrancaTipo] = useState("");
   const [cobrancaEmpresa, setCobrancaEmpresa] = useState("");
   const [cobrancaValor, setCobrancaValor] = useState("");
+  const avisoCobrancaValor = avaliarValorCausa(parseBRL(cobrancaValor));
   const [cobrancaSerasa, setCobrancaSerasa] = useState("");
   const [cobrancaComprovante, setCobrancaComprovante] = useState("");
 
@@ -274,11 +169,23 @@ export default function Page() {
   const [prodOnde, setProdOnde] = useState("");
   const [prodEmpresa, setProdEmpresa] = useState("");
   const [prodValor, setProdValor] = useState("");
+  const avisoProdValor = avaliarValorCausa(parseBRL(prodValor));
 
   // Serviço não entregue
   const [servNome, setServNome] = useState("");
   const [servEmpresa, setServEmpresa] = useState("");
   const [servValor, setServValor] = useState("");
+  const avisoServValor = avaliarValorCausa(parseBRL(servValor));
+
+  // Aviso do valor relevante pro tipo de caso ativo — usado pra ajustar o
+  // texto "Sem advogado" do card do Kit Juizado (Passo 3) quando o valor
+  // já digitado passar de 20 salários mínimos.
+  const avisoValorAtivo =
+    tipoCaso === "bagagem" ? avisoBagValor :
+    tipoCaso === "cobranca_indevida" ? avisoCobrancaValor :
+    tipoCaso === "produto_defeito" ? avisoProdValor :
+    tipoCaso === "servico_nao_entregue" ? avisoServValor :
+    null;
   const [servPrazo, setServPrazo] = useState("");
   const [servComprovante, setServComprovante] = useState("");
   const [servResposta, setServResposta] = useState("");
@@ -302,25 +209,18 @@ export default function Page() {
 
   // Novos estados
   const [telefone, setTelefone] = useState("");
+  // Gate do Kit Juizado — CPF/telefone/documentos/Termos só são pedidos aqui,
+  // no momento da compra, nunca antes do plano de ação e do e-mail grátis.
   const [mostrarContrato, setMostrarContrato] = useState(false);
-  const [contratoAceito, setContratoAceito] = useState(false);
   const [casoId, setCasoId] = useState<string | null>(null);
+  // Token assinado pelo servidor (/api/caso/preparar-email) que comprova que
+  // o e-mail de notificação exibido veio de lá — usado só pra saber se o
+  // aviso "te mandamos uma cópia" é verdade (a cópia em si já foi disparada
+  // em analisarCaso() assim que o token chegou).
+  const [emailCopiaToken, setEmailCopiaToken] = useState<string | null>(null);
   const [docBilhete, setDocBilhete] = useState<File | null>(null);
   const [docAtraso, setDocAtraso] = useState<File | null>(null);
   const [docDespesas, setDocDespesas] = useState<File | null>(null);
-
-  // JEC state
-  const [cepEmpresa, setCepEmpresa] = useState("");
-  // Padrão: CEP do próprio consumidor (CDC art. 101, I; Lei 9.099/95 art. 4º, III).
-  // Usar o CEP da empresa também é válido (art. 4º, I), mas é a opção secundária.
-  const [cepProprioJec, setCepProprioJec] = useState(true);
-  const [foroJec, setForoJec] = useState<any>(null);
-  const [loadingForo, setLoadingForo] = useState(false);
-  const [nomeEmpresa, setNomeEmpresa] = useState("");
-  const [valorCausa, setValorCausa] = useState("");
-  const [defaultDescricaoJec, setDefaultDescricaoJec] = useState("");
-  const descricaoJecRef = useRef<HTMLTextAreaElement | null>(null);
-  const [peticaoJec, setPeticaoJec] = useState<{ assunto: string; corpo: string } | null>(null);
 
   const [emailUsuario, setEmailUsuario] = useState("");
   const [error, setError] = useState("");
@@ -337,8 +237,7 @@ export default function Page() {
   const isCasoAtivo = tipoCaso === "voo_atrasado" || tipoCaso === "voo_cancelado" || tipoCaso === "bagagem" || tipoCaso === "cobranca_indevida" || tipoCaso === "produto_defeito" || tipoCaso === "servico_nao_entregue";
   const totalStepsContrato = 5;
   const totalStepsCaso = 3;
-  const totalStepsJec = 3;
-  const totalSteps = modo === "contrato" ? totalStepsContrato : modo === "jec" ? totalStepsJec : totalStepsCaso;
+  const totalSteps = modo === "contrato" ? totalStepsContrato : totalStepsCaso;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -501,14 +400,6 @@ export default function Page() {
         }
       }
     }
-    if (modo === "jec") {
-      if (step === 1 && !foroJec) { setError("Busque o fórum pelo CEP antes de continuar."); return; }
-      if (step === 2) {
-        if (!nomeEmpresa.trim()) { setError("Informe o nome da empresa."); return; }
-        if (!valorCausa.trim()) { setError("Informe o valor aproximado da causa."); return; }
-        if ((descricaoJecRef.current?.value || "").trim().length < 30) { setError("Descreva o que aconteceu com um pouco mais de detalhe."); return; }
-      }
-    }
     setStep((s) => s + 1);
   }
 
@@ -518,69 +409,6 @@ export default function Page() {
     else setStep((s) => Math.max(1, s - 1));
   }
 
-  async function buscarForoJec() {
-    const cepLimpo = cepEmpresa.replace(/\D/g, "");
-    if (cepLimpo.length !== 8) { setError("Digite o CEP completo da empresa (8 dígitos)."); return; }
-    setError("");
-    setLoadingForo(true);
-    setForoJec(null);
-    try {
-      const res = await fetch(`/api/forum?cep=${cepLimpo}`);
-      const data = await res.json();
-      if (data.encontrado) {
-        setForoJec(data);
-      } else {
-        setError("CEP não encontrado no mapa. Verifique e tente novamente.");
-      }
-    } catch {
-      setError("Erro ao buscar o fórum. Tente novamente.");
-    } finally {
-      setLoadingForo(false);
-    }
-  }
-
-  function gerarPeticaoJec() {
-    if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
-    salvarLead({ email: emailUsuario, origem: "jec" });
-    const descricao = descricaoJecRef.current?.value || "";
-    const foroNome = foroJec?.foro || "Juizado Especial Cível";
-    // Fundamento da competência varia conforme o CEP escolhido pra buscar o
-    // fórum: próprio domicílio (padrão, CDC art. 101, I) ou domicílio do réu /
-    // local do fato (Lei 9.099/95, art. 4º, I) — ver toggle no step 1 do JEC.
-    const competencia = cepProprioJec
-      ? "Ajuíza a presente ação neste Juizado, foro do domicílio do autor, com fundamento no art. 101, I, do Código de Defesa do Consumidor e no art. 4º, III, da Lei 9.099/95."
-      : "Ajuíza a presente ação neste Juizado, foro do domicílio do réu, com fundamento no art. 4º, I, da Lei 9.099/95.";
-    const assunto = `Petição inicial — JEC — ${nomeEmpresa} — R$ ${valorCausa}`;
-    const corpo =
-      `Ao(À) Meritíssimo(a) Juiz(a) de Direito\n` +
-      `${foroNome}\n\n` +
-      `PETIÇÃO INICIAL\n\n` +
-      `Eu, [SEU NOME COMPLETO], [ESTADO CIVIL], [PROFISSÃO], portador(a) do CPF nº [SEU CPF], RG nº [SEU RG], residente à [SEU ENDEREÇO COMPLETO, CIDADE, ESTADO], venho, respeitosamente, à presença de Vossa Excelência propor a presente\n\n` +
-      `AÇÃO DE INDENIZAÇÃO POR DANOS MORAIS E MATERIAIS\n\n` +
-      `em face de ${nomeEmpresa}, pessoa jurídica de direito privado, pelos fatos e fundamentos a seguir expostos.\n\n` +
-      `I. DOS FATOS\n\n` +
-      `${descricao}\n\n` +
-      `II. DA COMPETÊNCIA\n\n` +
-      `${competencia}\n\n` +
-      `III. DO DIREITO\n\n` +
-      `Os fatos narrados configuram violação ao Código de Defesa do Consumidor (Lei 8.078/1990), em especial ao art. 6º, que garante proteção contra práticas abusivas, e ao art. 14, que trata da responsabilidade por danos causados ao consumidor.\n\n` +
-      `O descumprimento e/ou conduta negligente da empresa ré causou ao autor danos materiais e morais, passíveis de reparação nos termos dos arts. 186 e 927 do Código Civil.\n\n` +
-      `IV. DOS PEDIDOS\n\n` +
-      `Diante do exposto, requer:\n` +
-      `a) A condenação da empresa ré ao pagamento de indenização por danos materiais no valor de R$ ${valorCausa};\n` +
-      `b) A condenação ao pagamento de indenização por danos morais, a ser arbitrada por Vossa Excelência;\n` +
-      `c) A condenação ao pagamento das custas processuais, se houver.\n\n` +
-      `Dá-se à causa o valor de R$ ${valorCausa}.\n\n` +
-      `Termos em que pede e espera deferimento.\n\n` +
-      `[Cidade], [DATA]\n\n` +
-      `_______________________________\n` +
-      `[SEU NOME COMPLETO]\n` +
-      `CPF: [SEU CPF]`;
-
-    setPeticaoJec({ assunto, corpo });
-    registrarLead({ email: emailUsuario, modo: "jec", nomeEmpresa, valorCausa, foro: foroJec?.foro, evento: "peticao_gerada" });
-    setStep(99);
-  }
 
   async function analisar() {
     if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
@@ -637,6 +465,16 @@ export default function Page() {
       setLoading(true); setError(""); setResultado(null);
       let descricaoCaso = descricaoCasoRef.current?.value || "";
       const cia = CIAS_AEREAS.find((c) => c.id === ciaAerea);
+      // Pra voo, o nome da empresa vem do catálogo (cia). Pros outros tipos,
+      // vem do campo "Qual empresa?" que o usuário já preencheu — sem isso,
+      // o cabeçalho do e-mail ficava com o placeholder "[NOME DA EMPRESA...]".
+      const nomeEmpresaInformada =
+        tipoCaso === "produto_defeito" ? prodEmpresa :
+        tipoCaso === "servico_nao_entregue" ? servEmpresa :
+        tipoCaso === "cobranca_indevida" ? cobrancaEmpresa :
+        undefined;
+      const ciaParaEmail: { nome?: string; email?: string } | undefined =
+        cia ?? (nomeEmpresaInformada ? { nome: nomeEmpresaInformada } : undefined);
       if (isVoo) {
         const tipoLabel: Record<string,string> = { "voo_atrasado": "atraso do voo", "voo_cancelado": "cancelamento do voo", "bagagem": "problema com bagagem" };
         const dataFormatada = dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : "data não informada";
@@ -741,15 +579,48 @@ export default function Page() {
       const raw = await res.text();
       let data: any;
       try { data = JSON.parse(raw); } catch { data = {}; }
-      if (!data.plano_acao) {
-        data.plano_acao = {
-          resumo_direitos: gerarResumoDireitos(tipoCaso!, cia),
-          email_empresa: gerarEmailEmpresa(tipoCaso!, descricaoCaso, cia),
-          valor_estimado: estimarValor(tipoCaso!),
-        };
+      if (!data.plano_acao) data.plano_acao = {};
+      data.plano_acao.resumo_direitos = data.plano_acao.resumo_direitos || gerarResumoDireitos(tipoCaso!, cia);
+      data.plano_acao.pedidos_cabiveis = data.plano_acao.pedidos_cabiveis || pedidosCabiveis(tipoCaso!);
+
+      // O e-mail de notificação e o token pra mandar cópia são sempre gerados
+      // no SERVIDOR (/api/caso/preparar-email) — nunca confiamos em
+      // assunto/corpo computados aqui pra disparar e-mail de verdade depois.
+      // Se essa chamada falhar, cai pro gerador local só pra exibição —
+      // nesse caso não há token, então a cópia por e-mail não é enviada.
+      let token: string | null = null;
+      try {
+        const prepRes = await fetch("/api/caso/preparar-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tipoCaso, descricao: descricaoCaso,
+            ciaNome: ciaParaEmail?.nome, ciaEmail: ciaParaEmail?.email,
+            email: emailUsuario,
+          }),
+        });
+        const prepData = await prepRes.json();
+        if (prepRes.ok && prepData.assunto && prepData.corpo) {
+          data.plano_acao.email_empresa = { assunto: prepData.assunto, corpo: prepData.corpo };
+          token = prepData.token;
+        }
+      } catch { /* segue com o fallback abaixo */ }
+      if (!data.plano_acao.email_empresa) {
+        data.plano_acao.email_empresa = gerarEmailEmpresa(tipoCaso!, descricaoCaso, ciaParaEmail);
       }
+
       setResultado(data);
+      setEmailCopiaToken(token);
       registrarLead({ email: emailUsuario, modo: "caso", tipoCaso, ciaAerea, evento: "caso_gerado" });
+      // Manda uma cópia do e-mail grátis pro próprio usuário — não bloqueia a
+      // navegação se falhar. Só dispara quando temos o token assinado.
+      if (token) {
+        fetch("/api/enviar-copia-notificacao", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        }).catch(() => {});
+      }
       setStep(99);
     } catch (err: any) {
       setError(err?.message || "Erro ao analisar o caso.");
@@ -788,6 +659,13 @@ export default function Page() {
   // usada no metadata do provider de pagamento.
   function prepararCheckoutMetadata(): string {
     const cia = CIAS_AEREAS.find((c) => c.id === ciaAerea);
+    const nomeEmpresaInformada =
+      tipoCaso === "produto_defeito" ? prodEmpresa :
+      tipoCaso === "servico_nao_entregue" ? servEmpresa :
+      tipoCaso === "cobranca_indevida" ? cobrancaEmpresa :
+      undefined;
+    const ciaParaEmail: { nome?: string; email?: string } | undefined =
+      cia ?? (nomeEmpresaInformada ? { nome: nomeEmpresaInformada } : undefined);
     const dataFmt = dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : "";
     let descricao = "";
     if (isVoo) {
@@ -803,7 +681,7 @@ export default function Page() {
 
     // Salva o e-mail gerado no localStorage pra /sucesso mostrar
     try {
-      const emailGerado = gerarEmailEmpresa(tipoCaso!, descricao, cia);
+      const emailGerado = gerarEmailEmpresa(tipoCaso!, descricao, ciaParaEmail);
       const paraEmpresa =
         isVoo ? (cia && cia.id !== "outra" && cia.email ? cia.email : "consulte o site da companhia") :
         tipoCaso === "cobranca_indevida" ? "consulte o site da empresa (SAC)" :
@@ -1009,11 +887,9 @@ export default function Page() {
               {step === 0 ? "A Clara está aqui para te ajudar." : "Vamos por etapas."}
             </p>
             <h1 className="text-5xl font-black text-[#0e2b50]">
-              {isResultado && modo === "jec" ? "Sua petição JEC"
-                : isResultado && modo === "caso" ? "Seu plano de ação"
+              {isResultado && modo === "caso" ? "Seu plano de ação"
                 : isResultado ? "Resultado da análise"
-                : modo === "caso" ? "Resolva seu caso"
-                : modo === "jec" ? "Petição JEC"
+                : modo === "caso" ? "Entenda e encaminhe seu caso"
                 : modo === "contrato" ? "Entenda seu contrato"
                 : "O que você precisa hoje?"}
             </h1>
@@ -1205,23 +1081,13 @@ export default function Page() {
         {modo === "caso" && step === 2 && tipoCaso === "voo_atrasado" && (
           <Shell title="Seus dados para o caso" subtitle="A Clara vai preparar tudo com seu nome e número de voo.">
             <div className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Nome completo</label>
-                  <input type="text" value={nomeCompleto} onChange={(e) => setNomeCompleto(e.target.value)}
-                    placeholder="Como consta no documento de identidade"
-                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">CPF <span className="text-slate-400 font-normal">(opcional)</span></label>
-                  <input type="text" value={cpf} onChange={(e) => {
-                    const v = e.target.value.replace(/\D/g, "").slice(0, 11);
-                    setCpf(v.length > 9 ? v.slice(0,3)+"."+v.slice(3,6)+"."+v.slice(6,9)+"-"+v.slice(9) : v.length > 6 ? v.slice(0,3)+"."+v.slice(3,6)+"."+v.slice(6) : v.length > 3 ? v.slice(0,3)+"."+v.slice(3) : v);
-                  }}
-                    placeholder="000.000.000-00"
-                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
-                </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Nome completo</label>
+                <input type="text" value={nomeCompleto} onChange={(e) => setNomeCompleto(e.target.value)}
+                  placeholder="Como consta no documento de identidade"
+                  className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
               </div>
+              {/* CPF só é pedido depois, na hora do Kit Juizado (petição) — não antes do plano grátis */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Número do voo</label>
@@ -1317,103 +1183,9 @@ export default function Page() {
                 </div>
               </div>
 
-              {/* Upload de documentos */}
-              <div className="rounded-[14px] bg-blue-50 border border-blue-100 p-4 space-y-3">
-                <div className="text-xs font-bold text-blue-800 uppercase tracking-wider">Documentos (opcional agora, obrigatório para envio)</div>
-                {[
-                  { label: "Comprovante de reserva/bilhete", set: setDocBilhete, val: docBilhete },
-                  { label: "Comprovante do atraso (print, boarding pass)", set: setDocAtraso, val: docAtraso },
-                  { label: "Notas de despesas extras (se tiver)", set: setDocDespesas, val: docDespesas },
-                ].map((d) => (
-                  <div key={d.label}>
-                    <label className="block text-xs font-semibold text-blue-800 mb-1">{d.label}</label>
-                    <input type="file" accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => d.set(e.target.files?.[0] || null)}
-                      className="block w-full text-xs text-blue-700 file:mr-2 file:rounded-full file:border-0 file:bg-blue-100 file:px-3 file:py-1 file:text-xs file:font-semibold" />
-                    {d.val && <p className="text-xs text-blue-600 mt-1">✓ {d.val.name}</p>}
-                  </div>
-                ))}
-              </div>
-
-              {/* Telefone */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Telefone <span className="text-slate-400 font-normal">(opcional)</span></label>
-                <input type="tel" value={telefone} onChange={(e) => setTelefone(e.target.value)}
-                  placeholder="(11) 99999-9999"
-                  className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
-              </div>
             </div>
-            <div className="mt-8 flex items-center justify-between mobile-action-row">
-              <button type="button" onClick={back} className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700">Voltar</button>
-              <button type="button"
-                onClick={() => {
-                  if (!nomeCompleto.trim()) { setError("Informe seu nome completo."); return; }
-                  if (!numVoo.trim()) { setError("Informe o número do voo."); return; }
-                  if (!dataVoo) { setError("Informe a data do voo."); return; }
-                  if (!ciaAerea) { setError("Selecione a companhia aérea."); return; }
-                  setError("");
-                  setMostrarContrato(true);
-                }}
-                className="rounded-full bg-[#D4AF37] px-6 py-3 text-sm font-semibold text-[#0e2b50]">
-                Montar meu plano →
-              </button>
-            </div>
-
-            {/* Modal de contrato */}
-            {mostrarContrato && (
-              <ContratoModal
-                nomePassageiro={nomeCompleto}
-                tipoLabel={SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo}
-                ciaNome={CIAS_AEREAS.find(c => c.id === ciaAerea)?.nome}
-                numVoo={numVoo}
-                dataVoo={dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : undefined}
-                onFechar={() => setMostrarContrato(false)}
-                onAceitar={async (pdfBlob: Blob) => {
-                  setMostrarContrato(false);
-                  setContratoAceito(true);
-                  // Salva no Supabase
-                  try {
-                    const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
-                    const caso = await salvarCaso({
-                      tipo_caso: tipoCaso!,
-                      cia_aerea: cia?.nome || ciaAerea,
-                      nome_completo: nomeCompleto,
-                      cpf,
-                      email_usuario: emailUsuario,
-                      telefone,
-                      num_voo: numVoo,
-                      data_voo: dataVoo,
-                      tempo_atraso: tempoAtraso,
-                      recebeu_comida: assistenciaComida,
-                      recebeu_hotel: assistenciaHotel,
-                      despesas_extras: prejuizoExtra,
-                      contrato_aceito: true,
-                    });
-                    setCasoId(caso.id);
-                    // Alerta interno
-                    fetch("/api/alerta-caso", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        nomeCompleto, cpf, emailUsuario, telefone,
-                        tipoCaso, ciaAerea: cia?.nome || ciaAerea,
-                        numVoo, dataVoo, casoId: caso.id,
-                      }),
-                    }).catch(() => {});
-                    // Upload contrato assinado
-                    await uploadContrato(caso.id, pdfBlob, nomeCompleto);
-                    // Upload docs se houver
-                    if (docBilhete) await uploadDocumento(caso.id, docBilhete, "bilhete", nomeCompleto);
-                    if (docAtraso) await uploadDocumento(caso.id, docAtraso, "comprovante_atraso", nomeCompleto);
-                    if (docDespesas) await uploadDocumento(caso.id, docDespesas, "despesas_extras", nomeCompleto);
-                  } catch (err) {
-                    console.error("Erro ao salvar caso:", err);
-                  }
-                  // Avança para análise
-                  next();
-                }}
-              />
-            )}
+            {/* Telefone e documentos só são pedidos depois, na hora do Kit Juizado */}
+            <Nav nextLabel="Continuar" onNext={next} onBack={back} />
           </Shell>
         )}
 
@@ -1421,23 +1193,13 @@ export default function Page() {
         {modo === "caso" && step === 2 && tipoCaso === "voo_cancelado" && (
           <Shell title="Seus dados para o caso" subtitle="A Clara vai preparar tudo com seu nome e número de voo.">
             <div className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Nome completo</label>
-                  <input type="text" value={nomeCompleto} onChange={(e) => setNomeCompleto(e.target.value)}
-                    placeholder="Como consta no documento de identidade"
-                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">CPF <span className="text-slate-400 font-normal">(opcional)</span></label>
-                  <input type="text" value={cpf} onChange={(e) => {
-                    const v = e.target.value.replace(/\D/g, "").slice(0, 11);
-                    setCpf(v.length > 9 ? v.slice(0,3)+"."+v.slice(3,6)+"."+v.slice(6,9)+"-"+v.slice(9) : v.length > 6 ? v.slice(0,3)+"."+v.slice(3,6)+"."+v.slice(6) : v.length > 3 ? v.slice(0,3)+"."+v.slice(3) : v);
-                  }}
-                    placeholder="000.000.000-00"
-                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
-                </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Nome completo</label>
+                <input type="text" value={nomeCompleto} onChange={(e) => setNomeCompleto(e.target.value)}
+                  placeholder="Como consta no documento de identidade"
+                  className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
               </div>
+              {/* CPF só é pedido depois, na hora do Kit Juizado (petição) — não antes do plano grátis */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Número do voo</label>
@@ -1532,23 +1294,13 @@ export default function Page() {
         {modo === "caso" && step === 2 && tipoCaso === "bagagem" && (
           <Shell title="Seus dados para o caso" subtitle="A Clara vai preparar tudo com base na ANAC 400/2016 e na Convenção de Montreal.">
             <div className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Nome completo</label>
-                  <input type="text" value={nomeCompleto} onChange={(e) => setNomeCompleto(e.target.value)}
-                    placeholder="Como consta no documento de identidade"
-                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">CPF <span className="text-slate-400 font-normal">(opcional)</span></label>
-                  <input type="text" value={cpf} onChange={(e) => {
-                    const v = e.target.value.replace(/\D/g, "").slice(0, 11);
-                    setCpf(v.length > 9 ? v.slice(0,3)+"."+v.slice(3,6)+"."+v.slice(6,9)+"-"+v.slice(9) : v.length > 6 ? v.slice(0,3)+"."+v.slice(3,6)+"."+v.slice(6) : v.length > 3 ? v.slice(0,3)+"."+v.slice(3) : v);
-                  }}
-                    placeholder="000.000.000-00"
-                    className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
-                </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Nome completo</label>
+                <input type="text" value={nomeCompleto} onChange={(e) => setNomeCompleto(e.target.value)}
+                  placeholder="Como consta no documento de identidade"
+                  className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
               </div>
+              {/* CPF só é pedido depois, na hora do Kit Juizado (petição) — não antes do plano grátis */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Número do voo</label>
@@ -1614,9 +1366,14 @@ export default function Page() {
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Qual o valor estimado do prejuízo?</label>
                   <p className="text-xs text-slate-500 mb-2">Some o valor dos itens perdidos, danificados ou furtados.</p>
-                  <input type="text" inputMode="decimal" value={bagValor} onChange={(e) => setBagValor(e.target.value.replace(/[^\d,.]/g, ""))}
+                  <input type="text" inputMode="decimal" value={bagValor ? `R$ ${bagValor}` : ""} onChange={(e) => setBagValor(maskBRL(e.target.value))}
                     placeholder="R$ 0,00"
                     className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                  {avisoBagValor && (
+                    <p className={`text-xs mt-1.5 font-semibold ${avisoBagValor.nivel === "acima_teto" ? "text-red-600" : "text-amber-700"}`}>
+                      ⚠ {avisoBagValor.mensagem}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1657,9 +1414,14 @@ export default function Page() {
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Qual valor estão cobrando?</label>
                   <p className="text-xs text-slate-500 mb-2">Mesmo que seja pequeno, a lei prevê devolução. Coloque o valor que estão cobrando.</p>
-                  <input type="text" inputMode="decimal" value={cobrancaValor} onChange={(e) => setCobrancaValor(e.target.value.replace(/[^\d,.]/g, ""))}
+                  <input type="text" inputMode="decimal" value={cobrancaValor ? `R$ ${cobrancaValor}` : ""} onChange={(e) => setCobrancaValor(maskBRL(e.target.value))}
                     placeholder="R$ 0,00"
                     className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                  {avisoCobrancaValor && (
+                    <p className={`text-xs mt-1.5 font-semibold ${avisoCobrancaValor.nivel === "acima_teto" ? "text-red-600" : "text-amber-700"}`}>
+                      ⚠ {avisoCobrancaValor.mensagem}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -1772,9 +1534,14 @@ export default function Page() {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">Valor do produto</label>
-                    <input type="text" inputMode="decimal" value={prodValor} onChange={(e) => setProdValor(e.target.value.replace(/[^\d,.]/g, ""))}
+                    <input type="text" inputMode="decimal" value={prodValor ? `R$ ${prodValor}` : ""} onChange={(e) => setProdValor(maskBRL(e.target.value))}
                       placeholder="R$ 0,00"
                       className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                    {avisoProdValor && (
+                      <p className={`text-xs mt-1.5 font-semibold ${avisoProdValor.nivel === "acima_teto" ? "text-red-600" : "text-amber-700"}`}>
+                        ⚠ {avisoProdValor.mensagem}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1805,9 +1572,14 @@ export default function Page() {
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Qual o valor pago?</label>
-                  <input type="text" inputMode="decimal" value={servValor} onChange={(e) => setServValor(e.target.value.replace(/[^\d,.]/g, ""))}
+                  <input type="text" inputMode="decimal" value={servValor ? `R$ ${servValor}` : ""} onChange={(e) => setServValor(maskBRL(e.target.value))}
                     placeholder="R$ 0,00"
                     className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
+                  {avisoServValor && (
+                    <p className={`text-xs mt-1.5 font-semibold ${avisoServValor.nivel === "acima_teto" ? "text-red-600" : "text-amber-700"}`}>
+                      ⚠ {avisoServValor.mensagem}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -1885,7 +1657,7 @@ export default function Page() {
 
         {/* CASO step 3 — e-mail */}
         {modo === "caso" && step === 3 && (
-          <Shell title="Qual é o seu e-mail?" subtitle="Você vai receber o plano de ação e os documentos por aqui.">
+          <Shell title="Qual é o seu e-mail?" subtitle="Enviaremos seu plano de ação e seu e-mail de notificação grátis para este endereço.">
             <input type="email" required value={emailUsuario} onChange={(e) => setEmailUsuario(e.target.value)}
               placeholder="voce@email.com"
               className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-lg outline-none" />
@@ -1896,262 +1668,6 @@ export default function Page() {
               </button>
             </div>
           </Shell>
-        )}
-
-        {/* JEC step 1 — encontrar fórum */}
-        {modo === "jec" && step === 1 && (
-          <Shell title={cepProprioJec ? "Qual é o CEP da sua casa?" : "Qual é o CEP da empresa?"} subtitle="O CEP determina qual fórum é competente para o seu caso.">
-            <div className="flex gap-3 mb-2">
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder={cepProprioJec ? "Seu CEP (ex: 01310-100)" : "CEP da empresa (ex: 01310-100)"}
-                value={cepEmpresa}
-                onChange={(e) => {
-                  const v = e.target.value.replace(/\D/g, "").slice(0, 8);
-                  setCepEmpresa(v.length > 5 ? v.slice(0, 5) + "-" + v.slice(5) : v);
-                  setForoJec(null);
-                }}
-                onKeyDown={(e) => e.key === "Enter" && buscarForoJec()}
-                className="flex-1 rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none"
-              />
-              <button
-                type="button"
-                onClick={buscarForoJec}
-                disabled={loadingForo}
-                className="rounded-full bg-[#0e2b50] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50 whitespace-nowrap"
-              >
-                {loadingForo ? "Buscando..." : "Buscar fórum"}
-              </button>
-            </div>
-            <p className="text-sm text-slate-500 mb-1">
-              {cepProprioJec
-                ? "Como consumidor, você pode entrar com a ação no Juizado da sua cidade (CDC, art. 101, I)."
-                : "Digite o CEP da empresa ou do local onde o problema aconteceu (Lei 9.099/95, art. 4º)."}
-            </p>
-            <button
-              type="button"
-              onClick={() => { setCepProprioJec((v) => !v); setCepEmpresa(""); setForoJec(null); }}
-              className="text-sm font-medium text-blue-600 mb-5 block"
-            >
-              {cepProprioJec
-                ? "Prefere usar o endereço da empresa ou do local onde o problema aconteceu? Também pode (Lei 9.099/95, art. 4º) →"
-                : "← Usar o CEP da sua casa (recomendado)"}
-            </button>
-
-            {foroJec && (
-              <div className="rounded-[18px] border border-green-200 bg-green-50 p-5 mb-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xl">🏛️</span>
-                  <span className="text-base font-bold text-[#0e2b50]">{foroJec.foro}</span>
-                </div>
-                <div className="space-y-1 text-sm text-slate-600 mb-3">
-                  <div>📍 {foroJec.endereco}</div>
-                  <div>✉️ <a href={`mailto:${foroJec.email}`} className="text-blue-600 font-medium">{foroJec.email}</a></div>
-                  <div>🕐 {foroJec.horario}</div>
-                </div>
-                <div className="rounded-[10px] bg-white border border-green-200 px-3 py-2 text-xs text-green-700 font-medium">
-                  ✅ Fórum encontrado — clique em Continuar para preencher os detalhes
-                </div>
-              </div>
-            )}
-
-            <Nav nextLabel="Continuar" onNext={next} onBack={back} />
-          </Shell>
-        )}
-
-        {/* JEC step 2 — detalhes do caso */}
-        {modo === "jec" && step === 2 && (
-          <Shell title="Detalhes do seu caso" subtitle="Essas informações serão inseridas na petição formal.">
-            <div className="space-y-5">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Nome da empresa</label>
-                <input
-                  type="text"
-                  value={nomeEmpresa}
-                  onChange={(e) => setNomeEmpresa(e.target.value)}
-                  placeholder="Ex: GOL Linhas Aéreas S.A."
-                  className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Valor da causa (R$)</label>
-
-                {/* Guia de cálculo */}
-                <div className="rounded-[14px] bg-blue-50 border border-blue-100 p-4 mb-3">
-                  <div className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-3">Como calcular o valor a pedir</div>
-                  <div className="space-y-3">
-                    <div className="flex gap-3 items-start">
-                      <span className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 font-bold text-[11px] flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-                      <div>
-                        <div className="text-xs font-semibold text-blue-800">Dano material — o que você perdeu de dinheiro</div>
-                        <div className="text-xs text-blue-700 mt-0.5">Valor do produto/serviço não entregue, despesas extras, reembolsos devidos, multas cobradas indevidamente. Use o valor exato.</div>
-                      </div>
-                    </div>
-                    <div className="flex gap-3 items-start">
-                      <span className="w-6 h-6 rounded-full bg-blue-200 text-blue-700 font-bold text-[11px] flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                      <div>
-                        <div className="text-xs font-semibold text-blue-800">Dano moral — pelo transtorno causado</div>
-                        <div className="text-xs text-blue-700 mt-0.5">Nos juizados de SP costuma ser entre <strong>R$2.000 e R$5.000</strong> para casos comuns. Peça R$5.000 — o juiz pode reduzir, mas nunca vai aumentar.</div>
-                      </div>
-                    </div>
-                    <div className="rounded-[10px] bg-white border border-blue-200 px-3 py-2">
-                      <div className="text-xs font-bold text-blue-900">Exemplos práticos:</div>
-                      <div className="mt-1 space-y-0.5 text-xs text-blue-700">
-                        <div>• Voo atrasado sem assistência → R$5.000 a R$8.000</div>
-                        <div>• Produto com defeito (R$800) + moral → R$5.800</div>
-                        <div>• Cobrança indevida (R$300) + negativação indevida → R$5.300</div>
-                        <div>• Serviço não entregue (R$1.500) + moral → R$6.500</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <input
-                  type="text"
-                  value={valorCausa}
-                  onChange={(e) => setValorCausa(e.target.value)}
-                  placeholder="Ex: 5.000,00"
-                  className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none"
-                />
-                <p className="text-xs text-slate-500 mt-1">Dano material + dano moral. Máximo 20 salários mínimos no JEC — acima disso precisa de advogado.</p>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Descreva o que aconteceu</label>
-                <textarea
-                  ref={descricaoJecRef}
-                  rows={8}
-                  defaultValue={defaultDescricaoJec}
-                  placeholder="Ex: Em 05/01/2026, contratei o serviço X da empresa Y pelo valor de R$ Z. A empresa não cumpriu o combinado porque..."
-                  className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none leading-relaxed"
-                />
-                <p className="text-xs text-slate-500 mt-1">Seja específico: datas, valores, o que foi prometido vs. o que aconteceu.</p>
-              </div>
-            </div>
-            <Nav nextLabel="Revisar e gerar" onNext={next} onBack={back} />
-          </Shell>
-        )}
-
-        {/* JEC step 3 — revisão e geração */}
-        {modo === "jec" && step === 3 && (
-          <Shell title="Tudo pronto para gerar" subtitle="Confirme os dados antes de gerar sua petição.">
-            <div className="grid gap-4 md:grid-cols-2 mb-6">
-              <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
-                <div className="text-sm text-slate-500">Fórum competente</div>
-                <div className="mt-1 text-base font-semibold text-[#123047]">{foroJec?.foro}</div>
-                <div className="text-xs text-slate-500 mt-0.5">✉️ {foroJec?.email}</div>
-              </div>
-              <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
-                <div className="text-sm text-slate-500">Empresa ré</div>
-                <div className="mt-1 text-base font-semibold text-[#123047]">{nomeEmpresa}</div>
-              </div>
-              <div className="rounded-[18px] border border-slate-200 bg-slate-50 p-4">
-                <div className="text-sm text-slate-500">Valor da causa</div>
-                <div className="mt-1 text-base font-semibold text-[#123047]">R$ {valorCausa}</div>
-              </div>
-            </div>
-            <div className="mb-6">
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Seu e-mail <span className="text-red-500">*</span></label>
-              <input
-                type="email"
-                required
-                value={emailUsuario}
-                onChange={(e) => setEmailUsuario(e.target.value)}
-                placeholder="voce@email.com"
-                className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-base outline-none"
-              />
-            </div>
-            <div className="rounded-[14px] bg-amber-50 border border-amber-200 p-4 mb-6">
-              <p className="text-sm text-amber-800 leading-relaxed">
-                💡 <strong>Como funciona:</strong> A Clara gera o modelo de petição agora. Você revisa e protocola no fórum (por e-mail ou presencialmente). <strong>R$49,90 — pagamento único</strong> pelo pacote completo.
-              </p>
-            </div>
-            <div className="flex items-center justify-between mobile-action-row">
-              <button type="button" onClick={back} className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700">Voltar</button>
-              <button type="button" onClick={gerarPeticaoJec} className="rounded-full bg-[#0e2b50] px-6 py-3 text-sm font-semibold text-white">
-                Gerar minha petição
-              </button>
-            </div>
-          </Shell>
-        )}
-
-        {/* RESULTADO JEC */}
-        {step === 99 && modo === "jec" && peticaoJec && (
-          <div className="space-y-5">
-            <div className="rounded-[24px] border-2 border-green-300 bg-green-50 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-3xl">🏛️</span>
-                <div>
-                  <div className="text-xs font-semibold text-green-600 uppercase tracking-wider">Petição gerada com sucesso</div>
-                  <div className="text-xl font-bold text-[#0e2b50]">Seu modelo de petição JEC está pronto — revise e protocole</div>
-                </div>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2 text-sm">
-                <div className="rounded-[14px] bg-white border border-green-200 p-4">
-                  <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Fórum competente</div>
-                  <div className="font-semibold text-[#0e2b50]">{foroJec?.foro}</div>
-                  <div className="text-xs text-slate-500 mt-1">✉️ {foroJec?.email}</div>
-                  <div className="text-xs text-slate-500">📍 {foroJec?.endereco}</div>
-                </div>
-                <div className="rounded-[14px] bg-white border border-green-200 p-4">
-                  <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Empresa ré</div>
-                  <div className="font-semibold text-[#0e2b50]">{nomeEmpresa}</div>
-                  <div className="text-sm text-slate-600 mt-1">Valor da causa: <strong>R$ {valorCausa}</strong></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border border-slate-200 bg-white p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-[#0e2b50]">Petição gerada pela Clara</h3>
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(`${peticaoJec.assunto}\n\n${peticaoJec.corpo}`)}
-                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-[#0e2b50]"
-                >
-                  Copiar tudo
-                </button>
-              </div>
-              <div className="rounded-[14px] bg-slate-50 border border-slate-200 p-4 mb-4">
-                <div className="text-xs font-semibold text-slate-400 uppercase mb-1">Assunto (para protocolo por e-mail)</div>
-                <div className="text-sm font-semibold text-[#0e2b50]">{peticaoJec.assunto}</div>
-              </div>
-              <div className="rounded-[14px] bg-white border border-slate-200 p-4 text-sm text-slate-700 whitespace-pre-line leading-relaxed max-h-96 overflow-y-auto">
-                {peticaoJec.corpo}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="inline-block text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium">Gerado pela Clara · orientativo</span>
-                <span className="inline-block text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-full font-medium">Preencha os campos entre colchetes [ ] antes de protocolar</span>
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border border-amber-200 bg-amber-50 p-6">
-              <h3 className="text-lg font-bold text-[#0e2b50] mb-4">Próximos passos</h3>
-              <div className="space-y-3">
-                {[
-                  { n: "1", t: "Preencha seus dados pessoais", s: "Substitua [SEU NOME], [CPF], [ENDEREÇO] na petição antes de enviar." },
-                  { n: "2", t: "Protocole por e-mail no fórum", s: `Envie a petição para ${foroJec?.email} com documentos que comprovem o caso (notas, prints, recibos).` },
-                  { n: "3", t: "Acompanhe pelo e-mail", s: "O fórum confirmará o recebimento e agendará a audiência de conciliação." },
-                ].map((p) => (
-                  <div key={p.n} className="flex gap-3 items-start">
-                    <div className="w-7 h-7 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 font-bold text-xs flex-shrink-0 mt-0.5">{p.n}</div>
-                    <div>
-                      <div className="text-sm font-semibold text-[#0e2b50]">{p.t}</div>
-                      <div className="text-xs text-slate-600 mt-0.5">{p.s}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-[24px] border-2 border-[#0e2b50] bg-white p-6 text-center">
-              <div className="text-2xl mb-2">⚖️</div>
-              <h3 className="text-lg font-bold text-[#0e2b50] mb-2">R$49,90 — pagamento único</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                Você paga uma única vez pelo pacote completo: notificação, orientações e modelos prontos para você revisar e agir.
-              </p>
-            </div>
-          </div>
         )}
 
         {/* RESULTADO CASO */}
@@ -2170,270 +1686,23 @@ export default function Page() {
                   {resultado.plano_acao.resumo_direitos}
                 </div>
               )}
-              {resultado.plano_acao?.valor_estimado && (
+              {resultado.plano_acao?.pedidos_cabiveis && resultado.plano_acao.pedidos_cabiveis.length > 0 && (
                 <div className="mt-3 rounded-[14px] bg-green-50 border border-green-100 p-4">
-                  <div className="text-xs font-semibold text-green-700 uppercase tracking-wider mb-1">Estimativa de indenização</div>
-                  <div className="text-lg font-bold text-green-800">{resultado.plano_acao.valor_estimado}</div>
-                  <div className="text-xs text-green-600 mt-1">Orientativo · depende do caso e do juiz</div>
+                  <div className="text-xs font-semibold text-green-700 uppercase tracking-wider mb-2">O que você pode pedir</div>
+                  <ul className="space-y-1">
+                    {resultado.plano_acao.pedidos_cabiveis.map((item, i) => (
+                      <li key={i} className="text-sm font-semibold text-green-800 flex gap-2">
+                        <span aria-hidden="true">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="text-xs text-green-600 mt-2">Orientativo · depende do caso</div>
                 </div>
               )}
             </div>
 
-            {/* Casos similares — classificação qualitativa (sem percentual) */}
-            {(() => {
-              const prob = calcularProbabilidade(tipoCaso!, tempoAtraso, assistenciaComida, assistenciaHotel, prejuizoExtra, avisoPrevia, tipoBagagem);
-              const bgClass = prob.score >= 80 ? "bg-green-50 border-green-200" : prob.score >= 60 ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-200";
-              return (
-                <div className={`rounded-[24px] border-2 ${bgClass} p-6`}>
-                  <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: prob.cor }}>Casos similares</div>
-                  <div className="text-lg font-bold mb-3" style={{ color: prob.cor }}>{prob.label}</div>
-                  <p className="text-sm leading-relaxed text-slate-700">{prob.texto}</p>
-                  <p className="text-xs mt-3 text-slate-500">Baseado em casos similares · orientativo · não é garantia de resultado</p>
-                </div>
-              );
-            })()}
-
-            {isCasoAtivo ? (
-              /* ── CASO ATIVO: CLARA PREPARA ── */
-              <>
-                {/* Hero — card do resultado */}
-                <div className="rounded-[24px] bg-[#0e2b50] p-6 text-white text-center">
-                  <div className="text-5xl mb-3">⚖️</div>
-
-                  {/* Bloco "Seu caso registrado" varia por tipo */}
-                  {isVoo && nomeCompleto && (() => {
-                    const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
-                    const dataFmt = dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : "";
-                    return (
-                      <div className="rounded-[16px] bg-white/10 border border-white/20 p-4 mb-4 text-left">
-                        <div className="text-xs font-semibold text-[#93b4d4] uppercase tracking-wider mb-2">Seu caso registrado</div>
-                        <div className="space-y-1 text-sm text-white">
-                          <div><span className="text-[#93b4d4]">Passageiro:</span> {nomeCompleto}{cpf ? ` · CPF ${cpf}` : ""}</div>
-                          <div><span className="text-[#93b4d4]">Voo:</span> {numVoo}{dataFmt ? ` em ${dataFmt}` : ""}</div>
-                          {cia && <div><span className="text-[#93b4d4]">Companhia:</span> {cia.nome}</div>}
-                          <div><span className="text-[#93b4d4]">Problema:</span> {SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo}</div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                  {tipoCaso === "cobranca_indevida" && (
-                    <div className="rounded-[16px] bg-white/10 border border-white/20 p-4 mb-4 text-left">
-                      <div className="text-xs font-semibold text-[#93b4d4] uppercase tracking-wider mb-2">Seu caso registrado</div>
-                      <div className="space-y-1 text-sm text-white">
-                        <div><span className="text-[#93b4d4]">Empresa:</span> {cobrancaEmpresa}</div>
-                        <div><span className="text-[#93b4d4]">Valor cobrado:</span> R$ {cobrancaValor}</div>
-                        {cobrancaSerasa === "sim" && <div><span className="text-[#93b4d4]">Negativação:</span> nome no Serasa/SPC</div>}
-                      </div>
-                    </div>
-                  )}
-                  {tipoCaso === "produto_defeito" && (
-                    <div className="rounded-[16px] bg-white/10 border border-white/20 p-4 mb-4 text-left">
-                      <div className="text-xs font-semibold text-[#93b4d4] uppercase tracking-wider mb-2">Seu caso registrado</div>
-                      <div className="space-y-1 text-sm text-white">
-                        <div><span className="text-[#93b4d4]">Produto:</span> {prodNome}</div>
-                        <div><span className="text-[#93b4d4]">Empresa:</span> {prodEmpresa}</div>
-                        <div><span className="text-[#93b4d4]">Valor:</span> R$ {prodValor}</div>
-                      </div>
-                    </div>
-                  )}
-                  {tipoCaso === "servico_nao_entregue" && (
-                    <div className="rounded-[16px] bg-white/10 border border-white/20 p-4 mb-4 text-left">
-                      <div className="text-xs font-semibold text-[#93b4d4] uppercase tracking-wider mb-2">Seu caso registrado</div>
-                      <div className="space-y-1 text-sm text-white">
-                        <div><span className="text-[#93b4d4]">Serviço:</span> {servNome}</div>
-                        <div><span className="text-[#93b4d4]">Empresa:</span> {servEmpresa}</div>
-                        <div><span className="text-[#93b4d4]">Valor pago:</span> R$ {servValor}</div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Título + subtítulo (varia por tipo) */}
-                  <h3 className="text-2xl font-black mb-2">
-                    {tipoCaso === "cobranca_indevida" ? "A lei do consumidor protege você nessa situação." :
-                     tipoCaso === "produto_defeito" ? "O CDC protege você nessa situação." :
-                     "Seu caso tem solução."}
-                  </h3>
-                  <p className="text-[#93b4d4] text-sm leading-relaxed mb-4">
-                    A Clara analisou e preparou tudo. Você recebe o kit completo para resolver do início ao fim — sem advogado, no seu tempo.
-                  </p>
-
-                  {/* Kit — item 2 varia por tipo (ANAC / Procon+BC / Procon+Reclame Aqui) */}
-                  <div
-                    className="text-left mb-5"
-                    style={{
-                      background: "rgba(255,255,255,0.07)",
-                      borderRadius: 12,
-                      padding: 16,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 10,
-                    }}
-                  >
-                    {(() => {
-                      const orientItem =
-                        tipoCaso === "cobranca_indevida"     ? "Orientação para Procon e Banco Central" :
-                        tipoCaso === "produto_defeito"       ? "Orientação para Procon e Reclame Aqui"  :
-                        tipoCaso === "servico_nao_entregue"  ? "Orientação para Procon e consumidor.gov.br" :
-                        "Orientação para ANAC e consumidor.gov.br";
-                      return [
-                        { icon: "📧", texto: "E-mail de notificação com a lei certa" },
-                        { icon: "📋", texto: orientItem },
-                        { icon: "⚖️", texto: "Modelo de petição JEC pronto para revisar e protocolar" },
-                        { icon: "🗺️", texto: "Guia completo das etapas do processo" },
-                        { icon: "💬", texto: "O que fazer quando chegar a intimação" },
-                      ];
-                    })().map((item) => (
-                      <div key={item.texto} className="flex items-start gap-3 text-white" style={{ fontSize: 14, lineHeight: 1.5 }}>
-                        <span className="flex-shrink-0" aria-hidden="true">{item.icon}</span>
-                        <span>{item.texto}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <p className="text-[11px] text-[#93b4d4] italic mt-2 mb-3 leading-relaxed">
-                    Modelos orientativos — sempre revise antes de enviar ou protocolar.
-                  </p>
-
-                  {/* Tabs Cartão / Pix — acima do botão dourado, discreto */}
-                  <div className="flex gap-2 mb-3" role="tablist">
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={metodoPagamento === "cartao"}
-                      onClick={() => setMetodoPagamento("cartao")}
-                      className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all ${
-                        metodoPagamento === "cartao"
-                          ? "bg-white/15 text-white border border-white/30"
-                          : "bg-transparent text-[#93b4d4] border border-white/10 hover:border-white/20"
-                      }`}
-                    >
-                      💳 Cartão
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={metodoPagamento === "pix"}
-                      onClick={() => setMetodoPagamento("pix")}
-                      className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all ${
-                        metodoPagamento === "pix"
-                          ? "bg-white/15 text-white border border-white/30"
-                          : "bg-transparent text-[#93b4d4] border border-white/10 hover:border-white/20"
-                      }`}
-                    >
-                      ⚡ Pix
-                    </button>
-                  </div>
-
-                  {/* Aviso Pix indisponível OU botão de pagamento */}
-                  {PIX_TEMPORARIAMENTE_INDISPONIVEL && metodoPagamento === "pix" ? (
-                    <>
-                      <div className="rounded-[14px] bg-[#FFF9ED] border border-[#fcd34d] p-4 text-center">
-                        <div className="text-sm font-bold text-[#92400e] mb-1">⚠ Pix temporariamente indisponível</div>
-                        <div className="text-xs text-[#92400e] leading-relaxed">
-                          Estamos ajustando com o provedor. Enquanto isso, use <strong>Cartão de crédito</strong> na aba ao lado — funcionando normalmente.
-                        </div>
-                      </div>
-                      <p className="text-xs text-[#93b4d4] mt-2 text-center">R$49,90 · pagamento único</p>
-                    </>
-                  ) : (
-                    <>
-                      {/* Botão único de pagamento — label e handler variam por método */}
-                      <button
-                        type="button"
-                        onClick={metodoPagamento === "cartao" ? iniciarCheckoutStripe : iniciarCheckoutPix}
-                        className="w-full rounded-full bg-[#D4AF37] text-[#0e2b50] font-black text-base py-4"
-                      >
-                        {metodoPagamento === "cartao" ? "Quero resolver meu caso →" : "Gerar meu Pix agora →"}
-                      </button>
-                      <p className="text-xs text-[#93b4d4] mt-2 text-center">
-                        R$49,90 · pagamento único · você recebe tudo por e-mail
-                        {metodoPagamento === "pix" && <span> · confirmação em segundos</span>}
-                      </p>
-                    </>
-                  )}
-                </div>
-
-                {/* Roadmap — títulos, textos e documentos variam por tipoCaso */}
-                {(() => {
-                  const rc = getRoadmapConfig(tipoCaso);
-                  return (
-                <div id="roadmap" className="rounded-[24px] border border-slate-200 bg-white p-6 scroll-mt-6">
-                  <h3 className="text-xl font-bold text-[#0e2b50] mb-1">O que você vai fazer — com a Clara te guiando</h3>
-                  <p className="text-sm text-slate-500 mb-6">Três etapas em ordem — a Clara prepara tudo, você age.</p>
-                  <div className="space-y-0">
-
-                    {/* Etapa 1 */}
-                    <div className="flex gap-4">
-                      <div className="flex flex-col items-center flex-shrink-0">
-                        <div className="w-9 h-9 rounded-full bg-green-100 border-2 border-green-300 flex items-center justify-center text-green-700 font-bold">1</div>
-                        <div className="w-0.5 bg-slate-200 flex-1 my-2 min-h-[32px]" />
-                      </div>
-                      <div className="pb-6 flex-1 min-w-0">
-                        <div className="text-xs font-semibold text-green-600 uppercase tracking-wider mb-0.5">Etapa 1 · Prazo: até 10 dias</div>
-                        <div className="text-base font-bold text-[#0e2b50] mb-1">{rc.etapa1.titulo}</div>
-                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">{rc.etapa1.texto}</p>
-                        <div className="rounded-[12px] bg-green-50 border border-green-100 p-3">
-                          <div className="text-xs font-semibold text-green-700 mb-2">Documentos que você vai precisar</div>
-                          {rc.etapa1.documentos.map((d, i) => (
-                            <div key={i} className="flex gap-2 text-xs text-green-800 mt-1"><span className="flex-shrink-0">✅</span><span>{d}</span></div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Etapa 2 */}
-                    <div className="flex gap-4">
-                      <div className="flex flex-col items-center flex-shrink-0">
-                        <div className="w-9 h-9 rounded-full bg-amber-100 border-2 border-amber-300 flex items-center justify-center text-amber-700 font-bold">2</div>
-                        <div className="w-0.5 bg-slate-200 flex-1 my-2 min-h-[32px]" />
-                      </div>
-                      <div className="pb-6 flex-1 min-w-0">
-                        <div className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-0.5">Etapa 2 · Se a empresa não resolver</div>
-                        <div className="text-base font-bold text-[#0e2b50] mb-1">{rc.etapa2.titulo}</div>
-                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">{rc.etapa2.texto}</p>
-                        <div className="rounded-[12px] bg-amber-50 border border-amber-100 p-3">
-                          <div className="text-xs font-semibold text-amber-700 mb-2">Documentos adicionais nesta etapa</div>
-                          {rc.etapa2.documentos.map((d, i) => (
-                            <div key={i} className="flex gap-2 text-xs text-amber-800 mt-1"><span className="flex-shrink-0">✅</span><span>{d}</span></div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Etapa 3 */}
-                    <div className="flex gap-4">
-                      <div className="flex flex-col items-center flex-shrink-0">
-                        <div className="w-9 h-9 rounded-full bg-[#D4AF37]/20 border-2 border-[#D4AF37] flex items-center justify-center text-[#854F0B] font-bold">3</div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-semibold text-[#854F0B] uppercase tracking-wider mb-0.5">Etapa 3 · Caso extremo — sem advogado</div>
-                        <div className="text-base font-bold text-[#0e2b50] mb-1">Você protocola no Juizado Especial Cível (JEC)</div>
-                        <p className="text-sm text-slate-600 mb-3 leading-relaxed">Se as etapas anteriores não resolverem, a Clara gera um modelo de petição formatado. Você revisa e protocola no JEC competente. É gratuito, sem advogado necessário, e o processo corre por e-mail na maioria dos foros. A empresa ré tem endereço preenchido automaticamente.</p>
-                        <div className="rounded-[12px] bg-slate-50 border border-slate-200 p-3">
-                          <div className="text-xs font-semibold text-slate-600 mb-2">Documentos adicionais para o JEC</div>
-                          {[
-                            "CEP e endereço completo residencial",
-                            "Comprovante de residência — conta de luz, água ou extrato",
-                            "Protocolo da ANAC ou consumidor.gov.br — da Etapa 2",
-                          ].map((d, i) => (
-                            <div key={i} className="flex gap-2 text-xs text-slate-700 mt-1"><span className="flex-shrink-0">✅</span><span>{d}</span></div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-                  );
-                })()}
-
-                <p className="text-center" style={{ color: "#6b7280", fontSize: 13, marginTop: 8 }}>
-                  ↑ Comece pelo botão acima para receber seu kit completo.
-                </p>
-              </>
-            ) : (
-              /* ── OUTROS CASOS: passos para o usuário ── */
-              <>
+            <>
 
             {/* Passo 1 */}
             <div className="rounded-[24px] border-2 border-green-200 bg-white p-6">
@@ -2445,7 +1714,7 @@ export default function Page() {
                 </div>
               </div>
               <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-                A maioria dos casos se resolve nessa etapa. Um e-mail bem fundamentado faz a empresa levar a sério e responder em 48–72h.
+                Muitos casos avançam nessa etapa. Dê à empresa até 10 dias para responder.
               </p>
               {isVoo && ciaAerea && (() => {
                 const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
@@ -2514,25 +1783,39 @@ export default function Page() {
                   </div>
                 ) : null;
               })()}
-              {resultado.plano_acao?.email_empresa && (
-                <div className="rounded-[14px] border border-slate-200 bg-white p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-sm font-semibold text-[#0e2b50]">E-mail gerado pela Clara</div>
-                    <button onClick={() => {
-                      const texto = `Assunto: ${resultado.plano_acao?.email_empresa?.assunto}\n\n${resultado.plano_acao?.email_empresa?.corpo}`;
-                      navigator.clipboard.writeText(texto);
-                    }} className="rounded-full bg-[#0e2b50] text-white px-3 py-1.5 text-xs font-semibold">📋 Copiar</button>
+              {resultado.plano_acao?.email_empresa && (() => {
+                const email = resultado.plano_acao.email_empresa;
+                const destinatario = isVoo ? (CIAS_AEREAS.find(c => c.id === ciaAerea)?.email || "") : "";
+                const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1${destinatario ? `&to=${encodeURIComponent(destinatario)}` : ""}&su=${encodeURIComponent(email.assunto)}&body=${encodeURIComponent(email.corpo)}`;
+                const mailtoUrl = `mailto:${destinatario}?subject=${encodeURIComponent(email.assunto)}&body=${encodeURIComponent(email.corpo)}`;
+                return (
+                  <div className="rounded-[14px] border border-slate-200 bg-white p-4">
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <div className="text-sm font-semibold text-[#0e2b50]">E-mail de notificação — liberado agora</div>
+                      <button onClick={() => {
+                        const texto = `Assunto: ${email.assunto}\n\n${email.corpo}`;
+                        navigator.clipboard.writeText(texto);
+                      }} className="rounded-full bg-[#0e2b50] text-white px-3 py-1.5 text-xs font-semibold">📋 Copiar e-mail</button>
+                    </div>
+                    {destinatario && (
+                      <div className="text-xs text-slate-500 mb-2">Destinatário sugerido: <strong className="text-slate-700">{destinatario}</strong></div>
+                    )}
+                    <div className="text-xs text-slate-400 mb-1">Assunto</div>
+                    <div className="text-sm font-semibold text-[#0e2b50] mb-3">{email.assunto}</div>
+                    <div className="text-sm text-slate-700 whitespace-pre-line leading-relaxed border-t border-slate-100 pt-3">
+                      {email.corpo}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <a href={gmailUrl} target="_blank" rel="noreferrer" className="rounded-full border border-slate-300 bg-white text-slate-700 text-xs font-semibold px-3 py-1.5">Abrir no Gmail →</a>
+                      <a href={mailtoUrl} className="rounded-full border border-slate-300 bg-white text-slate-700 text-xs font-semibold px-3 py-1.5">Abrir no app de e-mail →</a>
+                      <span className="inline-block text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium self-center">Gerado pela Clara · orientativo</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+                      ⚠️ Modelo orientativo — revise antes de enviar.{emailCopiaToken && emailUsuario ? ` Também te mandamos uma cópia em ${emailUsuario}.` : ""}
+                    </p>
                   </div>
-                  <div className="text-xs text-slate-400 mb-1">Assunto</div>
-                  <div className="text-sm font-semibold text-[#0e2b50] mb-3">{resultado.plano_acao.email_empresa.assunto}</div>
-                  <div className="text-sm text-slate-700 whitespace-pre-line leading-relaxed border-t border-slate-100 pt-3">
-                    {resultado.plano_acao.email_empresa.corpo}
-                  </div>
-                  <div className="mt-2">
-                    <span className="inline-block text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium">Gerado pela Clara · orientativo</span>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* Passo 2 */}
@@ -2541,11 +1824,16 @@ export default function Page() {
                 <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-sm flex-shrink-0">2</div>
                 <div>
                   <div className="text-xs font-semibold text-amber-600 uppercase tracking-wider">Se a empresa não responder em 10 dias</div>
-                  <div className="text-lg font-bold text-[#0e2b50]">{isVoo ? "Registre na ANAC e no consumidor.gov.br" : "Registre no consumidor.gov.br"}</div>
+                  <div className="text-lg font-bold text-[#0e2b50]">
+                    {isVoo ? "Registre na ANAC e no consumidor.gov.br" :
+                     tipoCaso === "cobranca_indevida" ? "Registre no Procon e no Banco Central" :
+                     tipoCaso === "produto_defeito" ? "Registre no Procon e no Reclame Aqui" :
+                     "Registre no Procon e no consumidor.gov.br"}
+                  </div>
                 </div>
               </div>
               <p className="text-sm text-slate-600 mb-5 leading-relaxed">
-                Taxa de resolução de 8 em cada 10 casos. A empresa tem 10 dias para responder ou o caso fica marcado como "não resolvido" no histórico dela.
+                Registrar no órgão certo formaliza sua reclamação e pode ajudar a acelerar uma solução.
               </p>
 
               {/* Documentos novos para esta etapa */}
@@ -2566,58 +1854,8 @@ export default function Page() {
                 </div>
               )}
 
-              {/* ANAC — só para voos */}
-              {isVoo && (
-                <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-4 mb-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <div className="font-semibold text-slate-700">ANAC — Agência Nacional de Aviação Civil</div>
-                      <div className="text-xs text-slate-500 mt-0.5">Órgão regulador das companhias aéreas. Tel: 163 (gratuito)</div>
-                    </div>
-                    <a href="https://www.gov.br/anac/pt-br/assuntos/passageiros" target="_blank" rel="noreferrer"
-                      className="rounded-full border border-slate-300 bg-white text-slate-700 text-xs font-semibold px-4 py-1.5 whitespace-nowrap">
-                      Abrir →
-                    </a>
-                  </div>
-                  <div className="space-y-1.5">
-                    {[
-                      "Acesse o site ou ligue 163 (gratuito, seg–sex 8h–20h)",
-                      `Informe: voo ${numVoo || "[número]"}, data e companhia`,
-                      "Anexe: boarding pass + protocolo da Etapa 1",
-                      "Guarde o protocolo ANAC — apresente no JEC se precisar",
-                    ].map((s, i) => (
-                      <div key={i} className="flex gap-2 items-start text-xs text-slate-600">
-                        <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-600 font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
-                        <span>{s}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* consumidor.gov.br */}
-              <div className="rounded-[14px] border border-amber-200 bg-amber-50 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="font-semibold text-amber-800">consumidor.gov.br</div>
-                  <a href="https://www.consumidor.gov.br" target="_blank" rel="noreferrer"
-                    className="rounded-full bg-amber-700 text-white text-xs font-semibold px-4 py-1.5">
-                    Abrir →
-                  </a>
-                </div>
-                <div className="space-y-1.5">
-                  {[
-                    'Clique em "Registrar reclamação" e busque a empresa',
-                    "Descreva o problema — pode colar o e-mail que você já enviou",
-                    "Envie e aguarde: a empresa tem 10 dias para responder",
-                    "Avalie a resposta: isso impacta o índice público da empresa",
-                  ].map((s, i) => (
-                    <div key={i} className="flex gap-2 items-start text-xs text-amber-800">
-                      <span className="w-4 h-4 rounded-full bg-amber-200 text-amber-700 font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
-                      <span>{s}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* ANAC/Procon/consumidor.gov.br/Banco Central/Reclame Aqui */}
+              <OrientacaoOrgaos tipoCaso={tipoCaso as "voo_atrasado" | "voo_cancelado" | "bagagem" | "produto_defeito" | "servico_nao_entregue" | "cobranca_indevida"} numVoo={numVoo} />
             </div>
 
             {/* Passo 3 */}
@@ -2625,12 +1863,22 @@ export default function Page() {
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-8 h-8 rounded-full bg-amber-50 border border-[#D4AF37] flex items-center justify-center text-[#D4AF37] font-bold text-sm flex-shrink-0">3</div>
                 <div>
-                  <div className="text-xs font-semibold text-[#854F0B] uppercase tracking-wider">Se não resolver — sem advogado</div>
+                  <div className="text-xs font-semibold text-[#854F0B] uppercase tracking-wider">
+                    {avisoValorAtivo?.nivel === "acima_teto" ? "Esse valor passa do teto do Juizado"
+                      : avisoValorAtivo?.nivel === "advogado_obrigatorio" ? "Se não resolver — Juizado Especial"
+                      : "Se não resolver — sem advogado"}
+                  </div>
                   <div className="text-lg font-bold text-[#0e2b50]">Juizado Especial Cível (JEC)</div>
                 </div>
               </div>
               <p className="text-sm text-slate-600 mb-4 leading-relaxed">
-                É de graça. Você mesmo protocola. A Clara gera um modelo de petição no formato certo e encontra o fórum competente pelo seu CEP — como consumidor, você pode processar no Juizado da sua cidade (CDC, art. 101, I).
+                {avisoValorAtivo?.nivel === "acima_teto" ? (
+                  <>Esse valor passa do teto do Juizado Especial (40 salários mínimos — art. 3º, I, da Lei 9.099/95). O Kit Juizado pode não ser o caminho certo aqui — considere reduzir o pedido até o teto ou buscar a Justiça Comum.</>
+                ) : avisoValorAtivo?.nivel === "advogado_obrigatorio" ? (
+                  <>Se a empresa não responder em até 10 dias, o próximo passo é o Juizado Especial. Acima de 20 salários mínimos, a lei exige advogado (art. 9º, Lei 9.099/95) — o Kit prepara a petição e mostra o fórum certo, mas considere também buscar um advogado. <strong>R$49,90 · pagamento único.</strong></>
+                ) : (
+                  <>Se a empresa não responder em até 10 dias, o próximo passo é o Juizado Especial — gratuito e sem advogado. O Kit Juizado prepara a petição e mostra o fórum certo. <strong>R$49,90 · pagamento único.</strong></>
+                )}
               </p>
 
               {/* Documentos novos para JEC */}
@@ -2640,7 +1888,14 @@ export default function Page() {
                   {[
                     { doc: "CEP e endereço completo", desc: "seu endereço residencial", req: true },
                     { doc: "Comprovante de residência", desc: "conta de luz, água ou extrato recente", req: true },
-                    { doc: "Protocolo ANAC ou consumidor.gov.br", desc: "da Etapa 2", req: true },
+                    {
+                      doc: isVoo ? "Protocolo ANAC ou consumidor.gov.br" :
+                        tipoCaso === "cobranca_indevida" ? "Protocolo do Procon ou Banco Central" :
+                        tipoCaso === "produto_defeito" ? "Protocolo do Procon ou Reclame Aqui" :
+                        "Protocolo do Procon ou consumidor.gov.br",
+                      desc: "da Etapa 2",
+                      req: true,
+                    },
                     { doc: "Assinatura digital ou presença no fórum", req: true },
                   ].map((d) => (
                     <div key={d.doc} className="flex items-start gap-2 text-xs text-amber-800">
@@ -2662,7 +1917,9 @@ export default function Page() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                 {[
                   { icon: "💸", t: "É gratuito",   s: "Sem custas até o julgamento" },
-                  { icon: "🤝", t: "Sem advogado", s: "Para causas até 20 salários mínimos" },
+                  avisoValorAtivo
+                    ? { icon: "⚠️", t: "Advogado necessário", s: avisoValorAtivo.nivel === "acima_teto" ? "Esse valor passa do teto do Juizado" : "Esse valor passa de 20 salários mínimos" }
+                    : { icon: "🤝", t: "Sem advogado", s: "Para causas até 20 salários mínimos" },
                   { icon: "📧", t: "Por e-mail",   s: "Muitos foros aceitam protocolo online" },
                 ].map((item) => (
                   <div key={item.t} className="rounded-[14px] bg-amber-50 border border-amber-100 p-3 text-center">
@@ -2672,30 +1929,128 @@ export default function Page() {
                   </div>
                 ))}
               </div>
-              <div className="rounded-[14px] bg-slate-50 border border-slate-200 p-4 mb-4">
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Pagamento — único</div>
-                <p className="text-sm text-slate-700 leading-relaxed">
-                  A Clara gera seu modelo de petição agora. <strong>Pagamento único de R$49,90</strong> — você recebe tudo formatado para revisar e protocolar.
-                </p>
+              {/* Tabs Cartão / Pix */}
+              <div className="flex gap-2 mb-3" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={metodoPagamento === "cartao"}
+                  onClick={() => setMetodoPagamento("cartao")}
+                  className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all ${
+                    metodoPagamento === "cartao"
+                      ? "bg-[#0e2b50]/10 text-[#0e2b50] border border-[#0e2b50]/40"
+                      : "bg-transparent text-slate-500 border border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  💳 Cartão
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={metodoPagamento === "pix"}
+                  onClick={() => setMetodoPagamento("pix")}
+                  className={`flex-1 rounded-full py-2 text-sm font-semibold transition-all ${
+                    metodoPagamento === "pix"
+                      ? "bg-[#0e2b50]/10 text-[#0e2b50] border border-[#0e2b50]/40"
+                      : "bg-transparent text-slate-500 border border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  ⚡ Pix
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
-                  if (cia && cia.id !== "outra") setNomeEmpresa(cia.nome);
-                  const jecDesc = isVoo && nomeCompleto
-                    ? `Passageiro ${nomeCompleto}${cpf ? ", CPF " + cpf : ""}. Voo ${numVoo}${dataVoo ? " em " + new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : ""}. ${SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo || ""}.`
-                    : descricaoCasoRef.current?.value || "";
-                  setDefaultDescricaoJec(jecDesc);
-                  setResultado(null); setForoJec(null); setPeticaoJec(null);
-                  window.scrollTo(0, 0); escolherModo("jec");
-                }}
-                className="rounded-full bg-[#0e2b50] text-white text-sm font-semibold px-6 py-3 cursor-pointer">
-                Gerar minha petição JEC
-              </button>
+
+              {PIX_TEMPORARIAMENTE_INDISPONIVEL && metodoPagamento === "pix" ? (
+                <>
+                  <div className="rounded-[14px] bg-[#FFF9ED] border border-[#fcd34d] p-4 text-center">
+                    <div className="text-sm font-bold text-[#92400e] mb-1">⚠ Pix temporariamente indisponível</div>
+                    <div className="text-xs text-[#92400e] leading-relaxed">
+                      Estamos ajustando com o provedor. Enquanto isso, use <strong>Cartão de crédito</strong> na aba ao lado — funcionando normalmente.
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-2 text-center">R$49,90 · pagamento único</p>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarContrato(true)}
+                    className="w-full rounded-full bg-[#D4AF37] text-[#0e2b50] font-black text-base py-4">
+                    Quero meu Kit Juizado — R$49,90 →
+                  </button>
+                  <p className="text-xs text-slate-400 mt-2 text-center">
+                    R$49,90 · pagamento único
+                    {metodoPagamento === "pix" && <span> · confirmação em segundos</span>}
+                  </p>
+                  <DisclaimerBox variant="compra" style={{ marginTop: 10 }} />
+                </>
+              )}
             </div>
-              </>
+
+            {/* Gate do Kit Juizado — CPF/telefone/documentos (opcionais) + Termos,
+                só agora, na hora de pagar. Ao aceitar, segue pro checkout. */}
+            {mostrarContrato && (
+              <ContratoModal
+                nomePassageiro={nomeCompleto || "Consumidor"}
+                tipoLabel={SITUACOES_CASO.find(s => s.id === tipoCaso)?.titulo}
+                ciaNome={isVoo ? CIAS_AEREAS.find(c => c.id === ciaAerea)?.nome : undefined}
+                numVoo={isVoo ? numVoo : undefined}
+                dataVoo={isVoo && dataVoo ? new Date(dataVoo + "T12:00:00").toLocaleDateString("pt-BR") : undefined}
+                cpf={cpf}
+                onCpfChange={setCpf}
+                telefone={telefone}
+                onTelefoneChange={setTelefone}
+                documentos={isVoo ? [
+                  { label: "Comprovante de reserva/bilhete", value: docBilhete, onChange: setDocBilhete },
+                  { label: "Comprovante do atraso (print, boarding pass)", value: docAtraso, onChange: setDocAtraso },
+                  { label: "Notas de despesas extras (se tiver)", value: docDespesas, onChange: setDocDespesas },
+                ] : undefined}
+                onFechar={() => setMostrarContrato(false)}
+                onAceitar={async (pdfBlob: Blob) => {
+                  setMostrarContrato(false);
+                  try {
+                    const cia = CIAS_AEREAS.find(c => c.id === ciaAerea);
+                    const caso = await salvarCaso({
+                      tipo_caso: tipoCaso!,
+                      cia_aerea: isVoo ? (cia?.nome || ciaAerea) : "",
+                      nome_completo: nomeCompleto,
+                      cpf,
+                      email_usuario: emailUsuario,
+                      telefone,
+                      num_voo: isVoo ? numVoo : "",
+                      data_voo: isVoo ? dataVoo : "",
+                      tempo_atraso: isVoo ? tempoAtraso : "",
+                      recebeu_comida: isVoo ? assistenciaComida : "",
+                      recebeu_hotel: isVoo ? assistenciaHotel : "",
+                      despesas_extras: isVoo ? prejuizoExtra : "",
+                      contrato_aceito: true,
+                    });
+                    setCasoId(caso.id);
+                    // Alerta interno
+                    fetch("/api/alerta-caso", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        nomeCompleto, cpf, emailUsuario, telefone,
+                        tipoCaso, ciaAerea: isVoo ? (cia?.nome || ciaAerea) : "",
+                        numVoo, dataVoo, casoId: caso.id,
+                      }),
+                    }).catch(() => {});
+                    // Upload contrato assinado
+                    await uploadContrato(caso.id, pdfBlob, nomeCompleto);
+                    // Upload docs se houver (só voo coleta documento nesta etapa)
+                    if (docBilhete) await uploadDocumento(caso.id, docBilhete, "bilhete", nomeCompleto);
+                    if (docAtraso) await uploadDocumento(caso.id, docAtraso, "comprovante_atraso", nomeCompleto);
+                    if (docDespesas) await uploadDocumento(caso.id, docDespesas, "despesas_extras", nomeCompleto);
+                  } catch (err) {
+                    console.error("Erro ao salvar caso:", err);
+                  }
+                  // Segue pro checkout do Kit Juizado (Stripe ou Pix, conforme aba escolhida)
+                  if (metodoPagamento === "cartao") iniciarCheckoutStripe();
+                  else iniciarCheckoutPix();
+                }}
+              />
             )}
+              </>
           </div>
         )}
 
@@ -2916,37 +2271,6 @@ function OpcaoCard({ id, icon, label, desc, selecionada, onClick, cor = "blue" }
       </div>
     </button>
   );
-}
-
-function calcularProbabilidade(
-  tipo: TipoCaso,
-  tempoAtraso: string, assistenciaComida: string, assistenciaHotel: string, prejuizoExtra: string,
-  avisoPrevia: string, tipoBagagem: string
-): { score: number; label: string; cor: string; texto: string } {
-  let score = 60;
-  if (tipo === "voo_atrasado") {
-    const base: Record<string, number> = { "1_2h": 25, "2_4h": 48, "4_8h": 72, "8_12h": 82, "12_24h": 88, "mais_24h": 93 };
-    score = base[tempoAtraso] ?? 60;
-    if (assistenciaComida === "nao") score = Math.min(95, score + 7);
-    else if (assistenciaComida === "voucher_pequeno") score = Math.min(95, score + 3);
-    if (assistenciaHotel === "nao") score = Math.min(95, score + 5);
-    if (prejuizoExtra === "sim") score = Math.min(95, score + 5);
-  } else if (tipo === "voo_cancelado") {
-    const base: Record<string, number> = { "sem_aviso": 90, "menos_24h": 83, "24_72h": 72, "mais_72h": 52 };
-    score = base[avisoPrevia] ?? 72;
-  } else if (tipo === "bagagem") {
-    score = 80;
-  } else if (tipo === "cobranca_indevida") { score = 84; }
-  else if (tipo === "produto_defeito") { score = 71; }
-  else if (tipo === "servico_nao_entregue") { score = 85; }
-  const label = score >= 80 ? "Favorável em casos similares" : score >= 60 ? "Moderado em casos similares" : "Depende do contexto";
-  const cor = score >= 80 ? "#22c55e" : score >= 60 ? "#f59e0b" : "#6b7280";
-  const texto = score >= 80
-    ? "Em casos similares registrados no TJSP, consumidores obtiveram resultado favorável. Cada caso é único — resultado não garantido."
-    : score >= 60
-    ? "Há precedentes favoráveis, mas o resultado depende das provas que você conseguir reunir."
-    : "O resultado depende bastante do contexto e das provas — o e-mail costuma ser o melhor primeiro passo.";
-  return { score, label, cor, texto };
 }
 
 function Shell({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
@@ -3187,12 +2511,13 @@ function ResultadoContrato({
                 type="button"
                 onClick={metodoPagamento === "cartao" ? iniciarCheckoutAnaliseStripe : iniciarCheckoutAnalisePix}
                 className="mt-3 w-full rounded-full bg-[#0e2b50] py-3 text-sm font-semibold text-white">
-                Desbloquear análise completa →
+                Desbloquear análise completa — R$9,90 →
               </button>
               <p className="mt-3 text-center text-xs text-slate-400">
-                Acesso imediato · Pagamento único
+                R$9,90 · acesso imediato · pagamento único
                 {metodoPagamento === "pix" && <span> · confirmação em segundos</span>}
               </p>
+              <DisclaimerBox variant="compra" style={{ marginTop: 8 }} />
             </>
           )}
         </div>
@@ -3241,545 +2566,46 @@ function gerarResumoDireitos(tipo: TipoCaso, cia: typeof CIAS_AEREAS[0] | undefi
   }
 }
 
-function gerarEmailEmpresa(tipo: TipoCaso, descricao: string, cia: typeof CIAS_AEREAS[0] | undefined): { assunto: string; corpo: string } {
-  const tipoLabel = tipo === "voo_atrasado" ? "ATRASO DE VOO" : tipo === "voo_cancelado" ? "CANCELAMENTO DE VOO" : tipo === "bagagem" ? "EXTRAVIO / DANO DE BAGAGEM" : "PROBLEMA DE CONSUMO";
-  const assunto = tipo.startsWith("voo") || tipo === "bagagem"
-    ? `NOTIFICAÇÃO EXTRAJUDICIAL — ${tipoLabel} — SOLICITAÇÃO DE INDENIZAÇÃO`
-    : `NOTIFICAÇÃO EXTRAJUDICIAL — SOLICITAÇÃO DE REPARAÇÃO — CDC`;
-
-  // Extrai campos estruturados do texto de descrição gerado pelo analisarCaso
-  const matchNome = descricao.match(/Passageiro ([^,]+)/);
-  const matchCpf  = descricao.match(/CPF ([^\s.]+)/);
-  const matchVoo  = descricao.match(/Voo ([^\s]+)/);
-  const matchData = descricao.match(/em ([0-9]{2}\/[0-9]{2}\/[0-9]{4})/);
-  const nome  = matchNome?.[1]?.trim() || "[NOME DO PASSAGEIRO]";
-  const cpf   = matchCpf?.[1]?.trim()  || "[CPF]";
-  const voo   = matchVoo?.[1]?.trim()  || "[NÚMERO DO VOO]";
-  const data  = matchData?.[1]?.trim() || "[DATA DO VOO]";
-  const ciaNome = cia?.nome || "companhia aérea";
-
-  const sep = "────────────────────────────────────";
-
-  const blocoPassageiro = `${sep}
-IDENTIFICAÇÃO DO PASSAGEIRO
-${sep}
-Passageiro:    ${nome}
-CPF:           ${cpf}
-Voo:           ${voo}
-Data do voo:   ${data}
-Companhia:     ${ciaNome}
-${sep}`;
-
-  const advertencia = `${sep}
-ADVERTÊNCIA FINAL
-${sep}
-
-Na ausência de resposta satisfatória no prazo indicado, o(a) passageiro(a) adotará, imediata e cumulativamente, as seguintes medidas:
-
-  1. Reclamação formal na ANAC — Agência Nacional de Aviação Civil;
-  2. Registro no Portal consumidor.gov.br;
-  3. Ação no Juizado Especial Cível competente, com pedido de condenação
-     por danos materiais e morais.
-
-O não atendimento dos pedidos no prazo estabelecido será interpretado como
-recusa expressa e será utilizado como prova nos procedimentos acima.`;
-
-  const rodape = (n: string, c: string) =>
-    `Atenciosamente,\n\n${n}${c && c !== "[CPF]" ? `\nCPF: ${c}` : ""}\n\n` +
-    `(Informação gerada pela plataforma educacional Clara Law — claralaw.com.br. Este e-mail é enviado pelo próprio consumidor.)`;
-
-  // Rodapé genérico (sem exigir passageiro/CPF) — para casos não-voo
-  const rodapeGenerico = (n: string) =>
-    `Atenciosamente,\n\n${n || "[SEU NOME COMPLETO]"}\n\n` +
-    `(Informação gerada pela plataforma educacional Clara Law — claralaw.com.br. Este e-mail é enviado pelo próprio consumidor.)`;
-
-  const corpo = tipo === "voo_atrasado" ? `\
-Ao Departamento de Atendimento ao Consumidor
-${ciaNome}
-
-NOTIFICAÇÃO EXTRAJUDICIAL — ATRASO DE VOO
-Solicitação de Indenização por Danos Materiais e Morais
-
-Prezados Senhores,
-
-Eu, abaixo qualificado(a), venho, por meio desta NOTIFICAÇÃO EXTRAJUDICIAL,
-comunicar e formalizar reclamação em face de ${ciaNome}, pelos fatos e
-fundamentos de direito a seguir expostos.
-
-${blocoPassageiro}
-
-${sep}
-I. DOS FATOS
-${sep}
-
-O voo identificado acima sofreu atraso significativo. Durante o período de
-espera, a companhia aérea não cumpriu as obrigações legais de assistência
-material ao passageiro, causando transtornos expressivos, despesas adicionais
-não reembolsadas e danos de ordem moral.
-
-${sep}
-II. DO DIREITO
-${sep}
-
-A Resolução ANAC nº 400/2016 impõe obrigações expressas à companhia aérea,
-que não foram observadas no presente caso:
-
-  • Art. 27, caput — Assistência material obrigatória (alimentação, comunicação)
-    a partir de 1 (uma) hora de atraso;
-
-  • Art. 27, § 1º — A partir de 2 (duas) horas, a assistência deve incluir
-    acomodação e transporte ao passageiro;
-
-  • Art. 27, § 2º — A partir de 4 (quatro) horas de atraso, a empresa deve
-    oferecer reacomodação em outro voo, endosso ou reembolso integral;
-
-  • Art. 21 — A empresa responde pelos danos diretos causados ao passageiro
-    em decorrência do atraso operacional.
-
-Aplicam-se, ainda:
-
-  • Art. 14 do CDC (Lei 8.078/1990) — Responsabilidade objetiva do fornecedor
-    pelo defeito na prestação do serviço;
-
-  • Art. 6º, VI do CDC — Direito à efetiva prevenção e reparação de danos
-    patrimoniais e morais.
-
-O descumprimento dessas obrigações configura falha na prestação do serviço,
-sujeitando ${ciaNome} à reparação integral dos danos causados.
-
-${sep}
-III. DOS PEDIDOS
-${sep}
-
-Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 10 (dez) dias úteis
-contados do recebimento desta notificação:
-
-  1. Reembolso integral das despesas materiais comprovadas decorrentes do
-     atraso (alimentação, transporte, hospedagem e similares);
-
-  2. Indenização pelos danos morais sofridos, em valor a ser acordado entre
-     as partes ou arbitrado judicialmente;
-
-  3. Resposta formal e escrita ao presente comunicado, com informações sobre
-     o tratamento dado à reclamação.
-
-${advertencia}
-
-${rodape(nome, cpf)}`
-
-  : tipo === "voo_cancelado" ? `\
-Ao Departamento de Atendimento ao Consumidor
-${ciaNome}
-
-NOTIFICAÇÃO EXTRAJUDICIAL — CANCELAMENTO DE VOO
-Solicitação de Indenização por Danos Materiais e Morais
-
-Prezados Senhores,
-
-Eu, abaixo qualificado(a), venho, por meio desta NOTIFICAÇÃO EXTRAJUDICIAL,
-comunicar e formalizar reclamação em face de ${ciaNome}, pelos fatos e
-fundamentos de direito a seguir expostos.
-
-${blocoPassageiro}
-
-${sep}
-I. DOS FATOS
-${sep}
-
-O voo identificado acima foi cancelado pela companhia aérea. Não foi oferecida
-reacomodação adequada em voo alternativo em tempo razoável, tampouco foi
-realizado o reembolso integral do bilhete, causando prejuízos materiais e danos
-morais ao passageiro.
-
-${sep}
-II. DO DIREITO
-${sep}
-
-A Resolução ANAC nº 400/2016 estabelece obrigações expressas para os casos de
-cancelamento de voo:
-
-  • Art. 21 — A empresa responde pelos danos causados ao passageiro em
-    decorrência do cancelamento ou interrupção do serviço;
-
-  • Art. 25 — Em caso de cancelamento, a empresa deve oferecer ao passageiro,
-    à sua escolha: (i) reacomodação em voo próprio ou de outra empresa;
-    (ii) reembolso integral; ou (iii) execução do serviço por outra modalidade
-    de transporte;
-
-  • Art. 27, § 2º — O passageiro tem direito a assistência material completa
-    enquanto aguarda solução.
-
-Aplicam-se, ainda:
-
-  • Art. 14 do CDC (Lei 8.078/1990) — Responsabilidade objetiva pelo defeito
-    na prestação do serviço;
-
-  • Art. 6º, VI do CDC — Direito à reparação de danos patrimoniais e morais.
-
-${sep}
-III. DOS PEDIDOS
-${sep}
-
-Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 10 (dez) dias úteis:
-
-  1. Reacomodação imediata em voo equivalente ou reembolso integral do valor
-     pago pelo bilhete, à escolha do passageiro;
-
-  2. Reembolso das despesas materiais comprovadas (transporte, hospedagem,
-     alimentação) decorrentes do cancelamento;
-
-  3. Indenização pelos danos morais sofridos, em valor a ser acordado ou
-     arbitrado judicialmente;
-
-  4. Resposta formal e escrita ao presente comunicado.
-
-${advertencia}
-
-${rodape(nome, cpf)}`
-
-  : tipo === "bagagem" ? `\
-Ao Departamento de Atendimento ao Consumidor
-${ciaNome}
-
-NOTIFICAÇÃO EXTRAJUDICIAL — EXTRAVIO / DANO DE BAGAGEM
-Solicitação de Indenização por Danos Materiais e Morais
-
-Prezados Senhores,
-
-Eu, abaixo qualificado(a), venho, por meio desta NOTIFICAÇÃO EXTRAJUDICIAL,
-comunicar e formalizar reclamação em face de ${ciaNome} pelo extravio ou dano
-à bagagem despachada, conforme identificado abaixo.
-
-${blocoPassageiro}
-
-${sep}
-I. DOS FATOS
-${sep}
-
-A bagagem despachada no voo acima identificado foi extraviada ou danificada
-sob a guarda exclusiva de ${ciaNome}. O passageiro cumpriu todas as obrigações
-de check-in e despacho de bagagem dentro dos parâmetros exigidos pela empresa,
-não havendo qualquer culpa do passageiro pelo ocorrido.
-
-${sep}
-II. DO DIREITO
-${sep}
-
-A responsabilidade da companhia aérea pela bagagem despachada é objetiva,
-conforme previsto:
-
-  • Art. 34 da Resolução ANAC nº 400/2016 — A empresa é responsável pelos
-    danos causados à bagagem despachada desde o check-in até a entrega;
-
-  • Art. 35 da Resolução ANAC nº 400/2016 — Em caso de extravio, a empresa
-    deve localizar e entregar a bagagem ou indenizar o passageiro;
-
-  • Art. 37 da Resolução ANAC nº 400/2016 — O prazo para localização é de
-    7 dias para voos domésticos e 21 dias para voos internacionais; após esse
-    prazo, a bagagem é considerada definitivamente extraviada;
-
-  • Convenção de Montreal (Decreto nº 5.910/2006, art. 17) — Responsabilidade
-    objetiva da transportadora por destruição, perda ou avaria da bagagem
-    registrada ocorrida durante o transporte aéreo.
-
-Aplicam-se, ainda:
-
-  • Art. 14 do CDC (Lei 8.078/1990) — Responsabilidade objetiva pelo defeito
-    na prestação do serviço;
-
-  • Art. 6º, VI do CDC — Direito à reparação integral dos danos sofridos.
-
-${sep}
-III. DOS PEDIDOS
-${sep}
-
-Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 5 (cinco) dias úteis:
-
-  1. Localização e entrega imediata da bagagem, caso ainda não tenha sido
-     devolvida; ou, alternativamente,
-
-  2. Indenização pelo valor dos itens extraviados ou danificados, mediante
-     apresentação de relação de bens (até o limite previsto na Convenção de
-     Montreal — atualmente aproximadamente USD 1.288 em voos internacionais);
-
-  3. Reembolso das despesas de primeira necessidade comprovadas em decorrência
-     do extravio (roupas, higiene pessoal e similares);
-
-  4. Indenização pelos danos morais sofridos;
-
-  5. Resposta formal e escrita ao presente comunicado.
-
-${advertencia}
-
-${rodape(nome, cpf)}`
-
-  : tipo === "servico_nao_entregue" ? `\
-Ao Departamento de Atendimento ao Consumidor
-[NOME DA EMPRESA — preencher com a empresa contratada]
-
-NOTIFICAÇÃO EXTRAJUDICIAL — SERVIÇO NÃO ENTREGUE
-Solicitação de Devolução ou Execução — CDC art. 35
-
-Prezados Senhores,
-
-Venho, por meio desta NOTIFICAÇÃO EXTRAJUDICIAL, comunicar formalmente
-reclamação a respeito de serviço contratado e não entregue, conforme
-descrito abaixo:
-
-${sep}
-IDENTIFICAÇÃO DO CONSUMIDOR
-${sep}
-Nome:          [SEU NOME COMPLETO]
-CPF:           [SEU CPF]
-${sep}
-
-${sep}
-I. DOS FATOS
-${sep}
-
-${descricao}
-
-${sep}
-II. DO DIREITO
-${sep}
-
-A conduta narrada vai contra o Código de Defesa do Consumidor (Lei 8.078/1990),
-em especial:
-
-  • Art. 35 — Recusado o cumprimento da oferta, apresentação ou publicidade
-    pelo fornecedor, o consumidor poderá, alternativamente e à sua livre
-    escolha:
-      (i)   exigir o cumprimento forçado da obrigação, nos termos da oferta;
-      (ii)  aceitar outro produto ou prestação de serviço equivalente;
-      (iii) rescindir o contrato, com direito à restituição de quantia
-            eventualmente antecipada, monetariamente atualizada, e a perdas
-            e danos;
-
-  • Art. 49 (compras online / à distância) — Direito de arrependimento em até
-    7 (sete) dias, contados da assinatura do contrato ou do recebimento do
-    serviço, com devolução imediata e integral dos valores pagos;
-
-  • Art. 20 — Vício ou má qualidade do serviço gera direito à reexecução, à
-    restituição da quantia paga ou ao abatimento proporcional do preço,
-    à escolha do consumidor;
-
-  • Art. 14 — Responsabilidade objetiva do fornecedor pelo defeito na
-    prestação do serviço;
-
-  • Art. 6º, VI — Direito à efetiva reparação de danos patrimoniais e morais.
-
-${sep}
-III. DOS PEDIDOS
-${sep}
-
-Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 5 (cinco) dias úteis
-contados do recebimento desta notificação:
-
-  1. A devolução integral e imediata do valor pago, monetariamente atualizado;
-     OU, alternativamente,
-
-  2. A execução do serviço contratado no prazo máximo de 10 (dez) dias, sem
-     custos adicionais;
-
-  3. Indenização pelos danos materiais e morais eventualmente sofridos;
-
-  4. Resposta formal e escrita ao presente comunicado.
-
-${sep}
-ADVERTÊNCIA FINAL
-${sep}
-
-Na ausência de resposta satisfatória no prazo indicado, serão adotadas,
-imediata e cumulativamente, as seguintes medidas:
-
-  1. Reclamação formal no Procon;
-  2. Registro no Portal consumidor.gov.br;
-  3. Registro no Reclame Aqui;
-  4. Ação no Juizado Especial Cível competente, com pedido de condenação
-     por danos materiais e morais.
-
-${rodapeGenerico(nome !== "[NOME DO PASSAGEIRO]" ? nome : "")}`
-
-  : tipo === "cobranca_indevida" ? `\
-Ao Departamento de Atendimento ao Consumidor
-[NOME DA EMPRESA — preencher com a empresa cobradora]
-
-NOTIFICAÇÃO EXTRAJUDICIAL — COBRANÇA INDEVIDA
-Solicitação de Cessação de Cobrança e Reparação — CDC
-
-Prezados Senhores,
-
-Venho, por meio desta NOTIFICAÇÃO EXTRAJUDICIAL, comunicar e formalizar
-reclamação em relação a cobrança indevida, com base nas informações abaixo:
-
-${sep}
-IDENTIFICAÇÃO DO CONSUMIDOR
-${sep}
-Nome:          [SEU NOME COMPLETO]
-CPF:           [SEU CPF]
-${sep}
-
-${sep}
-I. DOS FATOS
-${sep}
-
-${descricao}
-
-${sep}
-II. DO DIREITO
-${sep}
-
-A conduta descrita vai contra o Código de Defesa do Consumidor (Lei 8.078/1990),
-em especial:
-
-  • Art. 42, caput — Vedação de constrangimento ou ameaça na cobrança de dívidas;
-
-  • Art. 42, parágrafo único — O consumidor cobrado em quantia indevida tem
-    direito à repetição do indébito, por valor igual ao dobro do que pagou em
-    excesso, acrescido de correção monetária e juros legais, salvo hipótese
-    de engano justificável;
-
-  • Art. 43 — Direito de acesso e correção de dados cadastrais em bancos de
-    dados de proteção ao crédito (Serasa, SPC, SCPC);
-
-  • Súmula 385 STJ — Em caso de negativação indevida, casos assim costumam
-    ensejar reparação por dano moral, salvo comprovada preexistência de
-    negativação regular.
-
-${sep}
-III. DOS PEDIDOS
-${sep}
-
-Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 5 (cinco) dias úteis
-contados do recebimento desta notificação:
-
-  1. A cessação imediata da cobrança indevida;
-
-  2. A devolução em dobro do valor cobrado indevidamente, corrigido
-     monetariamente, nos termos do art. 42, parágrafo único, do CDC;
-
-  3. A retirada imediata do meu nome de eventuais órgãos de proteção ao
-     crédito (Serasa, SPC ou similares), se aplicável;
-
-  4. Resposta formal e escrita ao presente comunicado.
-
-${sep}
-ADVERTÊNCIA FINAL
-${sep}
-
-Na ausência de resposta satisfatória no prazo indicado, serão adotadas,
-imediata e cumulativamente, as seguintes medidas:
-
-  1. Reclamação formal no Procon;
-  2. Registro no Portal consumidor.gov.br;
-  3. Reclamação junto ao Banco Central (se instituição financeira);
-  4. Ação no Juizado Especial Cível competente, com pedidos cumulativos
-     de repetição de indébito, indenização por danos morais e antecipação
-     de tutela para remoção da negativação (quando aplicável).
-
-${rodapeGenerico(nome !== "[NOME DO PASSAGEIRO]" ? nome : "")}`
-
-  : tipo === "produto_defeito" ? `\
-Ao Departamento de Atendimento ao Consumidor
-[NOME DA EMPRESA — preencher com a loja/fabricante]
-
-NOTIFICAÇÃO EXTRAJUDICIAL — PRODUTO COM VÍCIO / DEFEITO
-Solicitação de Reparação — CDC art. 18
-
-Prezados Senhores,
-
-Venho, por meio desta NOTIFICAÇÃO EXTRAJUDICIAL, comunicar formalmente
-reclamação a respeito de produto adquirido com vício/defeito, conforme
-descrito abaixo:
-
-${sep}
-IDENTIFICAÇÃO DO CONSUMIDOR
-${sep}
-Nome:          [SEU NOME COMPLETO]
-CPF:           [SEU CPF]
-${sep}
-
-${sep}
-I. DOS FATOS
-${sep}
-
-${descricao}
-
-${sep}
-II. DO DIREITO
-${sep}
-
-A conduta narrada vai contra o Código de Defesa do Consumidor (Lei 8.078/1990),
-em especial:
-
-  • Art. 18, caput — Os fornecedores de produtos de consumo duráveis ou não
-    duráveis respondem solidariamente pelos vícios de qualidade que os tornem
-    impróprios ou inadequados ao consumo a que se destinam ou lhes diminuam
-    o valor;
-
-  • Art. 18, § 1º — Não sanado o vício no prazo máximo de 30 (trinta) dias,
-    o consumidor pode exigir, à sua escolha:
-      (i)  a substituição do produto por outro da mesma espécie;
-      (ii) a restituição imediata da quantia paga, corrigida;
-      (iii) o abatimento proporcional do preço;
-
-  • Art. 26, II — Prazo decadencial de 90 (noventa) dias para reclamar de
-    vícios em produtos duráveis, contados da entrega efetiva do produto ou
-    da constatação do vício oculto;
-
-  • Art. 49 (se aplicável a compras online/à distância) — Direito de
-    arrependimento em até 7 (sete) dias, contados do recebimento do produto;
-
-  • Art. 14 — Responsabilidade objetiva do fornecedor pelo defeito na
-    prestação do serviço.
-
-${sep}
-III. DOS PEDIDOS
-${sep}
-
-Diante do exposto, SOLICITO, no prazo IMPRORROGÁVEL de 5 (cinco) dias úteis
-contados do recebimento desta notificação:
-
-  1. Reparo do produto, sem custos, no prazo máximo legal de 30 (trinta)
-     dias; OU, alternativamente, à minha escolha:
-
-  2. Substituição do produto por outro da mesma espécie, em perfeitas
-     condições de uso; OU
-
-  3. Restituição imediata da quantia paga, monetariamente atualizada; OU
-
-  4. Abatimento proporcional do preço;
-
-  5. Resposta formal e escrita ao presente comunicado.
-
-${sep}
-ADVERTÊNCIA FINAL
-${sep}
-
-Na ausência de resposta satisfatória no prazo indicado, serão adotadas,
-imediata e cumulativamente, as seguintes medidas:
-
-  1. Reclamação formal no Procon;
-  2. Registro no Portal consumidor.gov.br;
-  3. Registro no Reclame Aqui;
-  4. Ação no Juizado Especial Cível competente, com pedido de condenação
-     por danos materiais e morais.
-
-${rodapeGenerico(nome !== "[NOME DO PASSAGEIRO]" ? nome : "")}`
-
-  : `Prezados,\n\nVenho, por meio desta, notificar formalmente sobre o problema descrito abaixo, solicitando resolução:\n\n${descricao}\n\nNos termos do Código de Defesa do Consumidor (Lei 8.078/90, art. 14 e art. 6º, VI), solicito, no prazo de 10 (dez) dias úteis, a devida reparação pelos danos causados.\n\nNa ausência de resposta satisfatória, procederei com registro nos órgãos competentes e, se necessário, ação no Juizado Especial Cível.\n\n${rodapeGenerico(nome !== "[NOME DO PASSAGEIRO]" ? nome : "")}`;
-
-  return { assunto, corpo };
-}
-
-function estimarValor(tipo: TipoCaso): string {
+function pedidosCabiveis(tipo: TipoCaso): string[] {
   switch (tipo) {
-    case "voo_atrasado":      return "Indenização por dano moral — valor varia conforme o caso e o juiz + despesas comprovadas — orientativo";
-    case "voo_cancelado":     return "Indenização por dano moral — valor varia conforme o caso e o juiz + reembolso integral do bilhete — orientativo";
-    case "bagagem":           return "Indenização de até USD 1.288 (limite Convenção de Montreal) ou dano moral se comprovado — valor varia conforme o caso e o juiz — orientativo";
-    case "cobranca_indevida": return "Devolução em dobro do valor cobrado + indenização por dano moral em casos de negativação indevida — valor varia conforme o caso e o juiz — orientativo";
-    case "produto_defeito":   return "Substituição / devolução / abatimento (à escolha do consumidor) + eventual dano moral — orientativo";
-    case "servico_nao_entregue": return "Devolução integral do valor pago + possível indenização por danos materiais e morais — orientativo";
-    default:                  return "Valor a calcular com base nos danos materiais + dano moral — orientativo";
+    case "voo_atrasado":
+      return [
+        "Assistência material não prestada (alimentação, hospedagem, comunicação)",
+        "Reembolso de despesas comprovadas por causa do atraso",
+        "Eventual dano moral, dependendo da gravidade do caso",
+      ];
+    case "voo_cancelado":
+      return [
+        "Reembolso integral do bilhete ou reacomodação em outro voo",
+        "Assistência material não prestada",
+        "Eventual dano moral, dependendo da gravidade do caso",
+      ];
+    case "bagagem":
+      return [
+        "Reembolso pelos itens danificados, extraviados ou faltantes",
+        "Eventual dano moral, dependendo da gravidade do caso",
+      ];
+    case "cobranca_indevida":
+      return [
+        "Devolução do valor cobrado indevidamente",
+        "Eventual dano moral, especialmente em caso de negativação indevida",
+      ];
+    case "produto_defeito":
+      return [
+        "Substituição do produto",
+        "Devolução do valor pago",
+        "Abatimento proporcional do preço",
+        "Eventual dano moral, dependendo do caso",
+      ];
+    case "servico_nao_entregue":
+      return [
+        "Devolução do valor pago pelo serviço",
+        "Eventual dano moral, dependendo do caso",
+      ];
+    default:
+      return [
+        "Reparação dos danos materiais comprovados",
+        "Eventual dano moral, dependendo do caso",
+      ];
   }
 }

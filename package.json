@@ -15,6 +15,7 @@
     "@types/nodemailer": "^8.0.0",
     "@vercel/postgres": "^0.10.0",
     "better-sqlite3": "^12.6.2",
+    "docx": "^9.15.3",
     "googleapis": "^171.4.0",
     "jspdf": "^4.2.1",
     "mammoth": "^1.11.0",

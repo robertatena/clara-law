@@ -97,7 +97,7 @@ export default function ForumPage() {
             O que levar no dia do fórum
           </h2>
           <p style={{ fontSize: 15, color: "#6b7280", lineHeight: 1.7, marginBottom: 28, maxWidth: 480 }}>
-            Itens obrigatórios garantem que sua ação seja protocolada. Os opcionais fortalecem muito o seu caso.
+            Itens obrigatórios ajudam a garantir que sua ação seja aceita no protocolo. Os opcionais fortalecem muito o seu caso.
           </p>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12, marginBottom: 28 }}>
@@ -202,7 +202,7 @@ export default function ForumPage() {
             Pronto para agir?
           </h2>
           <p style={{ fontSize: 15, color: "#6b7280", lineHeight: 1.7, marginBottom: 28 }}>
-            Comece pelo e-mail — é mais rápido e resolve a maioria dos casos.<br />
+            Comece pelo e-mail: é mais rápido, e muitos casos se resolvem assim.<br />
             Se não resolver, a Clara te leva pelo fórum passo a passo.
           </p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>

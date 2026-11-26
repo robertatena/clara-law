@@ -21,10 +21,10 @@ const etapas: Etapa[] = [
   {
     icon: "📧",
     titulo: "Você enviou o e-mail. E agora?",
-    texto: "A empresa tem até 5 dias úteis para responder. Guarde o comprovante de envio — você vai precisar depois.",
+    texto: "Dê à empresa até 10 dias para responder. Guarde o comprovante de envio — você vai precisar depois.",
     acoes: [
       "Salve o e-mail enviado (print ou PDF).",
-      "Se não responderem em 5 dias → vá para a Etapa 2.",
+      "Se não responderem em 10 dias → vá para a Etapa 2.",
       "Se oferecerem solução ruim → vá para a Etapa 2 também.",
     ],
   },
@@ -33,7 +33,7 @@ const etapas: Etapa[] = [
     titulo: "Hora do Juizado Especial",
     texto: "O JEC é gratuito, não precisa de advogado para causas até 20 salários mínimos, e a empresa é obrigada a comparecer.",
     acoes: [
-      "Se você contratou o Pacote Ação, pegue a petição que a Clara gerou. Caso contrário, o próprio JEC pode ajudar a formalizar a reclamação no balcão.",
+      "Se você contratou o Kit Juizado, pegue a petição que a Clara gerou. Caso contrário, o próprio JEC pode ajudar a formalizar a reclamação no balcão.",
       "Leve ao fórum do seu CEP (padrão recomendado, CDC art. 101, I) ou do CEP que você usou na busca — confira em claralaw.com.br/#forum.",
       "Documentos para levar: RG ou CPF, comprovante de residência, print do e-mail enviado, nota fiscal ou contrato, petição impressa.",
     ],

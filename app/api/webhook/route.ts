@@ -28,9 +28,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_signature" }, { status: 400 });
   }
 
-  // Processa o evento. Sempre responder 200 (mesmo para eventos não tratados
-  // ou com erro de processamento) — caso contrário Stripe retentará
-  // indefinidamente.
+  // Processa o evento. Responde 200 pra eventos não tratados ou erro de
+  // processamento em geral (senão Stripe retentaria indefinidamente) — a
+  // única exceção é "persist_failed": aí o caso não foi gravado em
+  // user_casos, então respondemos 500 de propósito pra Stripe reenviar o
+  // webhook (tentando de novo é melhor que mandar o e-mail "está pronto"
+  // apontando pra um caso que não existe).
   try {
     switch (event.type) {
       case "checkout.session.completed": {
@@ -55,13 +58,16 @@ export async function POST(req: Request) {
           if (typeof v === "string") md[k] = v;
         }
 
-        await fulfillCheckout({
+        const result = await fulfillCheckout({
           email,
           produto,
           provider: "stripe",
           providerId: session.id,
           metadata: md,
         });
+        if (result.status === "persist_failed") {
+          return NextResponse.json({ error: "persist_failed" }, { status: 500 });
+        }
         break;
       }
       default:

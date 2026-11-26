@@ -22,7 +22,7 @@ const PRODUTOS: Record<Produto, { amountCents: number; nome: string; productId: 
   },
   pacote: {
     amountCents: 4990,
-    nome: "Pacote Ação - Clara Law",
+    nome: "Kit Juizado - Clara Law",
     productId: "prod_YDmSp3MkRdgrWNKsaDq2A11H",
   },
 };

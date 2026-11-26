@@ -31,20 +31,29 @@ const passosAnalise = [
   "Revise os pontos de atenção antes de assinar o contrato.",
 ];
 
+type StatusPeticao = { pronto: boolean; casoId?: string; downloadToken?: string };
+
 export default function SucessoPage() {
   const [emailGerado, setEmailGerado] = useState<EmailGerado | null>(null);
   const [copiado, setCopiado] = useState(false);
   // Produto vem via ?produto= na success_url (adicionado no /api/checkout).
   // Default "pacote" pra retrocompatibilidade (URLs antigas sem esse param).
   const [produto, setProduto] = useState<"pacote" | "analise">("pacote");
+  const [peticaoStatus, setPeticaoStatus] = useState<StatusPeticao | null>(null);
+  const [peticaoPolling, setPeticaoPolling] = useState(false);
 
   useEffect(() => {
     // Lê ?produto= da URL pra decidir passos + botão "Guia" (só faz sentido pro pacote).
     // Default "pacote" pra retrocompat com URLs antigas sem esse param.
+    let sessionId: string | null = null;
+    let pixId: string | null = null;
     try {
-      const p = new URLSearchParams(window.location.search).get("produto");
+      const qs = new URLSearchParams(window.location.search);
+      const p = qs.get("produto");
       if (p === "analise") setProduto("analise");
       else if (p === "pacote") setProduto("pacote");
+      sessionId = qs.get("session_id");
+      pixId = qs.get("src") === "pix" ? qs.get("id") : null;
     } catch { /* ignora */ }
 
     try {
@@ -63,6 +72,34 @@ export default function SucessoPage() {
     } catch (err) {
       console.warn("sucesso: falha ao ler localStorage", err);
     }
+
+    // Polling discreto só pro Kit Juizado — checa se a petição (ao menos
+    // parcial) já está pronta pra baixar. Pix normalmente já chega pronto
+    // (o fulfillment já rodou antes do redirect); Stripe depende do
+    // webhook, que pode demorar alguns segundos.
+    if (!sessionId && !pixId) return;
+
+    setPeticaoPolling(true);
+    const queryStatus = sessionId ? `session_id=${encodeURIComponent(sessionId)}` : `src=pix&id=${encodeURIComponent(pixId || "")}`;
+    let tentativas = 0;
+    const intervalo = setInterval(async () => {
+      tentativas += 1;
+      try {
+        const resp = await fetch(`/api/caso/status?${queryStatus}`);
+        const data = (await resp.json()) as StatusPeticao;
+        if (data.pronto) {
+          setPeticaoStatus(data);
+          setPeticaoPolling(false);
+          clearInterval(intervalo);
+        } else if (tentativas >= 18) { // ~54s (3s * 18)
+          setPeticaoPolling(false);
+          clearInterval(intervalo);
+        }
+      } catch {
+        // ignora falha pontual — tenta de novo no próximo tick
+      }
+    }, 3000);
+    return () => clearInterval(intervalo);
   }, []);
 
   return (
@@ -130,6 +167,35 @@ export default function SucessoPage() {
           <div style={{ maxWidth: 540, margin: "24px auto 0", textAlign: "left" }}>
             <SpamAvisoBox />
           </div>
+
+          {/* Status da petição (Kit Juizado) — só aparece quando a URL tem
+              session_id (Stripe) ou src=pix&id= (Pix); fica em silêncio pros
+              outros casos (ex.: produto "analise", ou chegada direta sem esses params). */}
+          {produto === "pacote" && (peticaoPolling || peticaoStatus?.pronto) && (
+            <div style={{ maxWidth: 540, margin: "20px auto 0", background: "#fff", border: "1px solid #E0DDD6", borderRadius: 16, padding: "20px 24px", textAlign: "left" }}>
+              {peticaoStatus?.pronto ? (
+                <>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "#1a2340", margin: "0 0 12px" }}>Sua petição já está pronta pra baixar</p>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <a href={`/api/caso/${peticaoStatus.casoId}/peticao.pdf?token=${encodeURIComponent(peticaoStatus.downloadToken || "")}`}
+                      style={{ background: "#0e2b50", color: "#fff", fontSize: 13, fontWeight: 700, padding: "10px 18px", borderRadius: 40, textDecoration: "none" }}>
+                      Baixar PDF
+                    </a>
+                    <a href={`/api/caso/${peticaoStatus.casoId}/peticao.docx?token=${encodeURIComponent(peticaoStatus.downloadToken || "")}`}
+                      style={{ border: "1px solid #0e2b50", color: "#0e2b50", fontSize: 13, fontWeight: 700, padding: "10px 18px", borderRadius: 40, textDecoration: "none" }}>
+                      Baixar DOCX
+                    </a>
+                    <a href={`/caso/${peticaoStatus.casoId}?token=${encodeURIComponent(peticaoStatus.downloadToken || "")}`}
+                      style={{ color: "#185FA5", fontSize: 13, fontWeight: 600, padding: "10px 6px", textDecoration: "none" }}>
+                      Ver meu caso →
+                    </a>
+                  </div>
+                </>
+              ) : (
+                <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>Preparando sua petição...</p>
+              )}
+            </div>
+          )}
         </div>
       </section>
 

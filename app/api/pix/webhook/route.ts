@@ -136,13 +136,19 @@ export async function POST(req: Request) {
   }
 
   try {
-    await fulfillCheckout({
+    const result = await fulfillCheckout({
       email,
       produto,
       provider: "pix",
       providerId: id,
       metadata: md,
     });
+    // "persist_failed": caso não gravou em user_casos — responde 500 de
+    // propósito pra AbacatePay reenviar o webhook, em vez de deixar o
+    // e-mail "está pronto" sair apontando pra um caso que não existe.
+    if (result.status === "persist_failed") {
+      return NextResponse.json({ error: "persist_failed" }, { status: 500 });
+    }
   } catch (err) {
     // fulfillCheckout já cataliza erros por dentro — se chegar aqui é bug estrutural.
     console.error("pix_webhook_fulfillment_error", err instanceof Error ? err.message : "unknown");

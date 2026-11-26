@@ -7,6 +7,8 @@
 import nodemailer from "nodemailer";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { AREA_LOGADA_ATIVA } from "@/lib/feature-flags";
+import { prepararPeticao } from "@/lib/peticao-pipeline";
+import { signCasoToken } from "@/lib/caso-acesso-token";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.claralaw.com.br";
 
@@ -41,8 +43,8 @@ function itensPorProduto(produto: Produto, tipoCaso?: string): string[] {
   if (produto === "pacote") {
     return [
       "E-mail de notificação com a lei certa",
-      orientacaoOrgaos(tipoCaso),
-      "Modelo de petição JEC — revise e protocole",
+      orientacaoOrgaos(tipoCaso) + " (com links diretos, na página do seu caso)",
+      "Modelo de petição JEC em PDF e DOCX — complete seus dados na página do caso pra finalizar",
       "Guia completo das etapas do processo",
     ];
   }
@@ -58,7 +60,7 @@ function itensPorProduto(produto: Produto, tipoCaso?: string): string[] {
 
 // Exportada pra rota de preview /api/dev/preview-email. Não usar em outro
 // contexto além de renderizar o HTML do email de confirmação.
-export function montarHtml(produto: Produto, magicLinkUrl?: string, tipoCaso?: string): string {
+export function montarHtml(produto: Produto, magicLinkUrl?: string, tipoCaso?: string, casoLink?: string): string {
   const itens = itensPorProduto(produto, tipoCaso);
   const listaItens = itens
     .map(
@@ -75,6 +77,7 @@ export function montarHtml(produto: Produto, magicLinkUrl?: string, tipoCaso?: s
   // "Acessar minha área" só faz sentido com a área logada ativa (depende do
   // Supabase, hoje desligado — ver lib/feature-flags.ts). Desligada, omite o
   // botão em vez de prometer um login que não funciona.
+  const nomeProduto = produto === "pacote" ? "Kit Juizado" : "kit";
   const linkAcesso = magicLinkUrl || `${APP_URL}/minha-conta`;
   const legendaAcesso = magicLinkUrl
     ? "Login sem senha · válido por 1 hora"
@@ -99,7 +102,7 @@ export function montarHtml(produto: Produto, magicLinkUrl?: string, tipoCaso?: s
 
     <div style="background:#fff;border-radius:12px;padding:28px 24px;border:1px solid #E0DDD6;">
       <p style="color:#374151;font-size:15px;line-height:1.7;margin:0 0 20px;">
-        Obrigada por confiar na Clara Law. Seu kit foi gerado e está disponível.
+        Obrigada por confiar na Clara Law. Seu ${nomeProduto} foi gerado e está disponível.
       </p>
 
       ${
@@ -111,9 +114,16 @@ export function montarHtml(produto: Produto, magicLinkUrl?: string, tipoCaso?: s
           : ""
       }
 
-      ${mostrarGuia ? `<div style="text-align:center;margin:28px 0 12px;">
-        <a href="${APP_URL}/guia" style="display:inline-block;background:#D4AF37;color:#1a2340;font-weight:800;font-size:15px;padding:14px 28px;border-radius:40px;text-decoration:none;">
-          Acesse seu guia do processo →
+      ${casoLink ? `<div style="text-align:center;margin:28px 0 8px;">
+        <a href="${casoLink}" style="display:inline-block;background:#D4AF37;color:#1a2340;font-weight:800;font-size:15px;padding:14px 28px;border-radius:40px;text-decoration:none;">
+          Ver minha petição e completar meus dados →
+        </a>
+        <p style="color:#9ca3af;font-size:11px;margin:8px 0 0;">Não precisa criar conta — o link dá acesso direto ao seu caso.</p>
+      </div>` : ""}
+
+      ${mostrarGuia ? `<div style="text-align:center;margin:8px 0 12px;">
+        <a href="${APP_URL}/guia" style="font-size:13px;color:#185FA5;text-decoration:none;">
+          Acesse o guia do processo →
         </a>
       </div>` : ""}
 
@@ -145,7 +155,7 @@ export function montarHtml(produto: Produto, magicLinkUrl?: string, tipoCaso?: s
 </html>`;
 }
 
-export async function enviarConfirmacaoCompra(email: string, produto: Produto, magicLinkUrl?: string, tipoCaso?: string): Promise<void> {
+export async function enviarConfirmacaoCompra(email: string, produto: Produto, magicLinkUrl?: string, tipoCaso?: string, casoLink?: string): Promise<void> {
   if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
     console.warn("fulfillment_email_skipped_missing_credentials", {
       hasUser: !!process.env.GMAIL_USER,
@@ -154,12 +164,12 @@ export async function enviarConfirmacaoCompra(email: string, produto: Produto, m
     return;
   }
 
-  const html = montarHtml(produto, magicLinkUrl, tipoCaso);
+  const html = montarHtml(produto, magicLinkUrl, tipoCaso, casoLink);
 
   await transporter.sendMail({
     from: `"Clara Law" <${process.env.GMAIL_USER}>`,
     to: email,
-    subject: "Seu kit Clara Law está pronto 🎉",
+    subject: produto === "pacote" ? "Seu Kit Juizado está pronto 🎉" : "Seu kit Clara Law está pronto 🎉",
     html,
   });
 }
@@ -182,6 +192,12 @@ export async function provisionarUsuario(email: string): Promise<string | null> 
       const { data: list } = await supabaseAdmin.auth.admin.listUsers({ perPage: 200 });
       const usersList = (list?.users ?? []) as Array<{ id: string; email?: string }>;
       const found = usersList.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+      console.log("provisionar_usuario_fallback_listusers", {
+        email,
+        createErr: createErr.message,
+        totalListados: usersList.length,
+        encontrado: !!found,
+      });
       if (found?.id) return found.id;
     }
     return null;
@@ -221,8 +237,8 @@ export async function salvarCasoNoSupabase(params: {
   provider: "stripe" | "pix";
   providerId: string;
   metadata: Record<string, string>;
-}): Promise<void> {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+}): Promise<string | null> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
   const tipoCaso =
     params.produto === "pacote"
       ? (params.metadata.tipo_caso || "desconhecido")
@@ -245,31 +261,111 @@ export async function salvarCasoNoSupabase(params: {
     row.abacate_transaction_id = params.providerId;
   }
 
-  const { error } = await supabaseAdmin.from("user_casos").upsert(row, {
-    onConflict,
-    ignoreDuplicates: true,
+  const { data, error } = await supabaseAdmin
+    .from("user_casos")
+    .upsert(row, { onConflict, ignoreDuplicates: true })
+    .select("id")
+    .maybeSingle();
+  // Log cru do que o Supabase devolveu, mesmo sem erro — "data vazio, sem
+  // error" é o caso esperado do ignoreDuplicates, mas precisa aparecer no
+  // log pra diferenciar de "realmente inseriu" na hora de investigar.
+  console.log("salvar_caso_upsert_result", {
+    provider: params.provider,
+    providerId: params.providerId,
+    userId: params.userId,
+    hasData: !!data,
+    dataId: (data as { id: string } | null)?.id ?? null,
+    error: error?.message ?? null,
   });
   if (error) {
     console.error("salvar_caso_error", { provider: params.provider, providerId: params.providerId, error: error.message });
+    return null;
   }
-}
+  let casoRowId = (data as { id: string } | null)?.id ?? null;
 
-// Checa se um caso já foi fulfilled pra esse provider+providerId. Usado como
-// guarda de idempotência antes de rodar o pipeline — permite chamar
-// fulfillCheckout múltiplas vezes (polling, webhook, endpoint admin) sem
-// duplicar user_casos ou mandar email múltiplos.
-export async function jaFoiFulfilled(params: {
-  provider: "stripe" | "pix";
-  providerId: string;
-}): Promise<boolean> {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return false;
-  const col = params.provider === "stripe" ? "stripe_session_id" : "abacate_transaction_id";
-  const { data } = await supabaseAdmin
+  if (!casoRowId) {
+    // ignoreDuplicates descartou o upsert (já existe linha pra esse
+    // provider+providerId — webhook duplicado ou chamada concorrente) e por
+    // isso o select não devolveu nada. Busca o id da linha existente em vez
+    // de devolver null: sem isso, o chamador concorrente que perdeu a
+    // corrida ficava sem casoId e o e-mail saía sem o link do caso.
+    const onConflictCol = params.provider === "stripe" ? "stripe_session_id" : "abacate_transaction_id";
+    const { data: existing, error: lookupError } = await supabaseAdmin
+      .from("user_casos")
+      .select("id")
+      .eq(onConflictCol, params.providerId)
+      .maybeSingle();
+    if (lookupError) {
+      console.error("salvar_caso_lookup_error", { provider: params.provider, providerId: params.providerId, error: lookupError.message });
+      return null;
+    }
+    casoRowId = (existing as { id: string } | null)?.id ?? null;
+    console.log("salvar_caso_lookup_fallback", { provider: params.provider, providerId: params.providerId, foundId: casoRowId });
+  }
+
+  if (!casoRowId) return null;
+
+  // Confirma que a linha é de fato legível antes de considerar sucesso — se
+  // o upsert "respondeu certo" mas uma leitura imediata pelo id não encontra
+  // nada, é melhor falhar aqui (persist_failed, sem e-mail) do que mandar o
+  // cliente pra um link que vai dar 404.
+  const { data: confirmado, error: confirmError } = await supabaseAdmin
     .from("user_casos")
     .select("id")
+    .eq("id", casoRowId)
+    .maybeSingle();
+  if (confirmError || !confirmado) {
+    console.error("salvar_caso_nao_confirmado", {
+      provider: params.provider,
+      providerId: params.providerId,
+      casoRowId,
+      confirmError: confirmError?.message || "sem_linha_na_releitura",
+    });
+    return null;
+  }
+
+  return casoRowId;
+}
+
+// Busca se já existe user_casos pra esse provider+providerId. Usado como
+// guarda de idempotência antes de rodar o pipeline — permite chamar
+// fulfillCheckout múltiplas vezes (polling, webhook, endpoint admin) sem
+// duplicar linha ou mandar email múltiplos.
+//
+// Devolve o estado, não só um booleano: pra "pacote", uma linha travada em
+// peticao_status 'pendente' (nunca terminou de gerar) ou 'erro' NÃO conta
+// como fulfilled de verdade. Um booleano puro (só "a linha existe?") fazia
+// um reenvio do Stripe/AbacatePay pra uma compra que quebrou no meio do
+// pipeline cair sempre em "already_fulfilled" e nunca se recuperar.
+export async function buscarCasoExistente(params: {
+  provider: "stripe" | "pix";
+  providerId: string;
+}): Promise<{ id: string; peticaoStatus: string | null } | null> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  const col = params.provider === "stripe" ? "stripe_session_id" : "abacate_transaction_id";
+  const { data, error } = await supabaseAdmin
+    .from("user_casos")
+    .select("id, peticao_status")
     .eq(col, params.providerId)
     .maybeSingle();
-  return !!data;
+  // Nunca tratar error como "não encontrado" — um erro de schema (coluna
+  // ausente no cache do PostgREST, por exemplo) também vem com data=null,
+  // mas não é a mesma coisa que "não existe linha". Deixa o chamador decidir
+  // (ver fulfillCheckout: aborta com persist_failed em vez de seguir como
+  // se não houvesse caso nenhum).
+  if (error) {
+    console.error("buscar_caso_existente_error", { provider: params.provider, providerId: params.providerId, code: error.code, message: error.message });
+    throw new Error(`buscar_caso_existente: ${error.code} ${error.message}`);
+  }
+  const row = data as { id: string; peticao_status: string | null } | null;
+  console.log("buscar_caso_existente", {
+    provider: params.provider,
+    providerId: params.providerId,
+    encontrado: !!row,
+    casoId: row?.id ?? null,
+    peticaoStatus: row?.peticao_status ?? null,
+  });
+  return row ? { id: row.id, peticaoStatus: row.peticao_status } : null;
 }
 
 // Pipeline completo: provisiona → salva caso → gera magic link → envia e-mail.
@@ -281,7 +377,7 @@ export async function fulfillCheckout(params: {
   provider: "stripe" | "pix";
   providerId: string;
   metadata: Record<string, string>;
-}): Promise<{ status: "ok" | "already_fulfilled" | "skipped_invalid_input" }> {
+}): Promise<{ status: "ok" | "already_fulfilled" | "skipped_invalid_input" | "persist_failed" }> {
   const { email, produto, provider, providerId, metadata } = params;
 
   if (!email || produto === "desconhecido") {
@@ -290,17 +386,88 @@ export async function fulfillCheckout(params: {
   }
 
   // Guarda de idempotência — polling do client pode chamar a cada 4s.
-  if (await jaFoiFulfilled({ provider, providerId })) {
-    console.log("fulfillment_already_done", { provider, providerId });
+  let existente: { id: string; peticaoStatus: string | null } | null;
+  try {
+    existente = await buscarCasoExistente({ provider, providerId });
+  } catch (err) {
+    // Erro de banco/schema na própria checagem de idempotência — não dá pra
+    // saber se já existe ou não. Mais seguro abortar (sem e-mail, 500 pro
+    // provedor reenviar) do que seguir como se não houvesse caso nenhum.
+    console.error("fulfillment_buscar_existente_falhou", { provider, providerId, error: err instanceof Error ? err.message : String(err) });
+    return { status: "persist_failed" };
+  }
+  const peticaoJaResolvida = existente?.peticaoStatus === "parcial" || existente?.peticaoStatus === "completo";
+  if (existente && (produto !== "pacote" || peticaoJaResolvida)) {
+    console.log("fulfillment_already_done", { provider, providerId, casoId: existente.id, peticaoStatus: existente.peticaoStatus });
     return { status: "already_fulfilled" };
+  }
+  if (existente) {
+    // Linha existe mas peticao_status ainda não é parcial/completo — retoma
+    // o caso já criado em vez de tentar inserir de novo (upsert com o mesmo
+    // stripe_session_id só devolveria esse mesmo id pelo fallback).
+    console.warn("fulfillment_retomando_caso_incompleto", { provider, providerId, casoId: existente.id, peticaoStatus: existente.peticaoStatus });
   }
 
   const userId = await provisionarUsuario(email);
   console.log("fulfillment_user_provisioned", { provider, providerId, email, userId: userId || "(none)" });
 
-  if (userId) {
-    await salvarCasoNoSupabase({ userId, email, produto, provider, providerId, metadata });
-    console.log("fulfillment_caso_saved", { provider, providerId, userId });
+  let casoId: string | null = existente?.id ?? null;
+  if (!casoId && userId) {
+    casoId = await salvarCasoNoSupabase({ userId, email, produto, provider, providerId, metadata });
+    console.log("fulfillment_caso_saved", { provider, providerId, userId, casoId: casoId || "(none)" });
+  }
+
+  // Sem usuário provisionado ou sem linha gravada em user_casos, não tem
+  // caso pra entregar — não manda o e-mail de "está pronto" (que incluiria
+  // o link /caso/[id]) apontando pra um registro que não existe. Devolve um
+  // status que o webhook usa pra responder 500 e o provedor reenviar depois.
+  if (!casoId && produto === "pacote") {
+    console.error("fulfillment_caso_persist_failed", { provider, providerId, email, userId: userId || "(none)" });
+    return { status: "persist_failed" };
+  }
+
+  // Primeira tentativa de geração da petição — normalmente "parcial" porque
+  // nome/CPF/endereço/empresa/fórum ainda não foram preenchidos (isso só
+  // acontece no formulário pós-pagamento, na página do caso). Mesmo assim
+  // já deixa o status calculado, pra /sucesso e o e-mail saberem o que
+  // mostrar. Nunca bloqueia o resto do fulfillment se falhar.
+  let casoLink: string | undefined;
+  if (casoId && produto === "pacote") {
+    const peticaoOk = await prepararPeticao(casoId);
+    if (!peticaoOk) {
+      // prepararPeticao já logou o motivo (preparar_peticao_erro). Não manda
+      // o e-mail de "está pronto" prometendo uma petição que não existe —
+      // devolve persist_failed pro webhook responder 500 e o provedor
+      // reenviar depois (mesmo tratamento do caso não persistido).
+      console.error("fulfillment_peticao_failed_abortando_email", { provider, providerId, casoId });
+      return { status: "persist_failed" };
+    }
+    try {
+      casoLink = `${APP_URL}/caso/${casoId}?token=${signCasoToken(casoId)}`;
+    } catch (err) {
+      // CASO_ACESSO_SECRET ausente — sem token não dá pra montar o link.
+      // Segue sem ele; o e-mail ainda sai com o resto do conteúdo.
+      console.error("fulfillment_caso_token_failed", err instanceof Error ? err.message : "unknown");
+    }
+  }
+
+  // Rede de segurança contra e-mail duplicado: o guard de peticao_status no
+  // topo já cobre a maioria dos reenvios do provedor, mas duas chamadas bem
+  // próximas (corrida) podem passar por ele antes de qualquer uma escrever
+  // o status novo. email_enviado_em fecha essa brecha. Erro aqui não bloqueia
+  // o envio — na dúvida, manda (pior cenário é um e-mail repetido, não nenhum).
+  if (casoId) {
+    const { data: jaEnviado, error: jaEnviadoError } = await supabaseAdmin
+      .from("user_casos")
+      .select("email_enviado_em")
+      .eq("id", casoId)
+      .maybeSingle();
+    if (jaEnviadoError) {
+      console.error("fulfillment_checar_email_enviado_falhou", { provider, providerId, casoId, code: jaEnviadoError.code, message: jaEnviadoError.message });
+    } else if (jaEnviado?.email_enviado_em) {
+      console.log("fulfillment_email_ja_enviado", { provider, providerId, casoId, emailEnviadoEm: jaEnviado.email_enviado_em });
+      return { status: "already_fulfilled" };
+    }
   }
 
   const magicLink = await gerarMagicLink(email);
@@ -310,8 +477,11 @@ export async function fulfillCheckout(params: {
     // Passa tipo_caso pro montarHtml — condiciona o item "orientação para X"
     // do kit conforme voo/cobrança/produto/serviço/analise.
     const tipoCaso = metadata.tipo_caso || undefined;
-    await enviarConfirmacaoCompra(email, produto, magicLink ?? undefined, tipoCaso);
+    await enviarConfirmacaoCompra(email, produto, magicLink ?? undefined, tipoCaso, casoLink);
     console.log("fulfillment_email_sent", { provider, providerId, email, produto, hasMagicLink: !!magicLink });
+    if (casoId) {
+      await supabaseAdmin.from("user_casos").update({ email_enviado_em: new Date().toISOString() }).eq("id", casoId);
+    }
   } catch (err) {
     console.error("fulfillment_email_failed", { provider, providerId, email, produto, error: err instanceof Error ? err.message : "unknown" });
   }

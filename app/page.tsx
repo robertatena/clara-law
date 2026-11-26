@@ -14,11 +14,11 @@ const ClaraIcon = ({ size = 36 }: { size?: number }) => (
 
 const situations = [
   { icon: "📦", bg: "#FBF5E6", title: "Comprei algo com defeito e a loja não quer resolver", desc: "Direito à troca, conserto ou devolução. A loja é obrigada por lei.", badges: ["Clara orienta", "sem advogado"] },
-  { icon: "💳", bg: "#EBF6FD", title: "Cobraram algo que eu não devo ou meu nome foi ao Serasa", desc: "Cobrança errada dá direito a indenização — sem precisar ir ao fórum.", badges: ["Clara orienta", "sem advogado"] },
+  { icon: "💳", bg: "#EBF6FD", title: "Cobraram algo que eu não devo ou meu nome foi ao Serasa", desc: "Cobrança errada pode dar direito a indenização — sem precisar ir ao fórum.", badges: ["Clara orienta", "sem advogado"] },
   { icon: "✈️", bg: "#FBF5E6", title: "Meu voo atrasou ou foi cancelado", desc: "A companhia é obrigada a dar assistência e reembolso.", badges: ["Clara orienta", "JEC disponível"] },
   { icon: "🔧", bg: "#EBF6FD", title: "Paguei por um serviço que não foi entregue", desc: "Direito ao dinheiro de volta e, dependendo do caso, a uma indenização.", badges: ["Clara orienta", "sem advogado"] },
   { icon: "🏠", bg: "#FBF5E6", title: "Meu aluguel tem cláusula abusiva", desc: "Algumas cláusulas são ilegais — mesmo que você já tenha assinado.", badges: ["Clara orienta", "JEC disponível"] },
-  { icon: "📱", bg: "#EBF6FD", title: "Meu plano de internet não funciona como prometido", desc: "Velocidade menor que a contratada é descumprimento. Pode cancelar sem multa.", badges: ["Clara orienta", "sem advogado"] },
+  { icon: "📱", bg: "#EBF6FD", title: "Meu plano de internet não funciona como prometido", desc: "Velocidade menor que a contratada é descumprimento. Em geral, você pode cancelar sem multa.", badges: ["Clara orienta", "sem advogado"] },
 ];
 
 export default function Home() {
@@ -69,7 +69,7 @@ export default function Home() {
           </h1>
 
           <p style={{ fontSize: "clamp(16px, 2vw, 19px)", lineHeight: 1.75, color: "#4b5563", marginBottom: 16, maxWidth: 540, margin: "0 auto 16px" }}>
-            Descubra seus direitos, entenda o que fazer e resolva —
+            Descubra seus direitos, entenda o que fazer e saiba como agir —
             tudo em minutos, <strong style={{ color: "#1a2340" }}>sem juridiquês.</strong>
           </p>
 
@@ -86,7 +86,7 @@ export default function Home() {
             </a>
           </div>
 
-          <p style={{ fontSize: 12, color: "#bbb" }}>Sem cartão · Sem cadastro · Resultado em minutos</p>
+          <p style={{ fontSize: 12, color: "#bbb" }}>E-mail de notificação grátis · Kit Juizado R$49,90 só se precisar</p>
 
           <DisclaimerBox variant="curto" style={{ marginTop: 14 }} />
 
@@ -94,8 +94,8 @@ export default function Home() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, maxWidth: 520, margin: "40px auto 0" }}>
             {[
               { num: "Gratuito no JEC", lbl: "Abrir ação no Juizado Especial" },
-              { num: "Você se representa", lbl: "Até 20 salários mínimos de indenização" },
-              { num: "Maioria resolve por e-mail em dias", lbl: "Sem precisar ir ao fórum" },
+              { num: "Você se representa", lbl: "Causas de até 20 salários mínimos, sem advogado" },
+              { num: "Muitos casos se resolvem por e-mail", lbl: "Sem precisar ir ao fórum" },
             ].map((s, i) => (
               <div key={i} style={{ background: "#1a2340", borderRadius: 14, padding: "16px 12px" }}>
                 <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: 13, color: "#D4AF37", marginBottom: 4, lineHeight: 1.2 }}>{s.num}</div>
@@ -106,12 +106,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* COMO FUNCIONA */}
-      <section id="como-funciona" style={{ background: "#F8F7F4", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
+      {/* PASSO A PASSO */}
+      <section style={{ background: "#F8F7F4", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>como funciona</p>
+          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>passo a passo</p>
           <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(26px, 3vw, 36px)", color: "#1a2340", marginBottom: 48, lineHeight: 1.2 }}>
-            Dois produtos. Um objetivo.
+            Veja como cada etapa funciona.
           </h2>
 
           {/* Produto 1 — Análise de contrato */}
@@ -141,14 +141,14 @@ export default function Home() {
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
               <div style={{ background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#92700a" }}>Clara orienta</div>
               <div style={{ height: 1, flex: 1, background: "#E0DDD6" }} />
-              <div style={{ fontSize: 12, color: "#9ca3af" }}>R$49,90 · um guia completo pra você agir</div>
+              <div style={{ fontSize: 12, color: "#9ca3af" }}>E-mail de notificação grátis · Kit Juizado R$49,90 só se precisar</div>
             </div>
             <div style={{ display: "grid", gap: 2, background: "#E0DDD6", borderRadius: 18, overflow: "hidden" }} className="grid-steps">
               {[
                 { n: "1", t: "Conta o que aconteceu", d: "Voo atrasado, produto com defeito, cobrança indevida — escolha a situação e responda algumas perguntas." },
                 { n: "2", t: "Clara ajuda a preparar", d: "Aponta a lei aplicável e monta um modelo de notificação formal pra você revisar." },
                 { n: "3", t: "Seu modelo de notificação, pronto para revisar e enviar", d: "Clara gera o e-mail com a lei certa. Você envia do seu próprio e-mail — no seu nome, com sua força." },
-                { n: "4", t: "Se precisar ir ao fórum, Clara te orienta", d: "Sem resposta? Clara monta um modelo de petição pra você revisar, e explica como funciona o passo a passo do Juizado Especial." },
+                { n: "4", t: "Se precisar ir ao fórum, Clara te orienta", d: "Sem resposta? Clara monta sua petição com o fórum certo já indicado (pelo CEP que você escolher) e explica o passo a passo do Juizado Especial." },
               ].map((s, i) => (
                 <div key={i} style={{ background: "#1a2340", padding: "32px 26px" }}>
                   <div style={{ width: 36, height: 36, borderRadius: "50%", border: "1.5px solid #D4AF37", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#D4AF37", marginBottom: 18 }}>{s.n}</div>
@@ -238,7 +238,7 @@ export default function Home() {
                 Sabia que você pode resolver muita coisa sem sair de casa?
               </h3>
               <p style={{ fontSize: 15, color: "rgba(168,216,240,0.75)", lineHeight: 1.7 }}>
-                E-mail bem escrito, com a lei certa — é o que resolve a maioria dos casos. Sem fila, sem fórum, sem advogado.
+                E-mail bem escrito, com a lei certa — é o caminho que ajuda a resolver muitos casos, sem fila e sem advogado.
               </p>
             </div>
             <Link href="/enviar" style={{ background: "#D4AF37", color: "#1a2340", fontSize: 14, fontWeight: 700, padding: "14px 26px", borderRadius: 40, textDecoration: "none", flexShrink: 0, whiteSpace: "nowrap" }}>
@@ -310,49 +310,41 @@ export default function Home() {
         </div>
       </section>
 
-      {/* DEPOIMENTO */}
+      {/* EXEMPLOS DE SITUAÇÕES */}
       <section style={{ background: "#F8F7F4", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>experiências de usuários</p>
+          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>exemplos de situações</p>
           <h2 style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 700, fontSize: "clamp(24px, 3vw, 34px)", color: "#1a2340", lineHeight: 1.2, marginBottom: 16 }}>
-            Como outras pessoas usaram a Clara.
+            Tipos de caso que a Clara ajuda a resolver.
           </h2>
-          <DisclaimerBox variant="depoimentos" style={{ textAlign: "left", marginBottom: 32 }} />
+          <DisclaimerBox variant="exemplos" style={{ textAlign: "left", marginBottom: 32 }} />
 
           <div style={{ display: "grid", gap: 20 }} className="grid-testimonials">
-            {/* Depoimento principal */}
+            {/* Exemplo principal */}
             <div style={{ background: "#1a2340", borderRadius: 20, padding: "36px 40px", position: "relative" }}>
-              <div style={{ fontSize: 64, color: "#D4AF37", lineHeight: 1, marginBottom: 8, fontFamily: "Georgia, serif", opacity: 0.6 }}>&ldquo;</div>
               <p style={{ fontSize: 17, color: "#fff", lineHeight: 1.8, marginBottom: 28, maxWidth: 680 }}>
-                Meu avião atrasou 24 horas. A companhia me deu um voucher de R$12. Com a Clara consegui protocolar a ação no Juizado Especial <strong style={{ color: "#D4AF37" }}>sem sair de casa e sem advogado</strong>.
+                Voo atrasou mais de 4 horas e a companhia não deu assistência adequada. A Clara ajuda a reunir os fatos e a base legal (CDC + Resolução ANAC) pra notificar a empresa e, se for o caso, levar ao Juizado Especial <strong style={{ color: "#D4AF37" }}>sem precisar de advogado</strong>.
               </p>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#D4AF37", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#1a2340", fontSize: 16, flexShrink: 0 }}>M</div>
-                <div>
-                  <div style={{ color: "#D4AF37", fontWeight: 700, fontSize: 14 }}>Marcelo</div>
-                  <div style={{ color: "rgba(168,216,240,0.5)", fontSize: 12 }}>Voo atrasado 24h · São Paulo · JEC</div>
-                </div>
-                <div style={{ marginLeft: "auto", background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.3)", borderRadius: 10, padding: "6px 14px" }}>
-                  <div style={{ fontSize: 11, color: "#D4AF37", fontWeight: 600 }}>Relato</div>
-                  <div style={{ fontSize: 13, color: "#fff", fontWeight: 700 }}>de usuário</div>
+                <div style={{ marginLeft: 0, background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.3)", borderRadius: 10, padding: "6px 14px" }}>
+                  <div style={{ fontSize: 11, color: "#D4AF37", fontWeight: 600 }}>Exemplo</div>
+                  <div style={{ fontSize: 13, color: "#fff", fontWeight: 700 }}>Voo atrasado · JEC</div>
                 </div>
               </div>
             </div>
 
-            {/* Dois mini depoimentos */}
+            {/* Dois mini exemplos */}
             <div style={{ display: "grid", gap: 16 }} className="grid-mini-testimonials">
               {[
-                { inicial: "A", nome: "Ana Paula", contexto: "Cobrança indevida · Serasa", texto: "Usei o e-mail que a Clara gerou pra pedir a retirada do Serasa. Não sabia por onde começar antes.", cor: "#5BA8D4" },
-                { inicial: "R", nome: "Ricardo", contexto: "Produto com defeito · e-mail", texto: "Não sabia como reclamar da loja. Usei a análise gratuita e mandei o e-mail que a Clara gerou.", cor: "#6EE7B7" },
+                { contexto: "Cobrança indevida · Serasa", texto: "Cobrança que o consumidor não reconhece, com negativação no Serasa. A Clara gera a notificação pedindo a retirada e a correção do débito.", cor: "#5BA8D4" },
+                { contexto: "Produto com defeito · e-mail", texto: "Produto com defeito dentro da garantia. A Clara gera o e-mail de notificação pra empresa, com a base legal do CDC pra substituição, devolução ou abatimento.", cor: "#6EE7B7" },
               ].map((t) => (
-                <div key={t.nome} style={{ background: "#fff", border: "1px solid #E0DDD6", borderRadius: 16, padding: "24px 26px" }}>
-                  <p style={{ fontSize: 14, color: "#4b5563", lineHeight: 1.75, marginBottom: 20 }}>&ldquo;{t.texto}&rdquo;</p>
+                <div key={t.contexto} style={{ background: "#fff", border: "1px solid #E0DDD6", borderRadius: 16, padding: "24px 26px" }}>
+                  <p style={{ fontSize: 14, color: "#4b5563", lineHeight: 1.75, marginBottom: 20 }}>{t.texto}</p>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: t.cor, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#1a2340", fontSize: 14, flexShrink: 0 }}>{t.inicial}</div>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#1a2340" }}>{t.nome}</div>
-                      <div style={{ fontSize: 11, color: "#9ca3af" }}>{t.contexto}</div>
-                    </div>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: t.cor, flexShrink: 0 }} />
+                    <div style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Exemplo</div>
+                    <div style={{ fontSize: 11, color: "#9ca3af" }}>· {t.contexto}</div>
                   </div>
                 </div>
               ))}
@@ -362,7 +354,7 @@ export default function Home() {
       </section>
 
       {/* FREEMIUM */}
-      <section style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
+      <section id="como-funciona" style={{ background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "72px 24px" }}>
         <div style={{ maxWidth: 860, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 48 }}>
             <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", color: "#D4AF37", textTransform: "uppercase", marginBottom: 10 }}>como funciona</p>
@@ -376,8 +368,8 @@ export default function Home() {
             {/* Produto 1 — Análise de contrato */}
             <div style={{ border: "1.5px solid #E0DDD6", borderRadius: 20, padding: "36px 32px" }}>
               <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-                <div style={{ display: "inline-block", background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#065f46" }}>Análise básica grátis</div>
-                <div style={{ display: "inline-block", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#92400e" }}>Relatório completo pago</div>
+                <div style={{ display: "inline-block", background: "#F0FDF9", border: "1px solid #6EE7B7", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#065f46" }}>Resumo grátis</div>
+                <div style={{ display: "inline-block", background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#92400e" }}>Relatório completo R$9,90</div>
               </div>
               <div style={{ fontFamily: "'Raleway', sans-serif", fontWeight: 800, fontSize: 28, color: "#1a2340", marginBottom: 8 }}>Analise seu contrato</div>
               <div style={{ fontSize: 14, color: "#6b7280", marginBottom: 24, lineHeight: 1.6 }}>A Clara lê seu contrato e aponta pontos de atenção e riscos — antes de você assinar. Resumo gratuito, relatório completo sob demanda.</div>
@@ -415,14 +407,23 @@ export default function Home() {
               <div style={{ fontSize: 14, color: "rgba(168,216,240,0.75)", marginBottom: 24, lineHeight: 1.6 }}>
                 Voo atrasado, produto com defeito, cobrança indevida — a Clara te orienta e oferece modelos adaptados às informações que você fornece. Você revisa, envia e age no seu nome.
               </div>
-              <div style={{ background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.3)", borderRadius: 12, padding: "14px 18px", marginBottom: 24 }}>
-                <div style={{ fontSize: 13, color: "#D4AF37", fontWeight: 700 }}>R$49,90 por caso — pagamento único</div>
-                <div style={{ fontSize: 12, color: "rgba(168,216,240,0.6)", marginTop: 4 }}>Modelos para revisar + guia de acompanhamento inclusos.</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+                <div style={{ display: "inline-block", background: "rgba(110,231,183,0.15)", border: "1px solid rgba(110,231,183,0.4)", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#6EE7B7" }}>E-mail de notificação grátis</div>
+                <div style={{ display: "inline-block", background: "rgba(212,175,55,0.15)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: 20, padding: "4px 14px", fontSize: 12, fontWeight: 600, color: "#D4AF37" }}>Kit Juizado R$49,90 só se precisar</div>
               </div>
-              <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24, display: "flex", flexDirection: "column", gap: 14, marginBottom: 32 }}>
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24, display: "flex", flexDirection: "column", gap: 14, marginBottom: 14 }}>
                 {[
-                  "Modelo de e-mail de notificação para revisar e enviar",
-                  "Orientação para registro nos órgãos competentes",
+                  "Modelo de e-mail de notificação, liberado na hora",
+                ].map((item) => (
+                  <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#fff" }}>
+                    <span style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(110,231,183,0.2)", border: "1px solid rgba(110,231,183,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#6EE7B7", flexShrink: 0 }}>✓</span>
+                    {item}
+                  </div>
+                ))}
+              </div>
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 14, marginBottom: 32 }}>
+                {[
+                  "Se não resolver: orientação para registro nos órgãos competentes",
                   "Modelo de petição para o Juizado Especial para revisar",
                 ].map((item) => (
                   <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#fff" }}>
@@ -432,7 +433,7 @@ export default function Home() {
                 ))}
               </div>
               <Link href="/enviar" style={{ display: "block", textAlign: "center", background: "#D4AF37", color: "#1a2340", fontSize: 14, fontWeight: 800, padding: "15px 24px", borderRadius: 40, textDecoration: "none" }}>
-                Quero meu pacote completo →
+                Quero meu Kit Juizado →
               </Link>
             </div>
           </div>
@@ -454,7 +455,7 @@ export default function Home() {
           <Link href="/enviar" style={{ background: "#D4AF37", color: "#1a2340", fontSize: 17, fontWeight: 800, padding: "20px 48px", borderRadius: 40, textDecoration: "none", display: "inline-block" }}>
             Começar gratuitamente
           </Link>
-          <p style={{ fontSize: 12, color: "rgba(168,216,240,0.55)", marginTop: 16 }}>Sem cartão · Sem cadastro obrigatório</p>
+          <p style={{ fontSize: 12, color: "rgba(168,216,240,0.55)", marginTop: 16 }}>E-mail de notificação grátis · Kit Juizado R$49,90 só se precisar</p>
         </div>
       </section>
 
