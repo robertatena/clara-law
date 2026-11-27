@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { ForumBuscador } from "@/components/ForumBuscador";
 import { DisclaimerBox } from "@/app/components/DisclaimerBox";
 import { AREA_LOGADA_ATIVA } from "@/lib/feature-flags";
+import { trackEvent } from "@/lib/analytics/track";
 
 const ClaraIcon = ({ size = 36 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none">
@@ -22,6 +24,10 @@ const situations = [
 ];
 
 export default function Home() {
+  useEffect(() => {
+    trackEvent("landing_view");
+  }, []);
+
   return (
     <main style={{ fontFamily: "'Montserrat', sans-serif", background: "#F8F7F4", minHeight: "100vh", paddingTop: 64 }}>
 

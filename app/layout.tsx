@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { AnalyticsProvider } from "@/app/components/AnalyticsProvider";
 
 export const metadata: Metadata = {
   title: "Clara Law — Inteligência para um mundo mais claro.",
@@ -22,7 +23,9 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <AnalyticsProvider>{children}</AnalyticsProvider>
+      </body>
     </html>
   );
 }

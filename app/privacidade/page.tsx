@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AREA_LOGADA_ATIVA } from "@/lib/feature-flags";
+import { CookiePreferenceButton } from "@/components/CookiePreferenceButton";
 
 const ClaraIcon = ({ size = 32 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
@@ -46,7 +47,14 @@ const secoes: Secao[] = [
     ],
   },
   {
-    titulo: "5. Contato",
+    titulo: "5. Cookies e analytics",
+    paragrafos: [
+      "Usamos o PostHog para entender em que etapa do site as pessoas desistem e melhorar a experiência. Só coletamos esses dados depois do seu aceite no banner de consentimento — nunca por padrão.",
+      "Os eventos registrados não incluem e-mail, nome, CPF, telefone, endereço ou a descrição do seu caso — apenas em que etapa do funil você está e, quando relevante, a faixa de valor da causa (nunca o valor exato).",
+    ],
+  },
+  {
+    titulo: "6. Contato",
     paragrafos: [
       "Dúvidas ou solicitações sobre seus dados: contato@claralaw.com.br",
     ],
@@ -126,6 +134,10 @@ export default function PrivacidadePage() {
               )}
             </div>
           ))}
+
+          <div style={{ textAlign: "center" }}>
+            <CookiePreferenceButton />
+          </div>
 
           <p style={{ fontSize: 13, color: "#9ca3af", textAlign: "center", lineHeight: 1.7, marginTop: 8 }}>
             Dúvidas?{" "}

@@ -6,9 +6,11 @@ import { salvarCaso, uploadDocumento, uploadContrato, salvarLead } from "@/lib/s
 import { createBrowserSupabase } from "@/lib/supabase-auth";
 import { gerarEmailEmpresa } from "@/lib/gerar-email-empresa";
 import { maskBRL, parseBRL } from "@/lib/format-brl";
-import { avaliarValorCausa } from "@/lib/jec-limites";
+import { avaliarValorCausa, faixaSalarioMinimo } from "@/lib/jec-limites";
 import { DisclaimerBox } from "@/app/components/DisclaimerBox";
 import OrientacaoOrgaos from "@/components/OrientacaoOrgaos";
+import { trackEvent } from "@/lib/analytics/track";
+import { lerUtm } from "@/lib/analytics/utm";
 import { useEffect, useRef, useState } from "react";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -223,6 +225,7 @@ export default function Page() {
   const [docDespesas, setDocDespesas] = useState<File | null>(null);
 
   const [emailUsuario, setEmailUsuario] = useState("");
+  const [querLembrete, setQuerLembrete] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState<ResultData | null>(null);
@@ -338,6 +341,8 @@ export default function Page() {
     setModo(m);
     setStep(1);
     setError("");
+    if (m === "caso") trackEvent("enviar_inicio");
+    else if (m === "contrato") trackEvent("analise_contrato_inicio");
   }
 
   function next() {
@@ -430,6 +435,7 @@ export default function Page() {
       const jaDesbloqueado = !!reanaliseDe;
       setUnlockedAnalysis(jaDesbloqueado);
       setResultado(data);
+      trackEvent("analise_contrato_plano_gerado");
       registrarLead({
         email: emailUsuario, modo: "contrato",
         tipoContrato: contractType, papel: papelNoContrato,
@@ -460,7 +466,7 @@ export default function Page() {
 
   async function analisarCaso() {
     if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
-    salvarLead({ email: emailUsuario, origem: "caso", tipo_caso: tipoCaso ?? undefined });
+    salvarLead({ email: emailUsuario, origem: "caso", tipo_caso: tipoCaso ?? undefined, querLembrete, utm: lerUtm() });
     try {
       setLoading(true); setError(""); setResultado(null);
       let descricaoCaso = descricaoCasoRef.current?.value || "";
@@ -611,6 +617,7 @@ export default function Page() {
 
       setResultado(data);
       setEmailCopiaToken(token);
+      trackEvent("plano_gerado");
       registrarLead({ email: emailUsuario, modo: "caso", tipoCaso, ciaAerea, evento: "caso_gerado" });
       // Manda uma cópia do e-mail grátis pro próprio usuário — não bloqueia a
       // navegação se falhar. Só dispara quando temos o token assinado.
@@ -716,6 +723,7 @@ export default function Page() {
   async function iniciarCheckoutStripe() {
     if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
     setError("");
+    trackEvent("checkout_aberto", { produto: "pacote", metodo: "cartao" });
     const descricaoCurta = prepararCheckoutMetadata();
     try {
       const res = await fetch("/api/checkout", {
@@ -739,6 +747,7 @@ export default function Page() {
   async function iniciarCheckoutPix() {
     if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
     setError("");
+    trackEvent("checkout_aberto", { produto: "pacote", metodo: "pix" });
     setPixModalAberto(true);
     setPixStatus("loading");
     setPixData(null);
@@ -782,6 +791,7 @@ export default function Page() {
   async function iniciarCheckoutAnaliseStripe() {
     if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
     setError("");
+    trackEvent("checkout_aberto", { produto: "analise", metodo: "cartao" });
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
@@ -804,6 +814,7 @@ export default function Page() {
   async function iniciarCheckoutAnalisePix() {
     if (!emailValido(emailUsuario)) { setError("Informe seu e-mail para receber os documentos"); return; }
     setError("");
+    trackEvent("checkout_aberto", { produto: "analise", metodo: "pix" });
     setPixModalAberto(true);
     setPixStatus("loading");
     setPixData(null);
@@ -1054,7 +1065,7 @@ export default function Page() {
                 const ativo = s.id === "voo_atrasado" || s.id === "voo_cancelado" || s.id === "bagagem" || s.id === "cobranca_indevida" || s.id === "produto_defeito" || s.id === "servico_nao_entregue";
                 return (
                   <button key={s.id} type="button"
-                    onClick={() => ativo && setTipoCaso(s.id)}
+                    onClick={() => { if (ativo) { setTipoCaso(s.id); trackEvent("enviar_tipo_caso", { tipo: s.id }); } }}
                     className={`rounded-[18px] border-2 p-4 text-left transition-all relative ${
                       !ativo ? "border-slate-100 bg-slate-50 cursor-not-allowed opacity-60" :
                       tipoCaso === s.id ? "border-[#D4AF37] bg-amber-50" : "border-slate-200 bg-white hover:border-slate-300"
@@ -1367,6 +1378,7 @@ export default function Page() {
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Qual o valor estimado do prejuízo?</label>
                   <p className="text-xs text-slate-500 mb-2">Some o valor dos itens perdidos, danificados ou furtados.</p>
                   <input type="text" inputMode="decimal" value={bagValor ? `R$ ${bagValor}` : ""} onChange={(e) => setBagValor(maskBRL(e.target.value))}
+                    onBlur={() => trackEvent("enviar_valor_preenchido", { faixa: faixaSalarioMinimo(parseBRL(bagValor)) })}
                     placeholder="R$ 0,00"
                     className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
                   {avisoBagValor && (
@@ -1415,6 +1427,7 @@ export default function Page() {
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Qual valor estão cobrando?</label>
                   <p className="text-xs text-slate-500 mb-2">Mesmo que seja pequeno, a lei prevê devolução. Coloque o valor que estão cobrando.</p>
                   <input type="text" inputMode="decimal" value={cobrancaValor ? `R$ ${cobrancaValor}` : ""} onChange={(e) => setCobrancaValor(maskBRL(e.target.value))}
+                    onBlur={() => trackEvent("enviar_valor_preenchido", { faixa: faixaSalarioMinimo(parseBRL(cobrancaValor)) })}
                     placeholder="R$ 0,00"
                     className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
                   {avisoCobrancaValor && (
@@ -1535,6 +1548,7 @@ export default function Page() {
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-2">Valor do produto</label>
                     <input type="text" inputMode="decimal" value={prodValor ? `R$ ${prodValor}` : ""} onChange={(e) => setProdValor(maskBRL(e.target.value))}
+                      onBlur={() => trackEvent("enviar_valor_preenchido", { faixa: faixaSalarioMinimo(parseBRL(prodValor)) })}
                       placeholder="R$ 0,00"
                       className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
                     {avisoProdValor && (
@@ -1573,6 +1587,7 @@ export default function Page() {
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Qual o valor pago?</label>
                   <input type="text" inputMode="decimal" value={servValor ? `R$ ${servValor}` : ""} onChange={(e) => setServValor(maskBRL(e.target.value))}
+                    onBlur={() => trackEvent("enviar_valor_preenchido", { faixa: faixaSalarioMinimo(parseBRL(servValor)) })}
                     placeholder="R$ 0,00"
                     className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-3 text-base outline-none" />
                   {avisoServValor && (
@@ -1661,6 +1676,11 @@ export default function Page() {
             <input type="email" required value={emailUsuario} onChange={(e) => setEmailUsuario(e.target.value)}
               placeholder="voce@email.com"
               className="w-full rounded-[18px] border border-slate-300 bg-white px-4 py-4 text-lg outline-none" />
+            <label className="mt-4 flex items-start gap-2.5 text-sm text-slate-600 leading-relaxed cursor-pointer">
+              <input type="checkbox" checked={querLembrete} onChange={(e) => setQuerLembrete(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300" />
+              Quero receber um lembrete em 10 dias, caso a empresa não responda
+            </label>
             <div className="mt-8 flex items-center justify-between mobile-action-row">
               <button type="button" onClick={back} className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700">Voltar</button>
               <button type="button" onClick={analisarCaso} disabled={loading} className="rounded-full bg-[#0e2b50] px-6 py-3 text-sm font-semibold text-white disabled:opacity-50">
@@ -1795,6 +1815,7 @@ export default function Page() {
                       <button onClick={() => {
                         const texto = `Assunto: ${email.assunto}\n\n${email.corpo}`;
                         navigator.clipboard.writeText(texto);
+                        trackEvent("email_notificacao_copiado");
                       }} className="rounded-full bg-[#0e2b50] text-white px-3 py-1.5 text-xs font-semibold">📋 Copiar e-mail</button>
                     </div>
                     {destinatario && (
@@ -1806,7 +1827,7 @@ export default function Page() {
                       {email.corpo}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <a href={gmailUrl} target="_blank" rel="noreferrer" className="rounded-full border border-slate-300 bg-white text-slate-700 text-xs font-semibold px-3 py-1.5">Abrir no Gmail →</a>
+                      <a href={gmailUrl} target="_blank" rel="noreferrer" onClick={() => trackEvent("abrir_gmail_clicado")} className="rounded-full border border-slate-300 bg-white text-slate-700 text-xs font-semibold px-3 py-1.5">Abrir no Gmail →</a>
                       <a href={mailtoUrl} className="rounded-full border border-slate-300 bg-white text-slate-700 text-xs font-semibold px-3 py-1.5">Abrir no app de e-mail →</a>
                       <span className="inline-block text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium self-center">Gerado pela Clara · orientativo</span>
                     </div>
@@ -1973,7 +1994,7 @@ export default function Page() {
                 <>
                   <button
                     type="button"
-                    onClick={() => setMostrarContrato(true)}
+                    onClick={() => { setMostrarContrato(true); trackEvent("kit_cta_clicado", { produto: "pacote", metodo: metodoPagamento }); }}
                     className="w-full rounded-full bg-[#D4AF37] text-[#0e2b50] font-black text-base py-4">
                     Quero meu Kit Juizado — R$49,90 →
                   </button>
