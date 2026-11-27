@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from "react";
 import posthog from "posthog-js";
+import { trackEvent } from "@/lib/analytics/track";
 
 const CHAVE = "clara_consent_analytics";
 
@@ -35,6 +36,14 @@ export function ConsentBanner() {
         posthog.opt_in_capturing();
       } catch {
         // posthog pode não ter inicializado (sem env configurada)
+      }
+      // landing_view (disparado no mount do Home) já tinha acontecido e foi
+      // descartado — se ainda estamos na landing, dispara de novo agora que
+      // o consentimento acabou de ser concedido.
+      try {
+        if (window.location.pathname === "/") trackEvent("landing_view");
+      } catch {
+        // segue sem re-disparar
       }
     }
   }
